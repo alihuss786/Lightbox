@@ -254,7 +254,7 @@ img.pad-img.sel{outline:2px solid var(--mint)}
           <div class="pad" id="pad_stl"><svg class="pad-svg" id="padSvg_stl"></svg><div class="pad-cross h"></div><div class="pad-cross v"></div><div class="pad-layer" id="stlLayer"></div></div>
           <div class="padhint">Drag to slide the model across the lid</div>
         </div>
-        <div class="hint">Each catalog model snaps perfectly flat onto the lid top surface — exactly like the name and image. Its bottom silhouette is projected to carve a clean <b>3.0&nbsp;mm</b> inset pocket into the lid, and a solid floor is always kept beneath so it never breaks through. Each model prints as its own part.</div>
+        <div class="hint">Each catalog model rests with its flat base sitting flush on the lid top surface. Only the exact footprint where that base touches the lid is carved as a clean <b>3.0&nbsp;mm</b> inset pocket, and a solid floor is always kept beneath so it never breaks through. Each model prints as its own part.</div>
       </div>
     </div>
   </div>
@@ -416,7 +416,10 @@ const STL_CATALOG=[
   {name:"heartcat", path:"stls/heartcat.stl"},
   {name:"Hedgehog", path:"stls/Hedgehog.stl"},
   {name:"monkey",   path:"stls/monkey.stl"},
-  {name:"rabbit",   path:"stls/rabbit.stl"}
+  {name:"rabbit",   path:"stls/rabbit.stl"},
+  {name:"Unicorn",  path:"stls/Unicorn.stl"},
+  {name:"reindeer", path:"stls/reindeer.stl"},
+  {name:"Triceratops", path:"stls/Triceratops.stl"}
 ];
 // Loaded geometries are cached by path so re-selecting a model is instant and never refetches.
 const STL_CACHE={};
@@ -594,6 +597,21 @@ const FLOOR_MIN=0.8;
 function flatKey(mo,TT){
   return (mo.size||40)+"|"+(mo.rz||0)+"|"+(+TT).toFixed(3);
 }
+// Keep only the triangles lying in the model's flat base plane — a thin slab just above the lowest
+// point. Those are the faces that actually rest on the lid, so their silhouette is the TRUE contact
+// footprint. Overhangs that jut out above the base (ears, tails, snouts, horns) are excluded, so the
+// pocket matches the flat base outline instead of the whole-object top-down shadow.
+function baseContactTriangles(tris){
+  if(!tris||!tris.length)return tris;
+  let minZ=1e18,maxZ=-1e18;
+  for(let i=2;i<tris.length;i+=3){const z=tris[i];if(z<minZ)minZ=z;if(z>maxZ)maxZ=z;}
+  const eps=Math.max(0.2,(maxZ-minZ)*0.01);   // base is planar, so this thin band hugs the flat cut
+  const lim=minZ+eps,out=[];
+  for(let i=0;i<tris.length;i+=9){
+    if(tris[i+2]<=lim&&tris[i+5]<=lim&&tris[i+8]<=lim){for(let k=0;k<9;k++)out.push(tris[i+k]);}
+  }
+  return out.length?out:tris;                 // safety: never produce an empty footprint
+}
 function computeFlat(mo,TT){
   const inst=mo.obj.clone(true);
   inst.scale.setScalar((+mo.size||40)/Math.max(1e-6,mo.maxd));
@@ -602,11 +620,12 @@ function computeFlat(mo,TT){
   let box=new THREE.Box3().setFromObject(inst);if(!isFinite(box.min.x))return {empty:true};
   const cxm=(box.min.x+box.max.x)/2,cym=(box.min.y+box.max.y)/2;
   const pocketDepth=Math.max(0,Math.min(MODEL_POCKET,TT-FLOOR_MIN));   // fixed 3.0 mm inset pocket
-  // centre in XY; rest the (pre-flattened) base on the lid surface, then key it down by the pocket depth
-  inst.position.x-=cxm;inst.position.y-=cym;inst.position.z+=(TT-box.min.z)-pocketDepth;inst.updateMatrixWorld(true);
-  // project the bottom silhouette for the pocket
+  // Centre in XY and seat the pre-flattened base EXACTLY flush on the lid top surface (z = TT): the
+  // model's absolute bottom boundary now rests on the lid instead of sinking in by the pocket depth.
+  inst.position.x-=cxm;inst.position.y-=cym;inst.position.z+=(TT-box.min.z);inst.updateMatrixWorld(true);
+  // Carve the pocket from the flat base contact footprint only (not the entire object silhouette).
   let footprint=null;
-  try{footprint=rasterFootprint(bakeModelTriangles(inst));}catch(e){}
+  try{footprint=rasterFootprint(baseContactTriangles(bakeModelTriangles(inst)));}catch(e){}
   return {inst,footprint,pocketDepth};
 }
 function buildFlatModelGroup(mo,TT){
@@ -819,7 +838,7 @@ async function buildModel(){
           const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);
           const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});
           inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));
-          inst.position.set(+mo.x||0,+mo.y||0,TT-Math.min(MODEL_POCKET,TT-FLOOR_MIN));
+          inst.position.set(+mo.x||0,+mo.y||0,TT);   // base flush on the lid top surface
           grp.userData={isStl:true,modelId:mo.id};grp.add(inst);
           part={group:grp,name:"3D "+((mo.name||"model").slice(0,9)),flip:false,modelId:mo.id};
         }
@@ -840,7 +859,7 @@ async function buildModel(){
     if(nameGroup)partList.push({group:nameGroup,name:"Name inlay",flip:false});
     imgGroups.forEach((gr,i)=>partList.push({group:gr,name:"Image "+(i+1),flip:false}));
     if(stlParts&&stlParts.length){stlParts.forEach(p=>partList.push(p));}
-    else{models.forEach((mo,i)=>{if(!mo.obj)return;const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));inst.position.set(+mo.x||0,+mo.y||0,TT-Math.min(MODEL_POCKET,TT-FLOOR_MIN));grp.userData={isStl:true,modelId:mo.id};grp.add(inst);partList.push({group:grp,name:"3D "+((mo.name||("model "+(i+1))).slice(0,9)),flip:false,modelId:mo.id});});}
+    else{models.forEach((mo,i)=>{if(!mo.obj)return;const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));inst.position.set(+mo.x||0,+mo.y||0,TT);grp.userData={isStl:true,modelId:mo.id};grp.add(inst);partList.push({group:grp,name:"3D "+((mo.name||("model "+(i+1))).slice(0,9)),flip:false,modelId:mo.id});});}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
 
