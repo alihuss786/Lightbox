@@ -421,15 +421,36 @@ const STL_CATALOG=[
   {name:"reindeer", path:"stls/reindeer.stl"},
   {name:"Triceratops", path:"stls/Triceratops.stl"}
 ];
-// Loaded geometries are cached by path so re-selecting a model is instant and never refetches.
-const STL_CACHE={};
+// Parsed geometries are cached by path so a model is fetched + parsed at most once per session; every
+// later selection is served straight from memory. STL_PENDING dedupes in-flight loads so a prefetch and
+// a click never download the same file twice.
+const STL_CACHE={},STL_PENDING={};
 const CAT_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/></svg>';
+// Single source of truth for fetching + parsing a catalog model. Returns a cached Promise so concurrent
+// callers (hover prefetch + click) share one network request and one parse.
+function loadGeometry(path){
+  if(STL_CACHE[path])return Promise.resolve(STL_CACHE[path]);
+  if(STL_PENDING[path])return STL_PENDING[path];
+  if(!THREE.STLLoader)return Promise.reject(new Error("STL loader unavailable"));
+  const p=new Promise((res,rej)=>{
+    new THREE.STLLoader().load(path,geo=>{
+      try{geo.computeVertexNormals();geo.computeBoundingBox();STL_CACHE[path]=geo;delete STL_PENDING[path];res(geo);}
+      catch(e){delete STL_PENDING[path];rej(e);}
+    },undefined,err=>{delete STL_PENDING[path];rej(err||new Error("load failed"));});
+  });
+  STL_PENDING[path]=p;return p;
+}
+// Warm the cache for a model the moment the pointer reaches its tile, so by the time it is clicked the
+// geometry is already parsed in memory and placement is instant.
+function prefetchModel(i){const e=STL_CATALOG[i];if(e&&!STL_CACHE[e.path]&&!STL_PENDING[e.path])loadGeometry(e.path).catch(()=>{});}
 function renderCatalog(){
   const grid=g("catalogGrid");if(!grid)return;grid.innerHTML="";
   STL_CATALOG.forEach((c,i)=>{
     const d=document.createElement("div");d.className="cat-item";d.dataset.i=i;
     d.innerHTML=`<div class="cat-ico">${CAT_ICON}</div><div class="cat-nm">${c.name}</div>`;
     d.onclick=()=>loadCatalogModel(i,d);
+    d.addEventListener("pointerenter",()=>prefetchModel(i));   // desktop hover → warm cache early
+    d.addEventListener("pointerdown",()=>prefetchModel(i));    // touch press → warm before the click fires
     grid.appendChild(d);
   });
 }
@@ -442,19 +463,11 @@ function placeCatalogGeo(geo,name){
 function loadCatalogModel(i,card){
   const entry=STL_CATALOG[i];if(!entry)return;
   if(!THREE.STLLoader){alert("STL loader unavailable.");return;}
-  // Already loaded once → place it instantly, no refetch, no spinner.
+  // Cache hit → place instantly, no refetch, no spinner.
   if(STL_CACHE[entry.path]){placeCatalogGeo(STL_CACHE[entry.path],entry.name);return;}
   if(card){card.classList.add("busy");card.querySelector(".cat-ico").innerHTML='<div class="spin"></div>';}
   const done=()=>{if(card){card.classList.remove("busy");card.querySelector(".cat-ico").innerHTML=CAT_ICON;}};
-  const loader=new THREE.STLLoader();
-  loader.load(entry.path,geo=>{
-    try{
-      geo.computeVertexNormals();
-      STL_CACHE[entry.path]=geo;        // cache for instant re-selection
-      placeCatalogGeo(geo,entry.name);
-    }catch(e){alert("Could not process "+entry.name);}
-    done();
-  },undefined,()=>{
+  loadGeometry(entry.path).then(geo=>{placeCatalogGeo(geo,entry.name);done();}).catch(()=>{
     done();
     alert('Could not load "'+entry.path+'".\n\nThe catalog loads each model from the "stls/" folder that ships next to this page (e.g. stls/'+entry.path.split("/").pop()+'). Make sure that folder is deployed alongside lb.html and served over http(s).');
   });
@@ -535,6 +548,11 @@ function unionEO(subj){const cl=new ClipperLib.Clipper();cl.AddPaths(subj,Clippe
 function union2(a,b){const cl=new ClipperLib.Clipper();cl.AddPaths(a,ClipperLib.PolyType.ptSubject,true);cl.AddPaths(b,ClipperLib.PolyType.ptClip,true);const f=new ClipperLib.Paths();cl.Execute(ClipperLib.ClipType.ctUnion,f,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return f;}
 function off(filled,delta){const co=new ClipperLib.ClipperOffset(2,0.25);co.AddPaths(filled,ClipperLib.JoinType.jtRound,ClipperLib.EndType.etClosedPolygon);const sol=new ClipperLib.Paths();co.Execute(sol,delta*S);return sol;}
 function diff(a,b){const c=new ClipperLib.Clipper();c.AddPaths(a,ClipperLib.PolyType.ptSubject,true);c.AddPaths(b,ClipperLib.PolyType.ptClip,true);const s=new ClipperLib.Paths();c.Execute(ClipperLib.ClipType.ctDifference,s,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return s;}
+function intersect(a,b){const c=new ClipperLib.Clipper();c.AddPaths(a,ClipperLib.PolyType.ptSubject,true);c.AddPaths(b,ClipperLib.PolyType.ptClip,true);const s=new ClipperLib.Paths();c.Execute(ClipperLib.ClipType.ctIntersection,s,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return s;}
+// Remove the micro self-intersections / near-duplicate vertices and zero-area slivers that the raster
+// silhouette can leave behind. Without this, a footprint that grazes the lid edge produces degenerate
+// polygons that extrude into stray, half-carved facets on the lid surface.
+function cleanPaths(p){if(!p||!p.length)return p;try{let s=ClipperLib.Clipper.CleanPolygons(p,0.012*S);s=ClipperLib.Clipper.SimplifyPolygons(s,ClipperLib.PolyFillType.pftNonZero);return s.filter(x=>x&&x.length>2);}catch(e){return p;}}
 function translatePaths(paths,dx,dy){const ix=Math.round(dx*S),iy=Math.round(dy*S);return paths.map(p=>p.map(pt=>({X:pt.X+ix,Y:pt.Y+iy})));}
 function rotatePaths(paths,deg){if(!deg)return paths;const a=deg*Math.PI/180,c=Math.cos(a),s=Math.sin(a);return paths.map(p=>p.map(pt=>({X:Math.round(pt.X*c-pt.Y*s),Y:Math.round(pt.X*s+pt.Y*c)})));}
 function shapesFromPaths(paths){const polys=paths.map(p=>p.map(pt=>new THREE.Vector2(pt.X/S,pt.Y/S))).filter(p=>p.length>2);const dep=polys.map((p,i)=>polys.reduce((d,q,j)=>(j!==i&&pip(p[0],q))?d+1:d,0));const nodes=polys.map((p,i)=>({p,dep:dep[i]}));const outers=[];nodes.forEach(n=>{if(n.dep%2===0){n.shape=new THREE.Shape(n.p);outers.push(n);}});nodes.forEach(n=>{if(n.dep%2===1){const par=outers.filter(o=>o.dep===n.dep-1&&pip(n.p[0],o.p)).sort((a,b)=>b.dep-a.dep)[0]||outers[0];if(par)par.shape.holes.push(new THREE.Path(n.p));}});return outers.map(o=>o.shape);}
@@ -545,14 +563,6 @@ function imageContours(img,targetMm){const iw=img.naturalWidth||img.width||300,i
 
 /* ---------- STL inlay engine: flat seat + footprint pocket ---------- */
 function deg(d){return (+d||0)*Math.PI/180;}
-function bakeModelTriangles(root,step){
-  root.updateMatrixWorld(true);const tris=[];const va=new THREE.Vector3();
-  root.traverse(o=>{if(!o.isMesh||!o.geometry)return;const geo=o.geometry,pos=geo.attributes.position;if(!pos)return;const m=o.matrixWorld,idx=geo.index;
-    const push=i=>{va.fromBufferAttribute(pos,i).applyMatrix4(m);tris.push(va.x,va.y,va.z);};
-    if(idx){const n=idx.count/3;const s=step&&n>step?Math.ceil(n/step):1;for(let t=0;t<n;t+=s){const b=t*3;push(idx.getX(b));push(idx.getX(b+1));push(idx.getX(b+2));}}
-    else{const n=pos.count/3;const s=step&&n>step?Math.ceil(n/step):1;for(let t=0;t<n;t+=s){const b=t*3;push(b);push(b+1);push(b+2);}}});
-  return tris;
-}
 // Fast, gap-free XY silhouette of a triangle soup via scanline rasterisation + marching squares.
 // Replaces the old per-triangle Clipper union (which unioned every face one-by-one and was the
 // main cause of STL slowness). The footprint only feeds the lid pocket preview, so a raster
@@ -583,7 +593,7 @@ function rasterFootprint(tris){
   loops.forEach(loop=>{if(loop.length<4)return;out.push(loop.map(p=>({X:Math.round((mnx+(p[0]-1)*px)*S),Y:Math.round((mny+(p[1]-1)*px)*S)})));});
   if(!out.length)return null;
   const f=unionFilled(out);
-  return f&&f.length?off(f,0.02):f;
+  return cleanPaths(f&&f.length?off(f,0.02):f);
 }
 // ---- Flat catalog placement ----
 // Minimum solid floor of lid material that must remain beneath any pocket, so no feature
@@ -597,20 +607,30 @@ const FLOOR_MIN=0.8;
 function flatKey(mo,TT){
   return (mo.size||40)+"|"+(mo.rz||0)+"|"+(+TT).toFixed(3);
 }
-// Keep only the triangles lying in the model's flat base plane — a thin slab just above the lowest
-// point. Those are the faces that actually rest on the lid, so their silhouette is the TRUE contact
-// footprint. Overhangs that jut out above the base (ears, tails, snouts, horns) are excluded, so the
-// pocket matches the flat base outline instead of the whole-object top-down shadow.
-function baseContactTriangles(tris){
-  if(!tris||!tris.length)return tris;
-  let minZ=1e18,maxZ=-1e18;
-  for(let i=2;i<tris.length;i+=3){const z=tris[i];if(z<minZ)minZ=z;if(z>maxZ)maxZ=z;}
-  const eps=Math.max(0.2,(maxZ-minZ)*0.01);   // base is planar, so this thin band hugs the flat cut
-  const lim=minZ+eps,out=[];
-  for(let i=0;i<tris.length;i+=9){
-    if(tris[i+2]<=lim&&tris[i+5]<=lim&&tris[i+8]<=lim){for(let k=0;k<9;k++)out.push(tris[i+k]);}
-  }
-  return out.length?out:tris;                 // safety: never produce an empty footprint
+// Precompute — once per geometry, cached on it — the triangles lying in the model's flat base plane,
+// in the geometry's own local coordinates. The base is planar, so this is a single cheap pass over the
+// position buffer. However dense the mesh (these run to ~600k triangles), the pocket footprint is then
+// derived from just these few base triangles instead of rasterising the whole-object silhouette — that
+// full-silhouette raster was the multi-second main-thread stall on selection.
+function geoBaseTris(geo){
+  if(geo.__baseTris)return geo.__baseTris;
+  if(!geo.boundingBox)geo.computeBoundingBox();
+  const pos=geo.attributes.position,idx=geo.index;
+  const minZ=geo.boundingBox.min.z,maxZ=geo.boundingBox.max.z;
+  const lim=minZ+Math.max(1e-4,(maxZ-minZ)*0.01),out=[];
+  const add=i=>{out.push(pos.getX(i),pos.getY(i),pos.getZ(i));};
+  const tri=(a,b,c)=>{if(pos.getZ(a)<=lim&&pos.getZ(b)<=lim&&pos.getZ(c)<=lim){add(a);add(b);add(c);}};
+  if(idx){const ia=idx.array;for(let t=0;t<ia.length;t+=3)tri(ia[t],ia[t+1],ia[t+2]);}
+  else{for(let t=0;t<pos.count;t+=3)tri(t,t+1,t+2);}
+  geo.__baseTris=out;return out;
+}
+// Transform the cached local base triangles into the model's placed frame (scale + in-plane rotation +
+// seat offset) so the footprint lines up exactly with where the flat base meets the lid plane.
+function placedBaseTriangles(mesh){
+  const base=geoBaseTris(mesh.geometry);if(!base.length)return [];
+  const m=mesh.matrixWorld,v=new THREE.Vector3(),out=new Array(base.length);
+  for(let i=0;i<base.length;i+=3){v.set(base[i],base[i+1],base[i+2]).applyMatrix4(m);out[i]=v.x;out[i+1]=v.y;out[i+2]=v.z;}
+  return out;
 }
 function computeFlat(mo,TT){
   const inst=mo.obj.clone(true);
@@ -623,9 +643,9 @@ function computeFlat(mo,TT){
   // Centre in XY and seat the pre-flattened base EXACTLY flush on the lid top surface (z = TT): the
   // model's absolute bottom boundary now rests on the lid instead of sinking in by the pocket depth.
   inst.position.x-=cxm;inst.position.y-=cym;inst.position.z+=(TT-box.min.z);inst.updateMatrixWorld(true);
-  // Carve the pocket from the flat base contact footprint only (not the entire object silhouette).
+  // Carve the pocket from the flat base contact footprint only (fast, cached base triangles).
   let footprint=null;
-  try{footprint=rasterFootprint(baseContactTriangles(bakeModelTriangles(inst)));}catch(e){}
+  try{let mesh=null;inst.traverse(o=>{if(o.isMesh&&!mesh)mesh=o;});if(mesh&&mesh.geometry)footprint=rasterFootprint(placedBaseTriangles(mesh));}catch(e){}
   return {inst,footprint,pocketDepth};
 }
 function buildFlatModelGroup(mo,TT){
@@ -665,7 +685,11 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin){
     const dj=depths[j],thick=dj-prev;
     if(thick>eps){
       let cut=null;fs.forEach(f=>{if(f.depth>=dj-eps)cut=cut?union2(cut,f.p):f.p;});
-      const region=cut?diff(B,cut):B;
+      // Clip the pocket to the lid region and clean it, so a footprint that sits near or overhangs the
+      // lid edge only ever carves the part that actually overlaps the lid — never leaving stray, distorted
+      // or half-cut facets along the boundary.
+      if(cut&&cut.length){cut=cleanPaths(intersect(cut,B));}
+      const region=(cut&&cut.length)?cleanPaths(diff(B,cut)):B;
       const shps=shapesFromPaths(region);
       if(shps.length){
         const g=new THREE.ExtrudeGeometry(shps,{depth:thick,bevelEnabled:false,curveSegments:6});
@@ -864,7 +888,9 @@ async function buildModel(){
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
 
     if(mode==="render"){
-      partList.forEach(p=>{p.group.traverse(o=>{if(o.isMesh&&o!==glowFace)o.castShadow=true;});pivot.add(p.group);});
+      // STL inlays can run to ~600k triangles each; casting their shadow would crush the shadow-map pass
+      // and stutter dragging. Lid/body/name still cast; the dense models do not.
+      partList.forEach(p=>{const stl=!!p.modelId;p.group.traverse(o=>{if(o.isMesh&&o!==glowFace)o.castShadow=!stl;});pivot.add(p.group);});
       pivot.position.set(0,0,0);pivot.rotation.set(0,0,0);pivot.updateMatrixWorld(true);
       const box=new THREE.Box3().setFromObject(pivot);const ctr=box.getCenter(new THREE.Vector3());const sz=box.getSize(new THREE.Vector3());
       floorPlane=new THREE.Mesh(new THREE.PlaneGeometry(8000,8000),new THREE.MeshStandardMaterial({color:0x24282f,roughness:0.92,metalness:0}));floorPlane.rotation.x=-Math.PI/2;floorPlane.position.y=box.min.y-0.5;floorPlane.receiveShadow=true;pivot.add(floorPlane);
