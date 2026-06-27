@@ -434,7 +434,7 @@ function loadGeometry(path){
   if(!THREE.STLLoader)return Promise.reject(new Error("STL loader unavailable"));
   const p=new Promise((res,rej)=>{
     new THREE.STLLoader().load(path,geo=>{
-      try{geo.computeVertexNormals();geo.computeBoundingBox();STL_CACHE[path]=geo;delete STL_PENDING[path];res(geo);}
+      try{geo.computeVertexNormals();geo.computeBoundingBox();try{geoFootLocal(geo);}catch(_){}STL_CACHE[path]=geo;delete STL_PENDING[path];res(geo);}
       catch(e){delete STL_PENDING[path];rej(e);}
     },undefined,err=>{delete STL_PENDING[path];rej(err||new Error("load failed"));});
   });
@@ -563,38 +563,6 @@ function imageContours(img,targetMm){const iw=img.naturalWidth||img.width||300,i
 
 /* ---------- STL inlay engine: flat seat + footprint pocket ---------- */
 function deg(d){return (+d||0)*Math.PI/180;}
-// Fast, gap-free XY silhouette of a triangle soup via scanline rasterisation + marching squares.
-// Replaces the old per-triangle Clipper union (which unioned every face one-by-one and was the
-// main cause of STL slowness). The footprint only feeds the lid pocket preview, so a raster
-// silhouette is plenty accurate and orders of magnitude faster on dense meshes.
-function rasterFootprint(tris){
-  if(!tris.length||typeof ClipperLib==="undefined")return null;
-  let mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;
-  for(let i=0;i<tris.length;i+=3){const x=tris[i],y=tris[i+1];if(x<mnx)mnx=x;if(x>mxx)mxx=x;if(y<mny)mny=y;if(y>mxy)mxy=y;}
-  const W=Math.max(0.001,mxx-mnx),H=Math.max(0.001,mxy-mny),longest=Math.max(W,H);
-  const cells=Math.min(220,Math.max(48,Math.round(longest*2.2))),px=longest/cells;
-  const gw=Math.max(6,Math.ceil(W/px))+2,gh=Math.max(6,Math.ceil(H/px))+2;
-  const mask=[];for(let y=0;y<gh;y++)mask.push(new Uint8Array(gw));
-  const gX=x=>((x-mnx)/px)+1,gY=y=>((y-mny)/px)+1;
-  for(let i=0;i<tris.length;i+=9){
-    const ax=gX(tris[i]),ay=gY(tris[i+1]),bx=gX(tris[i+3]),by=gY(tris[i+4]),cx2=gX(tris[i+6]),cy2=gY(tris[i+7]);
-    let y0=Math.max(0,Math.floor(Math.min(ay,by,cy2))),y1=Math.min(gh-1,Math.ceil(Math.max(ay,by,cy2)));
-    for(let yy=y0;yy<=y1;yy++){
-      const ys=yy+0.5,xs=[];
-      const edge=(x1,Y1,x2,Y2)=>{if((Y1<=ys)!==(Y2<=ys))xs.push(x1+(x2-x1)*((ys-Y1)/(Y2-Y1)));};
-      edge(ax,ay,bx,by);edge(bx,by,cx2,cy2);edge(cx2,cy2,ax,ay);
-      if(xs.length>=2){xs.sort((a,b)=>a-b);for(let s=0;s+1<xs.length;s+=2){let xa=Math.max(0,Math.floor(xs[s])),xb=Math.min(gw-1,Math.ceil(xs[s+1]));for(let xx=xa;xx<=xb;xx++)mask[yy][xx]=1;}}
-    }
-  }
-  const loops=traceMask(mask,gh,gw);if(!loops.length)return null;
-  // Keep coordinates in the model's own (already-centred) frame so the pocket aligns exactly with
-  // the embedded slice — do NOT re-centre on the silhouette's bounding box.
-  const out=[];
-  loops.forEach(loop=>{if(loop.length<4)return;out.push(loop.map(p=>({X:Math.round((mnx+(p[0]-1)*px)*S),Y:Math.round((mny+(p[1]-1)*px)*S)})));});
-  if(!out.length)return null;
-  const f=unionFilled(out);
-  return cleanPaths(f&&f.length?off(f,0.02):f);
-}
 // ---- Flat catalog placement ----
 // Minimum solid floor of lid material that must remain beneath any pocket, so no feature
 // (name / image / model) can ever cut a hole clean through the lid.
@@ -624,13 +592,59 @@ function geoBaseTris(geo){
   else{for(let t=0;t<pos.count;t+=3)tri(t,t+1,t+2);}
   geo.__baseTris=out;return out;
 }
-// Transform the cached local base triangles into the model's placed frame (scale + in-plane rotation +
-// seat offset) so the footprint lines up exactly with where the flat base meets the lid plane.
-function placedBaseTriangles(mesh){
-  const base=geoBaseTris(mesh.geometry);if(!base.length)return [];
-  const m=mesh.matrixWorld,v=new THREE.Vector3(),out=new Array(base.length);
-  for(let i=0;i<base.length;i+=3){v.set(base[i],base[i+1],base[i+2]).applyMatrix4(m);out[i]=v.x;out[i+1]=v.y;out[i+2]=v.z;}
-  return out;
+// The flat base, projected to the lid plane, is one solid silhouette. Its outline is exactly the set of
+// triangle edges that belong to a single base triangle (shared interior edges cancel). We weld the
+// projected vertices, cancel interior edges and chain the surviving boundary edges into closed loops —
+// an O(triangles) pass that yields the TRUE crisp outline (and any interior holes) with no raster
+// staircase. unionFilled then merges/normalises those few boundary loops, exactly like the Name pocket.
+// Computed once per geometry in its own local XY and cached, so placement only transforms the result.
+function geoFootLocal(geo){
+  if(geo.__footLocal!==undefined)return geo.__footLocal;
+  const base=geoBaseTris(geo);
+  if(!base.length){geo.__footLocal=null;return null;}
+  const idOf=new Map(),vx=[],vy=[];
+  const vid=(x,y)=>{const X=Math.round(x*S),Y=Math.round(y*S),k=X+","+Y;let id=idOf.get(k);if(id===undefined){id=vx.length;vx.push(X);vy.push(Y);idOf.set(k,id);}return id;};
+  const ec=new Map();
+  const bump=(a,b)=>{const rk=b+">"+a,r=ec.get(rk)||0;if(r>0){r===1?ec.delete(rk):ec.set(rk,r-1);}else{const fk=a+">"+b;ec.set(fk,(ec.get(fk)||0)+1);}};
+  for(let i=0;i<base.length;i+=9){
+    const a=vid(base[i],base[i+1]),b=vid(base[i+3],base[i+4]),c=vid(base[i+6],base[i+7]);
+    if(a===b||b===c||c===a)continue;
+    const cross=(vx[b]-vx[a])*(vy[c]-vy[a])-(vx[c]-vx[a])*(vy[b]-vy[a]);
+    if(cross>0){bump(a,b);bump(b,c);bump(c,a);}else if(cross<0){bump(a,c);bump(c,b);bump(b,a);}
+  }
+  const adj=new Map();
+  ec.forEach((cnt,k)=>{const gt=k.indexOf(">"),a=+k.slice(0,gt),b=+k.slice(gt+1);let arr=adj.get(a);if(!arr){arr=[];adj.set(a,arr);}for(let n=0;n<cnt;n++)arr.push(b);});
+  const paths=[];
+  adj.forEach((arr,start)=>{
+    while(arr.length){
+      let cur=arr.pop();const loop=[{X:vx[start],Y:vy[start]}];let guard=0,ok=false;
+      while(guard++<2000000){
+        if(cur===start){ok=true;break;}
+        loop.push({X:vx[cur],Y:vy[cur]});
+        const nx=adj.get(cur);if(!nx||!nx.length)break;cur=nx.pop();
+      }
+      if(ok&&loop.length>=3)paths.push(loop);
+    }
+  });
+  let f=paths.length?unionFilled(paths):null;
+  if(!f||!f.length){            // fallback: robust (slower) direct union of every base triangle
+    const subj=[];
+    for(let i=0;i<base.length;i+=9){
+      const a={X:Math.round(base[i]*S),Y:Math.round(base[i+1]*S)},b={X:Math.round(base[i+3]*S),Y:Math.round(base[i+4]*S)},c={X:Math.round(base[i+6]*S),Y:Math.round(base[i+7]*S)};
+      const cr=(b.X-a.X)*(c.Y-a.Y)-(c.X-a.X)*(b.Y-a.Y);if(cr===0)continue;subj.push(cr>0?[a,b,c]:[a,c,b]);
+    }
+    f=subj.length?unionFilled(subj):null;
+  }
+  geo.__footLocal=(f&&f.length)?f:null;
+  return geo.__footLocal;
+}
+// Place the cached local footprint into the model's frame. A uniform scale + in-plane (Z) rotation +
+// translation leave the polygon planar, so transforming its 2D points by the mesh world matrix (z=0)
+// gives the exact contact outline where the base meets the lid.
+function baseFootprint(mesh){
+  const local=geoFootLocal(mesh.geometry);if(!local)return null;
+  const m=mesh.matrixWorld,v=new THREE.Vector3();
+  return local.map(p=>p.map(pt=>{v.set(pt.X/S,pt.Y/S,0).applyMatrix4(m);return {X:Math.round(v.x*S),Y:Math.round(v.y*S)};}));
 }
 function computeFlat(mo,TT){
   const inst=mo.obj.clone(true);
@@ -643,9 +657,9 @@ function computeFlat(mo,TT){
   // Centre in XY and seat the pre-flattened base EXACTLY flush on the lid top surface (z = TT): the
   // model's absolute bottom boundary now rests on the lid instead of sinking in by the pocket depth.
   inst.position.x-=cxm;inst.position.y-=cym;inst.position.z+=(TT-box.min.z);inst.updateMatrixWorld(true);
-  // Carve the pocket from the flat base contact footprint only (fast, cached base triangles).
+  // Carve the pocket from the flat base contact footprint only (crisp vector union, cached base triangles).
   let footprint=null;
-  try{let mesh=null;inst.traverse(o=>{if(o.isMesh&&!mesh)mesh=o;});if(mesh&&mesh.geometry)footprint=rasterFootprint(placedBaseTriangles(mesh));}catch(e){}
+  try{let mesh=null;inst.traverse(o=>{if(o.isMesh&&!mesh)mesh=o;});if(mesh&&mesh.geometry)footprint=baseFootprint(mesh);}catch(e){}
   return {inst,footprint,pocketDepth};
 }
 function buildFlatModelGroup(mo,TT){
@@ -689,7 +703,10 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin){
       // lid edge only ever carves the part that actually overlaps the lid — never leaving stray, distorted
       // or half-cut facets along the boundary.
       if(cut&&cut.length){cut=cleanPaths(intersect(cut,B));}
-      const region=(cut&&cut.length)?cleanPaths(diff(B,cut)):B;
+      let region=(cut&&cut.length)?cleanPaths(diff(B,cut)):B;
+      // Drop any sub-0.02 mm² fragments the boolean can leave at the boundary, so no zero-width sliver
+      // walls or jagged islands are ever extruded into the lid.
+      region=region.filter(p=>Math.abs(ClipperLib.Clipper.Area(p))>0.02*S*S);
       const shps=shapesFromPaths(region);
       if(shps.length){
         const g=new THREE.ExtrudeGeometry(shps,{depth:thick,bevelEnabled:false,curveSegments:6});
