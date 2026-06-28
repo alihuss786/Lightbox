@@ -967,6 +967,8 @@ function layoutTextPlate(group){
    Studio shows the parts already segregated onto distinct plates (Plate 1: Lid, Plate 2: Body, Plate 3:
    Text, …). The geometry is baked in print orientation (Z-up, resting on Z=0). The package is a standard
    3MF (OPC zip), so it also opens cleanly in PrusaSlicer/Orca/Cura as multiple distinct objects. */
+let geomReady=false;   // set true only after the post-font-load authoritative build → gates the exporter
+function uuid(){try{if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();}catch(_){}return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0,v=(c==="x")?r:((r&0x3)|0x8);return v.toString(16);});}
 function xmlEsc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function f3(n){return Math.round(n*1000)/1000;}
 // Bake one plate's meshes into print-oriented triangles: Z up, part centred in XY, bottom resting on Z=0.
@@ -985,22 +987,25 @@ function partTriangles(part){
   const cx=(mnx+mxx)/2,cz=(mnz+mxz)/2;   // map THREE(x,y,z) -> world(X=x-cx, Y=z-cz, Z=y-mny)
   return tris.map(t=>t.map(p=>({x:f3(p.x-cx),y:f3(p.z-cz),z:f3(p.y-mny)})));
 }
-function build3MFModelXML(plates){
+// Build the core 3MF model as a BAMBU STUDIO PROJECT (production extension): each plate is a distinct
+// <object> with a stable p:UUID, and each build <item> seats its object at the centre of its OWN bed via a
+// translate transform. Declaring the BambuStudio/production namespaces + 3mfVersion metadata is what makes
+// Bambu treat the package as a multi-plate PROJECT (and read Metadata/model_settings.config) rather than a
+// flat single-plate model import.
+function build3MFModelXML(plates,bedX,bedY){
+  const cx=f3((bedX||256)/2), cy=f3((bedY||256)/2);
   let objs="",items="";
-  // Each plate's object is centred at the origin (XY already centred by partTriangles); the per-plate
-  // placement is carried by Metadata/model_settings.config + plate_N.config, so Bambu drops each object
-  // onto its OWN plate at the plate centre rather than spreading them across a single bed.
   plates.forEach((pl,i)=>{const id=i+1;const map=new Map(),verts=[];
     const vi=p=>{const k=p.x+","+p.y+","+p.z;let j=map.get(k);if(j===undefined){j=verts.length;verts.push(p);map.set(k,j);}return j;};
     const idx=pl.tris.map(t=>[vi(t[0]),vi(t[1]),vi(t[2])]);
     let vx="";verts.forEach(p=>{vx+=`<vertex x="${p.x}" y="${p.y}" z="${p.z}"/>`;});
     let tx="";idx.forEach(t=>{tx+=`<triangle v1="${t[0]}" v2="${t[1]}" v3="${t[2]}"/>`;});
-    objs+=`<object id="${id}" type="model" name="${xmlEsc(pl.name)}"><mesh><vertices>${vx}</vertices><triangles>${tx}</triangles></mesh></object>`;
-    items+=`<item objectid="${id}" transform="1 0 0 0 1 0 0 0 1 0 0 0" printable="1"/>`;});
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><metadata name="Application">Lightbox Designer</metadata><resources>${objs}</resources><build>${items}</build></model>`;
+    objs+=`<object id="${id}" p:UUID="${uuid()}" type="model" name="${xmlEsc(pl.name)}"><mesh><vertices>${vx}</vertices><triangles>${tx}</triangles></mesh></object>`;
+    items+=`<item objectid="${id}" p:UUID="${uuid()}" transform="1 0 0 0 1 0 0 0 1 ${cx} ${cy} 0" printable="1"/>`;});
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p"><metadata name="Application">BambuStudio-01.09.00.00</metadata><metadata name="BambuStudio:3mfVersion">1</metadata><resources>${objs}</resources><build p:UUID="${uuid()}">${items}</build></model>`;
 }
-// Bambu Studio plate/object map: one <object> (with a normal_part) per plate, one <plate> binding each
-// object instance to its own plater_id, plus an <assemble> block — this is what makes Bambu open the file
+// Bambu Studio plate/object map: one <object> (with a normal_part) per plate, one <plate> binding that
+// object's instance to its own plater_id, plus an <assemble> block — this is what makes Bambu open the file
 // already arranged across distinct plates instead of stacking everything on plate 1.
 function buildModelSettingsXML(plates){
   let s=`<?xml version="1.0" encoding="UTF-8"?>\n<config>`;
@@ -1011,9 +1016,9 @@ function buildModelSettingsXML(plates){
   s+=`</assemble>`;
   return s+`</config>`;
 }
-// Per-plate config — its presence is what makes Bambu enumerate each plate as a real, separate plate.
+// Per-plate config — one file per plate; their presence makes Bambu enumerate each as a real, separate plate.
 function buildPlateConfigXML(pl,id){
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<config><plate><metadata key="plater_id" value="${id}"/><metadata key="plater_name" value="${xmlEsc(pl.name)}"/><metadata key="locked" value="false"/><object identify_id="${id}" name="${xmlEsc(pl.name)}" skipped="false"/></plate></config>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<config><plate><metadata key="plater_id" value="${id}"/><metadata key="plater_name" value="${xmlEsc(pl.name)}"/><metadata key="locked" value="false"/><metadata key="filament_map_mode" value="Auto For Flush"/><object identify_id="${id}" name="${xmlEsc(pl.name)}" skipped="false"/></plate></config>`;
 }
 // ---- minimal store-only ZIP writer (3MF is an OPC zip) with correct CRC-32 ----
 const _crcTab=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
@@ -1031,20 +1036,27 @@ function zipStore(files){
   const all=parts.concat(cen,[end]);let len=0;all.forEach(a=>len+=a.length);
   const out=new Uint8Array(len);let p=0;all.forEach(a=>{out.set(a,p);p+=a.length;});return out;
 }
-function exportPlates(){
-  const btn=g("exportBtn");
+async function exportPlates(){
+  const btn=g("exportBtn");const orig=btn?btn.textContent:"";
   try{
+    if(btn){btn.disabled=true;btn.textContent="⏳ Preparing…";}
+    // CRITICAL: never let the exporter parse half-initialised geometry. If the post-font authoritative build
+    // hasn't run yet (e.g. the user hits Export the instant the page loads), force a full, primed rebuild +
+    // path recompute FIRST — so the 'A' counter and every cutout are present in the exported mesh.
+    if(!geomReady)await updateTextGeometry();
+    await new Promise(r=>requestAnimationFrame(()=>r()));   // let the rebuilt scene graph settle
     if(!PLATES||!PLATES.length){alert("Nothing to export yet — design a lightbox first.");return;}
     const plates=[];
     PLATES.forEach((part,i)=>{const tris=partTriangles(part);if(!tris||!tris.length)return;
       const clean=(part.name||("part "+(i+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
       plates.push({name:"Plate "+(plates.length+1)+" - "+clean,tris});});
     if(!plates.length){alert("No printable geometry found to export.");return;}
+    const bed=PRINTERS[selPrinter]||{x:256,y:256};
     const enc=new TextEncoder();
     const files=[
       {name:"[Content_Types].xml",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Default Extension="config" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/></Types>`)},
       {name:"_rels/.rels",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rel0" Target="/3D/3dmodel.model" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>`)},
-      {name:"3D/3dmodel.model",data:enc.encode(build3MFModelXML(plates))},
+      {name:"3D/3dmodel.model",data:enc.encode(build3MFModelXML(plates,bed.x,bed.y))},
       {name:"Metadata/model_settings.config",data:enc.encode(buildModelSettingsXML(plates))}
     ];
     // one plate_N.config per plate so Bambu enumerates each as a distinct, separate plate
@@ -1054,8 +1066,9 @@ function exportPlates(){
     const letter=(v("letter")||"A").toUpperCase()[0];
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`lightbox_${letter}_${plates.length}plates.3mf`;
     document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},800);
-    if(btn){const o=btn.textContent;btn.textContent="✓ Exported "+plates.length+" plates";setTimeout(()=>{btn.textContent=o;},1800);}
-  }catch(e){console.error(e);alert("Export failed: "+(e&&e.message||e));}
+    if(btn){btn.textContent="✓ Exported "+plates.length+" plates";setTimeout(()=>{btn.textContent=orig;},1800);}
+  }catch(e){console.error(e);alert("Export failed: "+(e&&e.message||e));if(btn)btn.textContent=orig;}
+  finally{if(btn)btn.disabled=false;}
 }
 
 paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();
@@ -1082,7 +1095,7 @@ let initChain=buildModel().then(buildSummary).catch(()=>{})
   // 2) Prime the name font's glyph outlines (non-blocking — failure is ignored), letter glyphs are already
   //    warm from the first build, then run ONE authoritative full mesh refresh so the counters are correct.
   .then(()=>loadOT(selNameFont.url).then(o=>{if(o&&o.getPath)texts.forEach(t=>{const s=(t.str||"").trim();if(s){try{o.getPath(s,0,0,t.size||22);}catch(_){}}});},()=>{}))
-  .then(()=>updateTextGeometry()).catch(()=>{});
+  .then(()=>updateTextGeometry()).then(()=>{geomReady=true;}).catch(()=>{geomReady=true;});
 // 3) Belt-and-suspenders: once the window + any web fonts are fully ready, queue one final clean pass onto
 //    the same chain (never overlapping the passes above).
 window.addEventListener("load",()=>{initChain=initChain.then(()=>{const go=()=>updateTextGeometry();return (document.fonts&&document.fonts.ready)?document.fonts.ready.then(go,go):go();}).catch(()=>{});});
