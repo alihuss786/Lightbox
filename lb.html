@@ -987,38 +987,54 @@ function partTriangles(part){
   const cx=(mnx+mxx)/2,cz=(mnz+mxz)/2;   // map THREE(x,y,z) -> world(X=x-cx, Y=z-cz, Z=y-mny)
   return tris.map(t=>t.map(p=>({x:f3(p.x-cx),y:f3(p.z-cz),z:f3(p.y-mny)})));
 }
-// Build the core 3MF model as a BAMBU STUDIO PROJECT (production extension): each plate is a distinct
-// <object> with a stable p:UUID, and each build <item> seats its object at the centre of its OWN bed via a
-// translate transform. Declaring the BambuStudio/production namespaces + 3mfVersion metadata is what makes
-// Bambu treat the package as a multi-plate PROJECT (and read Metadata/model_settings.config) rather than a
-// flat single-plate model import.
-function build3MFModelXML(plates,bedX,bedY){
-  const cx=f3((bedX||256)/2), cy=f3((bedY||256)/2);
-  let objs="",items="";
-  plates.forEach((pl,i)=>{const id=i+1;const map=new Map(),verts=[];
-    const vi=p=>{const k=p.x+","+p.y+","+p.z;let j=map.get(k);if(j===undefined){j=verts.length;verts.push(p);map.set(k,j);}return j;};
-    const idx=pl.tris.map(t=>[vi(t[0]),vi(t[1]),vi(t[2])]);
-    let vx="";verts.forEach(p=>{vx+=`<vertex x="${p.x}" y="${p.y}" z="${p.z}"/>`;});
-    let tx="";idx.forEach(t=>{tx+=`<triangle v1="${t[0]}" v2="${t[1]}" v3="${t[2]}"/>`;});
-    objs+=`<object id="${id}" p:UUID="${uuid()}" type="model" name="${xmlEsc(pl.name)}"><mesh><vertices>${vx}</vertices><triangles>${tx}</triangles></mesh></object>`;
-    items+=`<item objectid="${id}" p:UUID="${uuid()}" transform="1 0 0 0 1 0 0 0 1 ${cx} ${cy} 0" printable="1"/>`;});
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p"><metadata name="Application">BambuStudio-01.09.00.00</metadata><metadata name="BambuStudio:3mfVersion">1</metadata><resources>${objs}</resources><build p:UUID="${uuid()}">${items}</build></model>`;
+// Build the 3MF model EXACTLY like a Bambu Studio multi-plate project (mimicking HeartDog_split.3mf):
+//   * each printable mesh is an <object> with an ODD id (1,3,5,…) holding the <mesh>,
+//   * wrapped by an <object> with the next EVEN id (2,4,6,…) referencing it via <components>,
+//   * the <build> <item> references the EVEN id and seats the object inside its plate's bed-sized grid cell
+//     (objects sharing a plate are laid out side-by-side within that cell so they never overlap),
+//   * header declares only the core + BambuStudio namespaces (no production extension).
+// `groups` = [{name, objects:[{name,tris}]}]; ids/faceCount/world positions are stamped back onto each
+// object for buildModelSettingsXML.
+function build3MFModelXML(groups,bedX,bedY){
+  const bx=bedX||256, by=bedY||256, gap=30;
+  let res="",items="",k=0;
+  groups.forEach((grp,gi)=>{
+    const cellX=gi*(bx+60)+bx/2, cellY=by/2;
+    // first pass: dedupe verts + measure each object's width so we can lay them out in a centred row
+    grp.objects.forEach(o=>{const map=new Map(),verts=[];
+      const vi=p=>{const key=p.x+","+p.y+","+p.z;let j=map.get(key);if(j===undefined){j=verts.length;verts.push(p);map.set(key,j);}return j;};
+      o._idx=o.tris.map(t=>[vi(t[0]),vi(t[1]),vi(t[2])]);o._verts=verts;o.faceCount=o._idx.length;
+      let mnx=1/0,mxx=-1/0;verts.forEach(p=>{if(p.x<mnx)mnx=p.x;if(p.x>mxx)mxx=p.x;});o._w=isFinite(mnx)?(mxx-mnx):0;});
+    const totalW=grp.objects.reduce((s,o)=>s+o._w,0)+gap*(grp.objects.length-1);
+    let cx=cellX-totalW/2;
+    grp.objects.forEach(o=>{const meshId=2*k+1, wrapId=2*k+2;k++;
+      let vx="";o._verts.forEach(p=>{vx+=`<vertex x="${p.x}" y="${p.y}" z="${p.z}"/>`;});
+      let tx="";o._idx.forEach(t=>{tx+=`<triangle v1="${t[0]}" v2="${t[1]}" v3="${t[2]}"/>`;});
+      res+=`<object id="${meshId}" type="model"><mesh><vertices>${vx}</vertices><triangles>${tx}</triangles></mesh></object>`;
+      res+=`<object id="${wrapId}" type="model"><components><component objectid="${meshId}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/></components></object>`;
+      o.meshId=meshId;o.wrapId=wrapId;o.worldX=f3(cx+o._w/2);o.worldY=f3(cellY);
+      items+=`<item objectid="${wrapId}" transform="1 0 0 0 1 0 0 0 1 ${o.worldX} ${o.worldY} 0" printable="1"/>`;
+      cx+=o._w+gap;delete o._verts;delete o._idx;});});
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021"><metadata name="Application">BambuStudio-02.07.01.57</metadata><metadata name="BambuStudio:3mfVersion">1</metadata><resources>${res}</resources><build>${items}</build></model>`;
 }
-// Bambu Studio plate/object map: one <object> (with a normal_part) per plate, one <plate> binding that
-// object's instance to its own plater_id, plus an <assemble> block — this is what makes Bambu open the file
-// already arranged across distinct plates instead of stacking everything on plate 1.
-function buildModelSettingsXML(plates){
+// model_settings.config — the file Bambu reads to build the plate list. Mirrors HeartDog_split.3mf:
+//   * one <object id="EVEN"> (name/extruder/face_count) per printable mesh, containing <part id="ODD"> with
+//     a 16-value matrix + mesh_stat, and
+//   * one <plate> PER GROUP whose <model_instance> children bind every object in that group (object_id=EVEN)
+//     to the SAME plater_id — so Lid+Body land on plate 1, all text on plate 2, all models on plate 3.
+function buildModelSettingsXML(groups){
   let s=`<?xml version="1.0" encoding="UTF-8"?>\n<config>`;
-  plates.forEach((pl,i)=>{const id=i+1;s+=`<object id="${id}"><metadata key="name" value="${xmlEsc(pl.name)}"/><metadata key="extruder" value="1"/><part id="${id}" subtype="normal_part"><metadata key="name" value="${xmlEsc(pl.name)}"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/></part></object>`;});
-  plates.forEach((pl,i)=>{const id=i+1;s+=`<plate><metadata key="plater_id" value="${id}"/><metadata key="plater_name" value="${xmlEsc(pl.name)}"/><metadata key="locked" value="false"/><model_instance><metadata key="object_id" value="${id}"/><metadata key="instance_id" value="0"/></model_instance></plate>`;});
+  groups.forEach(grp=>grp.objects.forEach(o=>{const fc=o.faceCount||0;
+    s+=`<object id="${o.wrapId}"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="extruder" value="1"/><metadata face_count="${fc}"/><part id="${o.meshId}" subtype="normal_part"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/><mesh_stat face_count="${fc}" edges_fixed="0" degenerate_facets="0" facets_removed="0" facets_reversed="0" backwards_edges="0"/></part></object>`;}));
+  let iid=100;
+  groups.forEach((grp,gi)=>{const pid=gi+1;
+    s+=`<plate><metadata key="plater_id" value="${pid}"/><metadata key="plater_name" value="${xmlEsc(grp.name)}"/><metadata key="locked" value="false"/><metadata key="filament_map_mode" value="Auto For Flush"/><metadata key="filament_maps" value="1"/>`;
+    grp.objects.forEach(o=>{s+=`<model_instance><metadata key="object_id" value="${o.wrapId}"/><metadata key="instance_id" value="0"/><metadata key="identify_id" value="${iid++}"/></model_instance>`;});
+    s+=`</plate>`;});
   s+=`<assemble>`;
-  plates.forEach((pl,i)=>{const id=i+1;s+=`<assemble_item object_id="${id}" instance_id="0" transform="1 0 0 0 1 0 0 0 1 0 0 0" offset="0 0 0"/>`;});
+  groups.forEach(grp=>grp.objects.forEach(o=>{s+=`<assemble_item object_id="${o.wrapId}" instance_id="0" transform="1 0 0 0 1 0 0 0 1 ${o.worldX||0} ${o.worldY||0} 0" offset="0 0 0"/>`;}));
   s+=`</assemble>`;
   return s+`</config>`;
-}
-// Per-plate config — one file per plate; their presence makes Bambu enumerate each as a real, separate plate.
-function buildPlateConfigXML(pl,id){
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<config><plate><metadata key="plater_id" value="${id}"/><metadata key="plater_name" value="${xmlEsc(pl.name)}"/><metadata key="locked" value="false"/><metadata key="filament_map_mode" value="Auto For Flush"/><object identify_id="${id}" name="${xmlEsc(pl.name)}" skipped="false"/></plate></config>`;
 }
 // ---- minimal store-only ZIP writer (3MF is an OPC zip) with correct CRC-32 ----
 const _crcTab=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
@@ -1046,27 +1062,37 @@ async function exportPlates(){
     if(!geomReady)await updateTextGeometry();
     await new Promise(r=>requestAnimationFrame(()=>r()));   // let the rebuilt scene graph settle
     if(!PLATES||!PLATES.length){alert("Nothing to export yet — design a lightbox first.");return;}
-    const plates=[];
+    // Categorise every printable part, then GROUP into the three requested plates:
+    //   Plate 1 = Main Box & Lid (lid + body) · Plate 2 = All text layers · Plate 3 = Catalog models.
+    const bucket={box:[],text:[],model:[]};
     PLATES.forEach((part,i)=>{const tris=partTriangles(part);if(!tris||!tris.length)return;
       const clean=(part.name||("part "+(i+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
-      plates.push({name:"Plate "+(plates.length+1)+" - "+clean,tris});});
-    if(!plates.length){alert("No printable geometry found to export.");return;}
+      const cat=part.textPlate?"text":((part.modelId!=null)?"model":"box");
+      bucket[cat].push({name:clean,tris});});
+    const groups=[];
+    if(bucket.box.length)groups.push({name:"Plate 1 - Main Box & Lid",objects:bucket.box});
+    if(bucket.text.length)groups.push({name:"Plate "+(groups.length+1)+" - Text Layers",objects:bucket.text});
+    if(bucket.model.length)groups.push({name:"Plate "+(groups.length+1)+" - Catalog Models",objects:bucket.model});
+    if(!groups.length){alert("No printable geometry found to export.");return;}
+    const plateCount=groups.length;
     const bed=PRINTERS[selPrinter]||{x:256,y:256};
     const enc=new TextEncoder();
+    // build the model XML FIRST (it stamps ids/faceCount/grid positions onto each object), then the settings.
+    const modelXML=build3MFModelXML(groups,bed.x,bed.y);
+    const settingsXML=buildModelSettingsXML(groups);
     const files=[
-      {name:"[Content_Types].xml",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Default Extension="config" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/></Types>`)},
-      {name:"_rels/.rels",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rel0" Target="/3D/3dmodel.model" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>`)},
-      {name:"3D/3dmodel.model",data:enc.encode(build3MFModelXML(plates,bed.x,bed.y))},
-      {name:"Metadata/model_settings.config",data:enc.encode(buildModelSettingsXML(plates))}
+      {name:"[Content_Types].xml",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>\n <Default Extension="png" ContentType="image/png"/>\n <Default Extension="gcode" ContentType="text/x.gcode"/>\n</Types>`)},
+      {name:"_rels/.rels",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n <Relationship Target="/3D/3dmodel.model" Id="rel-1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>\n</Relationships>`)},
+      {name:"3D/3dmodel.model",data:enc.encode(modelXML)},
+      {name:"Metadata/model_settings.config",data:enc.encode(settingsXML)},
+      {name:"Metadata/slice_info.config",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <header>\n    <header_item key="X-BBL-Client-Type" value="slicer"/>\n    <header_item key="X-BBL-Client-Version" value="02.07.01.57"/>\n  </header>\n</config>`)}
     ];
-    // one plate_N.config per plate so Bambu enumerates each as a distinct, separate plate
-    plates.forEach((pl,i)=>files.push({name:"Metadata/plate_"+(i+1)+".config",data:enc.encode(buildPlateConfigXML(pl,i+1))}));
     const zip=zipStore(files);
     const blob=new Blob([zip],{type:"model/3mf"});
     const letter=(v("letter")||"A").toUpperCase()[0];
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`lightbox_${letter}_${plates.length}plates.3mf`;
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`lightbox_${letter}_${plateCount}plates.3mf`;
     document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},800);
-    if(btn){btn.textContent="✓ Exported "+plates.length+" plates";setTimeout(()=>{btn.textContent=orig;},1800);}
+    if(btn){btn.textContent="✓ Exported "+plateCount+" plates";setTimeout(()=>{btn.textContent=orig;},1800);}
   }catch(e){console.error(e);alert("Export failed: "+(e&&e.message||e));if(btn)btn.textContent=orig;}
   finally{if(btn)btn.disabled=false;}
 }
@@ -1084,7 +1110,7 @@ paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTe
 //       depends on), priming the glyph first, then run the full mesh/path pipeline and force a complete
 //       mesh refresh (computeVertexNormals + matrix update + explicit scene render).
 function renderNow(){try{if(typeof renderer!=="undefined"&&renderer&&scene&&camera){if(pivot)pivot.rotation.set(rotX,rotY,0);renderer.render(scene,camera);}}catch(_){}}
-function recomputeAllGeometry(){if(!pivot)return;pivot.traverse(o=>{if(o.isMesh&&o.geometry){try{o.geometry.computeVertexNormals();o.geometry.computeBoundingSphere();if(o.geometry.attributes&&o.geometry.attributes.position)o.geometry.attributes.position.needsUpdate=true;}catch(_){}}});pivot.updateMatrixWorld(true);renderNow();}
+function recomputeAllGeometry(){if(!pivot)return;pivot.traverse(o=>{if(o.isMesh&&o.geometry){try{o.geometry.computeVertexNormals();o.geometry.computeBoundingBox();o.geometry.computeBoundingSphere();if(o.geometry.attributes&&o.geometry.attributes.position)o.geometry.attributes.position.needsUpdate=true;}catch(_){}}});pivot.updateMatrixWorld(true);renderNow();}
 // Full mesh refresh: rebuild every text/letter mesh + cutouts, then recompute normals/matrices and render.
 function updateTextGeometry(){return buildModel().then(()=>{buildSummary();recomputeAllGeometry();}).catch(()=>{});}
 // The init builds are SERIALISED through one promise chain (initChain) so two buildModel() passes can never
