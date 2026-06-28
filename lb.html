@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Dancing+Script&family=Pacifico&family=Sacramento&family=Allura&family=Satisfy&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Dancing+Script&family=Pacifico&family=Lobster&family=Fredoka:wght@600&family=Alkatra:wght@500&family=Ole&family=Sacramento&family=Allura&family=Satisfy&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -318,7 +318,20 @@ function accT(h){const acc=h.parentElement;const open=acc.classList.contains("op
 const FB="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/fonts/";
 const FONTS=[{name:"Sans",url:FB+"helvetiker_bold.typeface.json",css:"Arial Black,sans-serif"},{name:"Serif",url:FB+"optimer_bold.typeface.json",css:"Georgia,serif"},{name:"Soft",url:FB+"gentilis_bold.typeface.json",css:"Trebuchet MS,sans-serif"}];
 const EX="https://cdn.jsdelivr.net/npm/@expo-google-fonts/";
-const NAME_FONTS=[{name:"Great Vibes",url:EX+"great-vibes/GreatVibes_400Regular.ttf",css:"'Great Vibes',cursive"},{name:"Dancing Script",url:EX+"dancing-script/DancingScript_400Regular.ttf",css:"'Dancing Script',cursive"},{name:"Pacifico",url:EX+"pacifico/Pacifico_400Regular.ttf",css:"'Pacifico',cursive"},{name:"Sacramento",url:EX+"sacramento/Sacramento_400Regular.ttf",css:"'Sacramento',cursive"},{name:"Allura",url:EX+"allura/Allura_400Regular.ttf",css:"'Allura',cursive"},{name:"Satisfy",url:EX+"satisfy/Satisfy_400Regular.ttf",css:"'Satisfy',cursive"}];
+const NAME_FONTS=[
+  // Thicker, 3D-print-friendly scripts first (heavier strokes slice cleanly and resist snapping).
+  {name:"Pacifico",url:EX+"pacifico/Pacifico_400Regular.ttf",css:"'Pacifico',cursive"},
+  {name:"Lobster",url:EX+"lobster/Lobster_400Regular.ttf",css:"'Lobster',cursive"},
+  {name:"Fredoka One",url:EX+"fredoka-one/FredokaOne_400Regular.ttf",css:"'Fredoka',cursive"},
+  {name:"Alkatra",url:EX+"alkatra/Alkatra_400Regular.ttf",css:"'Alkatra',cursive"},
+  {name:"Ole",url:EX+"ole/Ole_400Regular.ttf",css:"'Ole',cursive"},
+  // Original thinner scripts (still available; pair them with the new Line Thickness slider).
+  {name:"Great Vibes",url:EX+"great-vibes/GreatVibes_400Regular.ttf",css:"'Great Vibes',cursive"},
+  {name:"Dancing Script",url:EX+"dancing-script/DancingScript_400Regular.ttf",css:"'Dancing Script',cursive"},
+  {name:"Sacramento",url:EX+"sacramento/Sacramento_400Regular.ttf",css:"'Sacramento',cursive"},
+  {name:"Allura",url:EX+"allura/Allura_400Regular.ttf",css:"'Allura',cursive"},
+  {name:"Satisfy",url:EX+"satisfy/Satisfy_400Regular.ttf",css:"'Satisfy',cursive"}
+];
 let selFont=FONTS[0],selNameFont=NAME_FONTS[0];const fontCache={},otCache={};
 function loadFont(u){return new Promise((res,rej)=>{if(fontCache[u])return res(fontCache[u]);if(!THREE.FontLoader)return rej(0);new THREE.FontLoader().load(u,f=>{fontCache[u]=f;res(f);},undefined,()=>rej(0));});}
 async function loadOT(u){if(otCache[u])return otCache[u];if(typeof opentype==="undefined")throw 0;const r=await fetch(u);if(!r.ok)throw 0;const f=opentype.parse(await r.arrayBuffer());otCache[u]=f;return f;}
@@ -342,7 +355,7 @@ DIMS.forEach(d=>{const row=document.createElement("div");row.className="row";row
 
 let images=[],selImg=-1,models=[],selModel=-1,uid=1,t1=null,mode="render",lightOn=true,diffOn=false,selPlate=0,DIM=null;
 // Dynamic, independent text layers on the lid. Each: {id, str, size(mm), x, y}. selText = active layer.
-let texts=[{id:uid++,str:"Aiyla",size:22,x:0,y:0,color:"#FFFFFF"}],selText=0;
+let texts=[{id:uid++,str:"Aiyla",size:22,x:0,y:0,color:"#FFFFFF",bold:0}],selText=0;
 const COLORS={front:"#E2663B",name:"#FFFFFF",image:"#FFFFFF",model:"#E8C99B",body:"#C9542C"};
 const MATS={};let glowFace=null,glowSpot=null,floorPlane=null;
 function scheduleBuild(){clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},100);}
@@ -512,10 +525,13 @@ function drawPad(){if(!PAD.filled)return;let mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e
   ["name","img","stl"].forEach(pre=>{const pad=g("pad_"+pre);if(!pad||(pad.offsetParent===null))return;const svg=g("padSvg_"+pre);const r=pad.getBoundingClientRect();const padW=r.width||300,padH=r.height||184;const m=1.14;const scale=Math.min(padW/(W*m),padH/(H*m));PAD["scale_"+pre]=scale;let d="";PAD.filled.forEach(p=>{p.forEach((pt,i)=>{const x=pt.X/S-PAD.cx,y=pt.Y/S-PAD.cy;const px=padW/2+x*scale,py=padH/2-y*scale;d+=(i===0?"M":"L")+px.toFixed(1)+" "+py.toFixed(1)+" ";});d+="Z ";});svg.setAttribute("viewBox",`0 0 ${padW} ${padH}`);svg.innerHTML=`<path d="${d}" fill="#2b3037" stroke="#3a4047" stroke-width="1" fill-rule="evenodd"/>`;});
   drawTextPad();renderImgLayer();drawStlPad();}
 /* ---------- Dynamic text layers: add / delete / edit / select, each fully independent ---------- */
-function addText(){const t={id:uid++,str:"New Text",size:22,x:0,y:0,color:COLORS.name||"#FFFFFF"};texts.push(t);selText=texts.length-1;renderTextList();drawTextPad();scheduleBuild();}
+function addText(){const t={id:uid++,str:"New Text",size:22,x:0,y:0,color:COLORS.name||"#FFFFFF",bold:0};texts.push(t);selText=texts.length-1;renderTextList();drawTextPad();scheduleBuild();}
 function deleteText(id){const i=texts.findIndex(t=>t.id===id);if(i<0)return;texts.splice(i,1);if(selText>=texts.length)selText=texts.length-1;renderTextList();drawTextPad();scheduleBuild();}
 function onTextStr(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.str=val;drawTextPad();scheduleBuild();}
 function onTextSize(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.size=Math.max(8,Math.min(160,+val||22));const lab=g("tlsz_"+id);if(lab)lab.textContent=tidy(t.size*(UNIT==="cm"?0.1:1))+(UNIT==="cm"?" cm":" mm");drawTextPad();scheduleBuild();}
+// Line Thickness / Boldness: stroke offset (mm) added outward to this layer's letters before extrusion, so
+// thin cursive paths fatten into wide, solid, printable lines. 0 = font as-drawn. Rebuilds the geometry.
+function onTextBold(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.bold=Math.max(0,Math.min(2,(+val||0)));const lab=g("tlbd_"+id);if(lab)lab.textContent=(t.bold>0?"+":"")+tidy(t.bold)+" mm";scheduleBuild();}
 // Each text layer owns its colour. Update ONLY that layer's mesh material live (no rebuild, so the other
 // layers are untouched); if its mesh isn't in the scene yet, fall back to a rebuild.
 function onTextColor(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.color=val;let done=false;if(pivot){pivot.traverse(o=>{if(o.userData&&o.userData.textId===id){o.traverse(m=>{if(m.isMesh&&m.material&&m.material.color){m.material.color.set(val);if(m.material.emissive)m.material.emissive.copy((lightOn&&mode==="render")?new THREE.Color(val).multiplyScalar(0.65):new THREE.Color(0));m.material.needsUpdate=true;done=true;}});}});}if(!done)scheduleBuild();}
@@ -523,7 +539,8 @@ function renderTextList(){const host=g("textList");if(!host)return;host.innerHTM
   texts.forEach((t,idx)=>{const d=document.createElement("div");d.className="tlayer"+(idx===selText?" sel":"");d.onclick=()=>{if(selText!==idx){selText=idx;renderTextList();drawTextPad();}};
     const sz=tidy(t.size*(UNIT==="cm"?0.1:1))+(UNIT==="cm"?" cm":" mm");
     d.innerHTML=`<div class="tlrow"><span class="sw tlsw" id="sw_text_${t.id}" title="Text colour" style="background:${t.color||"#FFFFFF"}" onclick="event.stopPropagation();openPal('text:${t.id}',event)"></span><input type="text" value="${(t.str||"").replace(/"/g,"&quot;")}" maxlength="24" placeholder="Text…" oninput="onTextStr(${t.id},this.value)"><button class="tldel" title="Delete this text layer" onclick="event.stopPropagation();deleteText(${t.id})">🗑</button></div>`+
-      `<div class="tlsize"><span class="lbl">Size</span><input type="range" min="8" max="120" step="1" value="${t.size}" oninput="onTextSize(${t.id},this.value)"><span class="tlsz" id="tlsz_${t.id}">${sz}</span></div>`;
+      `<div class="tlsize"><span class="lbl">Size</span><input type="range" min="8" max="120" step="1" value="${t.size}" oninput="onTextSize(${t.id},this.value)"><span class="tlsz" id="tlsz_${t.id}">${sz}</span></div>`+
+      `<div class="tlsize"><span class="lbl">Line Thickness</span><input type="range" min="0" max="2" step="0.05" value="${t.bold||0}" oninput="onTextBold(${t.id},this.value)"><span class="tlsz" id="tlbd_${t.id}">${(t.bold>0?"+":"")+tidy(t.bold||0)} mm</span></div>`;
     host.appendChild(d);});}
 function drawTextPad(){const pad=g("pad_name"),layer=g("textLayer");if(!pad||!layer)return;layer.innerHTML="";if(pad.offsetParent===null)return;const sc=PAD["scale_name"];if(!sc)return;const r=pad.getBoundingClientRect();
   texts.forEach((t,idx)=>{const csx=r.width/2+(t.x||0)*sc,csy=r.height/2-(t.y||0)*sc;const el=document.createElement("div");el.className="tchip"+(idx===selText?" sel":"");el.style.left=csx+"px";el.style.top=csy+"px";el.style.fontFamily=selNameFont.css;el.style.fontSize=Math.max(10,Math.min(24,(t.size||22)*sc*0.6))+"px";el.textContent=(t.str||"text").slice(0,18)||"text";layer.appendChild(el);});}
@@ -856,7 +873,12 @@ async function buildModel(){
       // Every independent text layer becomes its own inlay + pocket, placed at its own x/y, with its OWN colour.
       for(const t of texts){const str=(t.str||"").trim();if(!str)continue;const tsz=t.size||22;
         let nf=null;try{const otf=await loadOT(selNameFont.url);nf=unionFilled(nameSubjOT(otf,str,tsz));}catch(_){nf=unionFilled(glyphSubj(font,str.toUpperCase(),tsz));}
-        if(!nf||!nf.length)continue;const nc=pathsCenter(nf);const ns=translatePaths(nf,(cx+(+t.x||0))-nc.x,(cy+(+t.y||0))-nc.y);
+        if(!nf||!nf.length)continue;
+        // Line Thickness / Boldness: expand the letter outlines outward by t.bold mm (rounded joins) so thin
+        // cursive strokes fatten into wide, solid, printable walls. The thicker paths flow straight into the
+        // same extrusion + pocket pipeline, so the 3D mesh AND the exported geometry both thicken together.
+        const bold=Math.max(0,+t.bold||0);if(bold>0.001){try{const wb=off(nf,bold);if(wb&&wb.length)nf=wb;}catch(_){}}
+        const nc=pathsCenter(nf);const ns=translatePaths(nf,(cx+(+t.x||0))-nc.x,(cy+(+t.y||0))-nc.y);
         inlays.push({p:ns,kind:"name",depth:pocket,color:(t.color||COLORS.name),tid:t.id});if(pocket>0.01)slabFeatures.push({p:ns,depth:pocket});}
       images.forEach((im)=>{if(!im.img)return;const key=im.src+"@"+im.size;if(!im.contours||im.key!==key){im.contours=imageContours(im.img,im.size);im.key=key;}if(im.contours&&im.contours.length){let f=unionEO(im.contours);f=rotatePaths(f,im.rot);const is=translatePaths(f,cx+im.x,cy+im.y);inlays.push({p:is,mat:MATS.image,kind:"img",depth:pocket});if(pocket>0.01)slabFeatures.push({p:is,depth:pocket});}});
 
