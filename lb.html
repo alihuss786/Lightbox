@@ -654,10 +654,10 @@ function computeFlat(mo,TT){
   let box=new THREE.Box3().setFromObject(inst);if(!isFinite(box.min.x))return {empty:true};
   const cxm=(box.min.x+box.max.x)/2,cym=(box.min.y+box.max.y)/2;
   const pocketDepth=Math.max(0,Math.min(MODEL_POCKET,TT-FLOOR_MIN));   // fixed 3.0 mm inset pocket
-  // Centre in XY and seat the pre-flattened base EXACTLY flush on the lid top surface (z = TT): the
-  // model's absolute bottom boundary now rests on the lid instead of sinking in by the pocket depth.
+  // Centre in XY and seat the flat base flush on the lid top (z = TT). The model is a solid, untouched
+  // mesh; a model-coloured pedestal (built in buildFlatModelGroup) fills the pocket beneath it.
   inst.position.x-=cxm;inst.position.y-=cym;inst.position.z+=(TT-box.min.z);inst.updateMatrixWorld(true);
-  // Carve the pocket from the flat base contact footprint only (crisp vector union, cached base triangles).
+  // Footprint = the exact flat-base outline. The lid pocket and the pedestal that fills it both use it.
   let footprint=null;
   try{let mesh=null;inst.traverse(o=>{if(o.isMesh&&!mesh)mesh=o;});if(mesh&&mesh.geometry)footprint=baseFootprint(mesh);}catch(e){}
   return {inst,footprint,pocketDepth};
@@ -672,6 +672,18 @@ function buildFlatModelGroup(mo,TT){
   const inst=c.inst.clone(true);
   inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});
   grp.add(inst);
+  // Solid model-coloured pedestal that fills the 3 mm pocket beneath the base, so the recess is never an
+  // empty, see-through / hollow gap under the model. The footprint is inset slightly and the top kept just
+  // under the base cap, so the pedestal stays hidden behind the model's own walls (no cream rim poking out)
+  // while still backing the pocket solid — the seam then reads as one crisp 3 mm inset.
+  if(c.footprint&&c.footprint.length&&c.pocketDepth>0.2){
+    try{
+      let inner=off(c.footprint,-0.5);if(!inner||!inner.length)inner=c.footprint;
+      const shp=shapesFromPaths(inner);
+      if(shp.length){const depth=c.pocketDepth-0.2;const pg=new THREE.ExtrudeGeometry(shp,{depth,bevelEnabled:false,curveSegments:6});
+        const ped=new THREE.Mesh(pg,MATS.model);ped.position.z=TT-c.pocketDepth;grp.add(ped);}
+    }catch(e){}
+  }
   return {group:grp,footprint:c.footprint,pocketDepth:c.pocketDepth,modelId:mo.id};
 }
 // ---- Stacked-slab lid builder: true inset pockets that always keep a solid floor underneath ----
@@ -824,7 +836,10 @@ async function buildModel(){
   MATS.body=new THREE.MeshLambertMaterial({color:COLORS.body,side:THREE.DoubleSide});
   MATS.name=new THREE.MeshLambertMaterial({color:COLORS.name});
   MATS.image=new THREE.MeshLambertMaterial({color:COLORS.image});
-  MATS.model=new THREE.MeshLambertMaterial({color:COLORS.model});
+  // polygonOffset biases the model+pedestal slightly toward the camera so that wherever their faces meet
+  // the lid pocket at the same depth, the model wins the depth test cleanly instead of z-fighting into the
+  // fractured / hollow-looking flicker at the seam.
+  MATS.model=new THREE.MeshLambertMaterial({color:COLORS.model,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
   const skirtMat=MATS.front,backMat=MATS.body,floorMat=MATS.front,topMat=MATS.front;
 
   let LW=lh*0.7,LH=lh;
