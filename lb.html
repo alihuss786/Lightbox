@@ -822,9 +822,15 @@ async function buildModel(){
   try{
     const font=await loadFont(selFont.url);let cx=0,cy=0,filled=null,glyphSize=lh;
     if(hasClip){
-      const f0=unionFilled(glyphSubj(font,letter,lh));const c0=pathsCenter(f0);const ex0=pathsExtent(f0,c0.x,c0.y);
+      // Build the capital-letter silhouette with the EVEN-ODD fill rule (unionEO), not non-zero. Non-zero
+      // depends on the glyph's hole contour winding being correct; on the first font parse (before the glyph
+      // outlines are fully cached) the inner counter can come back as a same-winding contour, which non-zero
+      // FILLS IN — that was the 'A' triangle/V cavity vanishing on fresh launch. Even-odd is winding-
+      // independent: any contour nested inside another is always a hole, so the counter stays hollow on the
+      // very first build and in an immediate export, identical to the post-interaction state.
+      const f0=unionEO(glyphSubj(font,letter,lh));const c0=pathsCenter(f0);const ex0=pathsExtent(f0,c0.x,c0.y);
       if(ex0.H>1){const k=ex0.H/lh;glyphSize=Math.max(8,lh-capMargin)/k;}
-      filled=unionFilled(glyphSubj(font,letter,glyphSize));const c=pathsCenter(filled);cx=c.x;cy=c.y;const ex=pathsExtent(filled,cx,cy);LW=ex.W;LH=ex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
+      filled=unionEO(glyphSubj(font,letter,glyphSize));const c=pathsCenter(filled);cx=c.x;cy=c.y;const ex=pathsExtent(filled,cx,cy);LW=ex.W;LH=ex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
     } else {glyphSize=Math.max(8,lh-capMargin);const tg=new THREE.TextGeometry(letter,{font,size:glyphSize,height:1});tg.computeBoundingBox();cx=(tg.boundingBox.max.x+tg.boundingBox.min.x)/2;cy=(tg.boundingBox.max.y+tg.boundingBox.min.y)/2;}
 
     const bodyGroup=new THREE.Group();let builtHollow=false;
@@ -1085,7 +1091,11 @@ async function exportPlates(){
       {name:"_rels/.rels",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n <Relationship Target="/3D/3dmodel.model" Id="rel-1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>\n</Relationships>`)},
       {name:"3D/3dmodel.model",data:enc.encode(modelXML)},
       {name:"Metadata/model_settings.config",data:enc.encode(settingsXML)},
-      {name:"Metadata/slice_info.config",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <header>\n    <header_item key="X-BBL-Client-Type" value="slicer"/>\n    <header_item key="X-BBL-Client-Version" value="02.07.01.57"/>\n  </header>\n</config>`)}
+      {name:"Metadata/slice_info.config",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <header>\n    <header_item key="X-BBL-Client-Type" value="slicer"/>\n    <header_item key="X-BBL-Client-Version" value="02.07.01.57"/>\n  </header>\n</config>`)},
+      // project_settings.config is the marker that makes Bambu OPEN this as a multi-plate PROJECT (reading
+      // model_settings.config's <plate> blocks) instead of flat-importing every object onto one plate. Kept
+      // printer-agnostic (no printer_settings_id) so Bambu keeps the user's selected printer/filament.
+      {name:"Metadata/project_settings.config",data:enc.encode(JSON.stringify({name:"project_settings",from:"project",version:"02.07.01.57",nozzle_diameter:["0.4"],curr_bed_type:"Textured PEI Plate"},null,4))}
     ];
     const zip=zipStore(files);
     const blob=new Blob([zip],{type:"model/3mf"});
