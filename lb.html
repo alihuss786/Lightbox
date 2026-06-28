@@ -986,23 +986,34 @@ function partTriangles(part){
   return tris.map(t=>t.map(p=>({x:f3(p.x-cx),y:f3(p.z-cz),z:f3(p.y-mny)})));
 }
 function build3MFModelXML(plates){
-  let objs="",items="",offX=0;const gap=20;
+  let objs="",items="";
+  // Each plate's object is centred at the origin (XY already centred by partTriangles); the per-plate
+  // placement is carried by Metadata/model_settings.config + plate_N.config, so Bambu drops each object
+  // onto its OWN plate at the plate centre rather than spreading them across a single bed.
   plates.forEach((pl,i)=>{const id=i+1;const map=new Map(),verts=[];
     const vi=p=>{const k=p.x+","+p.y+","+p.z;let j=map.get(k);if(j===undefined){j=verts.length;verts.push(p);map.set(k,j);}return j;};
     const idx=pl.tris.map(t=>[vi(t[0]),vi(t[1]),vi(t[2])]);
     let vx="";verts.forEach(p=>{vx+=`<vertex x="${p.x}" y="${p.y}" z="${p.z}"/>`;});
     let tx="";idx.forEach(t=>{tx+=`<triangle v1="${t[0]}" v2="${t[1]}" v3="${t[2]}"/>`;});
     objs+=`<object id="${id}" type="model" name="${xmlEsc(pl.name)}"><mesh><vertices>${vx}</vertices><triangles>${tx}</triangles></mesh></object>`;
-    let mnx=1/0,mxx=-1/0;verts.forEach(p=>{mnx=Math.min(mnx,p.x);mxx=Math.max(mxx,p.x);});const w=isFinite(mnx)?(mxx-mnx):0;
-    const tX=f3(offX-(isFinite(mnx)?mnx:0));
-    items+=`<item objectid="${id}" transform="1 0 0 0 1 0 0 0 1 ${tX} 0 0"/>`;offX+=w+gap;});
+    items+=`<item objectid="${id}" transform="1 0 0 0 1 0 0 0 1 0 0 0" printable="1"/>`;});
   return `<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><metadata name="Application">Lightbox Designer</metadata><resources>${objs}</resources><build>${items}</build></model>`;
 }
+// Bambu Studio plate/object map: one <object> (with a normal_part) per plate, one <plate> binding each
+// object instance to its own plater_id, plus an <assemble> block — this is what makes Bambu open the file
+// already arranged across distinct plates instead of stacking everything on plate 1.
 function buildModelSettingsXML(plates){
   let s=`<?xml version="1.0" encoding="UTF-8"?>\n<config>`;
-  plates.forEach((pl,i)=>{const id=i+1;s+=`<object id="${id}"><metadata key="name" value="${xmlEsc(pl.name)}"/></object>`;});
-  plates.forEach((pl,i)=>{const id=i+1;s+=`<plate><metadata key="plater_id" value="${id}"/><metadata key="plater_name" value="${xmlEsc(pl.name)}"/><model_instance><metadata key="object_id" value="${id}"/><metadata key="instance_id" value="0"/></model_instance></plate>`;});
+  plates.forEach((pl,i)=>{const id=i+1;s+=`<object id="${id}"><metadata key="name" value="${xmlEsc(pl.name)}"/><metadata key="extruder" value="1"/><part id="${id}" subtype="normal_part"><metadata key="name" value="${xmlEsc(pl.name)}"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/></part></object>`;});
+  plates.forEach((pl,i)=>{const id=i+1;s+=`<plate><metadata key="plater_id" value="${id}"/><metadata key="plater_name" value="${xmlEsc(pl.name)}"/><metadata key="locked" value="false"/><model_instance><metadata key="object_id" value="${id}"/><metadata key="instance_id" value="0"/></model_instance></plate>`;});
+  s+=`<assemble>`;
+  plates.forEach((pl,i)=>{const id=i+1;s+=`<assemble_item object_id="${id}" instance_id="0" transform="1 0 0 0 1 0 0 0 1 0 0 0" offset="0 0 0"/>`;});
+  s+=`</assemble>`;
   return s+`</config>`;
+}
+// Per-plate config — its presence is what makes Bambu enumerate each plate as a real, separate plate.
+function buildPlateConfigXML(pl,id){
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<config><plate><metadata key="plater_id" value="${id}"/><metadata key="plater_name" value="${xmlEsc(pl.name)}"/><metadata key="locked" value="false"/><object identify_id="${id}" name="${xmlEsc(pl.name)}" skipped="false"/></plate></config>`;
 }
 // ---- minimal store-only ZIP writer (3MF is an OPC zip) with correct CRC-32 ----
 const _crcTab=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
@@ -1031,11 +1042,13 @@ function exportPlates(){
     if(!plates.length){alert("No printable geometry found to export.");return;}
     const enc=new TextEncoder();
     const files=[
-      {name:"[Content_Types].xml",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Override PartName="/Metadata/model_settings.config" ContentType="text/xml"/></Types>`)},
+      {name:"[Content_Types].xml",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Default Extension="config" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/></Types>`)},
       {name:"_rels/.rels",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rel0" Target="/3D/3dmodel.model" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>`)},
       {name:"3D/3dmodel.model",data:enc.encode(build3MFModelXML(plates))},
       {name:"Metadata/model_settings.config",data:enc.encode(buildModelSettingsXML(plates))}
     ];
+    // one plate_N.config per plate so Bambu enumerates each as a distinct, separate plate
+    plates.forEach((pl,i)=>files.push({name:"Metadata/plate_"+(i+1)+".config",data:enc.encode(buildPlateConfigXML(pl,i+1))}));
     const zip=zipStore(files);
     const blob=new Blob([zip],{type:"model/3mf"});
     const letter=(v("letter")||"A").toUpperCase()[0];
@@ -1046,28 +1059,33 @@ function exportPlates(){
 }
 
 paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();
-// ---------- PART 1: deterministic first-load letter/text geometry (no nudge required) ----------
-// The capital-letter counter (the 'A' triangle) and every cursive-name counter must already be hollow on
-// the FIRST paint. Root cause: the very first font.generateShapes()/opentype.getPath() pass can return a
-// glyph whose interior counter contours are not yet cached, so the hole→path Boolean routing is skipped on
-// that single pass (it only self-corrects after an interaction triggers a rebuild). Fix: PRIME the fonts
-// (one throwaway shape-generation pass) BEFORE the first visible build so that build is already the
-// corrected "second" pass, then run the full mesh-generation / path-Boolean pipeline and force an explicit
-// geometry + normal recompute so the hollow counters are committed to the canvas with zero interaction.
-function recomputeAllGeometry(){if(!pivot)return;pivot.traverse(o=>{if(o.isMesh&&o.geometry){try{o.geometry.computeVertexNormals();o.geometry.computeBoundingSphere();if(o.geometry.attributes&&o.geometry.attributes.position)o.geometry.attributes.position.needsUpdate=true;}catch(_){}}});pivot.updateMatrixWorld(true);}
-async function primeFonts(){
-  try{const f=await loadFont(selFont.url);if(f&&f.generateShapes){const L=(v("letter")||"A").toUpperCase()[0];f.generateShapes(L,140);}}catch(_){}
-  try{const o=await loadOT(selNameFont.url);if(o&&o.getPath){texts.forEach(t=>{const s=(t.str||"").trim();if(s)o.getPath(s,0,0,t.size||22);});}}catch(_){}
-}
-async function initApp(){
-  await primeFonts();
-  await buildModel();buildSummary();
-  // fully-primed second pass + explicit geometry/normal recompute → counters render correctly on first paint
-  await buildModel();buildSummary();recomputeAllGeometry();
-}
-initApp();
-// Belt-and-suspenders: once the window and any web fonts are fully ready, run one final clean pass.
-window.addEventListener("load",()=>{const go=()=>buildModel().then(()=>{buildSummary();recomputeAllGeometry();});if(document.fonts&&document.fonts.ready){document.fonts.ready.then(go,go);}else{go();}});
+// ---------- PART 2: deterministic first-load letter/text geometry (no nudge, no blank screen) ----------
+// The capital-letter counter (the 'A' triangle) and every cursive-name counter must be hollow on the FIRST
+// paint. Two failure modes are handled here:
+//   (a) BLANK SCREEN — the visible build must NEVER be gated behind the (possibly slow/stalling) cursive
+//       font fetch. So we fire an immediate first buildModel() that always draws something, and the name
+//       font is primed opportunistically WITHOUT ever blocking it.
+//   (b) MISSING COUNTER — the very first font.generateShapes()/opentype.getPath() pass can emit a glyph
+//       whose interior counter contours aren't cached yet, so the hole→path Boolean routing is skipped.
+//       Fix: run the authoritative geometry pass INSIDE the letter-font load callback (the font the lid 'A'
+//       depends on), priming the glyph first, then run the full mesh/path pipeline and force a complete
+//       mesh refresh (computeVertexNormals + matrix update + explicit scene render).
+function renderNow(){try{if(typeof renderer!=="undefined"&&renderer&&scene&&camera){if(pivot)pivot.rotation.set(rotX,rotY,0);renderer.render(scene,camera);}}catch(_){}}
+function recomputeAllGeometry(){if(!pivot)return;pivot.traverse(o=>{if(o.isMesh&&o.geometry){try{o.geometry.computeVertexNormals();o.geometry.computeBoundingSphere();if(o.geometry.attributes&&o.geometry.attributes.position)o.geometry.attributes.position.needsUpdate=true;}catch(_){}}});pivot.updateMatrixWorld(true);renderNow();}
+// Full mesh refresh: rebuild every text/letter mesh + cutouts, then recompute normals/matrices and render.
+function updateTextGeometry(){return buildModel().then(()=>{buildSummary();recomputeAllGeometry();}).catch(()=>{});}
+// The init builds are SERIALISED through one promise chain (initChain) so two buildModel() passes can never
+// run concurrently — overlapping passes corrupt the shared scene/bounding-box state (stray camera framing).
+// 1) Immediate first build so the scene is never blank (buildModel internally awaits the letter font and
+//    handles the name font per-text with its own try/catch, so it is safe on its own).
+let initChain=buildModel().then(buildSummary).catch(()=>{})
+  // 2) Prime the name font's glyph outlines (non-blocking — failure is ignored), letter glyphs are already
+  //    warm from the first build, then run ONE authoritative full mesh refresh so the counters are correct.
+  .then(()=>loadOT(selNameFont.url).then(o=>{if(o&&o.getPath)texts.forEach(t=>{const s=(t.str||"").trim();if(s){try{o.getPath(s,0,0,t.size||22);}catch(_){}}});},()=>{}))
+  .then(()=>updateTextGeometry()).catch(()=>{});
+// 3) Belt-and-suspenders: once the window + any web fonts are fully ready, queue one final clean pass onto
+//    the same chain (never overlapping the passes above).
+window.addEventListener("load",()=>{initChain=initChain.then(()=>{const go=()=>updateTextGeometry();return (document.fonts&&document.fonts.ready)?document.fonts.ready.then(go,go):go();}).catch(()=>{});});
 
 /* ============================================================================================
    FUTURE UPDATE ARCHIVE: SIGNATURE HOLLOW LETTER LIGHTBOX LOGIC
