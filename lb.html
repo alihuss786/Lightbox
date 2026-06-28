@@ -1002,13 +1002,17 @@ function partTriangles(part){
 // `groups` = [{name, objects:[{name,tris}]}]; ids/faceCount/world positions are stamped back onto each
 // object for buildModelSettingsXML.
 function build3MFModelXML(groups,bedX,bedY){
-  const bx=bedX||256, by=bedY||256, gap=30;
+  const bx=bedX||256, by=bedY||256, gap=15;
+  // Bambu lays its plates out in a GLOBAL grid and decides an object's plate from its build-item position.
+  // So each plate's objects must sit at the CENTRE of that plate's own grid cell (Z=0 = flush on the bed).
+  // Grid reconstructed from the reference HeartDog_split.3mf: 2 columns, gap ~40mm in X and ~64mm in Y (the
+  // Y gap is larger for Bambu's per-plate title strip). Centring on the same bed collapsed everything to
+  // plate 1; flinging them to an arbitrary stride left them floating off-plate — this matches Bambu exactly.
+  const GAPX=40, GAPY=64, COLS=2;
   let res="",items="",k=0;
   groups.forEach((grp,gi)=>{
-    // Every plate's objects are centred on the SAME bed (bed centre), Z=0 so their bottom faces sit flush on
-    // the plate surface. Plate membership is carried by model_settings.config — NOT by a global grid — so we
-    // must NOT fling plates 2..N out to far X positions (that left them floating off their plate in Bambu).
-    const cellX=bx/2, cellY=by/2;
+    const col=gi%COLS, row=Math.floor(gi/COLS);
+    const cellX=col*(bx+GAPX)+bx/2, cellY=-row*(by+GAPY)+by/2;   // centre of plate gi's grid cell
     // first pass: dedupe verts + measure each object's width so we can lay them out in a centred row
     grp.objects.forEach(o=>{const map=new Map(),verts=[];
       const vi=p=>{const key=p.x+","+p.y+","+p.z;let j=map.get(key);if(j===undefined){j=verts.length;verts.push(p);map.set(key,j);}return j;};
@@ -1066,6 +1070,10 @@ function buildProjectSettings(p){const b=bambuPrinterIds(p),code=bambuCode((p&&p
     curr_bed_type:"Textured PEI Plate"
   },null,4);
 }
+// Redundant config-style carrier for the printer identifier (some Bambu importers inspect BBL_Config.config).
+function buildBBLConfig(p){const b=bambuPrinterIds(p);
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <header>\n    <header_item key="X-BBL-Client-Type" value="slicer"/>\n    <header_item key="X-BBL-Client-Version" value="02.07.01.57"/>\n  </header>\n  <printer>\n    <metadata key="printer_settings_id" value="${xmlEsc(b.settingsId)}"/>\n    <metadata key="printer_model" value="${xmlEsc(b.model)}"/>\n    <metadata key="printer_variant" value="${xmlEsc(b.variant)}"/>\n    <metadata key="nozzle_diameter" value="0.4"/>\n  </printer>\n</config>`;
+}
 // ---- minimal store-only ZIP writer (3MF is an OPC zip) with correct CRC-32 ----
 const _crcTab=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
 function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=_crcTab[(c^b[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
@@ -1121,7 +1129,10 @@ async function exportPlates(){
       // project_settings.config makes Bambu OPEN this as a multi-plate PROJECT (reading model_settings.config's
       // <plate> blocks) AND carries the real printer profile (from the UI dropdown) so the machine maps
       // correctly instead of Bambu falling back to the file name.
-      {name:"Metadata/project_settings.config",data:enc.encode(buildProjectSettings(PRINTERS[selPrinter]))}
+      {name:"Metadata/project_settings.config",data:enc.encode(buildProjectSettings(PRINTERS[selPrinter]))},
+      // BBL_Config.config — redundant printer-profile carrier (reads the UI printer dropdown) so the machine
+      // identifier is present in the metadata Bambu inspects on import.
+      {name:"Metadata/BBL_Config.config",data:enc.encode(buildBBLConfig(PRINTERS[selPrinter]))}
     ];
     const zip=zipStore(files);
     const blob=new Blob([zip],{type:"model/3mf"});
