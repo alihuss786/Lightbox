@@ -40,6 +40,10 @@ input,button,select,textarea{font-family:inherit}
 .seg-b{border:none;background:transparent;color:var(--txt2);font-size:12px;font-weight:600;padding:8px 14px;border-radius:9px;cursor:pointer;transition:background .15s,color .15s}
 .lightbtn{width:38px;height:38px;border-radius:11px;border:1px solid var(--line);background:rgba(18,21,27,.82);backdrop-filter:blur(8px);color:#fff;font-size:16px;cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;transition:background .15s,box-shadow .15s}
 .lightbtn.on{background:var(--acc);border-color:var(--acc);box-shadow:0 0 22px -4px rgba(255,138,43,.7)}
+.exportbtn{height:38px;padding:0 14px;border-radius:11px;border:1px solid var(--acc);background:var(--acc);color:#fff;font-size:12px;font-weight:700;cursor:pointer;flex:none;display:flex;align-items:center;gap:6px;box-shadow:0 0 22px -6px rgba(255,138,43,.6);transition:filter .15s}
+.exportbtn:hover{filter:brightness(1.08)}
+.exportbtn:active{transform:translateY(1px)}
+.exportbtn[disabled]{opacity:.5;cursor:default;filter:none}
 .iconbtn{position:absolute;top:14px;right:14px;width:38px;height:38px;border-radius:11px;border:1px solid var(--line);background:rgba(18,21,27,.82);backdrop-filter:blur(8px);color:var(--txt2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;z-index:6}
 .iconbtn:hover{color:var(--txt)}
 .tag{position:absolute;bottom:12px;left:14px;font-size:10px;letter-spacing:.02em;color:var(--txt2);background:rgba(8,9,12,.66);backdrop-filter:blur(6px);padding:5px 11px;border-radius:8px;border:1px solid var(--line)}
@@ -195,6 +199,7 @@ img.pad-img.sel{outline:2px solid var(--mint)}
     <div class="topbar">
       <div class="seg"><button class="seg-b" id="segR" onclick="setMode('render')">Rendering effect</button><button class="seg-b" id="segP" onclick="setMode('plates')">Plates</button></div>
       <button class="lightbtn on" id="lightPill" onclick="toggleLight()">💡</button>
+      <button class="exportbtn" id="exportBtn" onclick="exportPlates()" title="Export every build plate as a Bambu Studio-ready 3D project (one object per plate)">⬇ Export STL</button>
     </div>
     <button class="iconbtn" id="resetBtn" onclick="resetView()">⟲</button>
     <div class="zoomhint" id="zoomhint">drag to orbit · pinch to zoom</div>
@@ -892,7 +897,10 @@ async function buildModel(){
     // seated flat on the lid — there is no free Z axis. The 2D pad clamps to this.
     window.__GB={hx:Math.max(8,LW/2),hy:Math.max(8,LH/2)};
     const partList=[{group:capGroup,name:"Lid · front",flip:true},{group:bodyGroup,name:"Body",flip:false}];
-    nameGroups.forEach((gr,i)=>partList.push({group:gr,name:"Text "+(i+1),flip:false}));
+    // Text layers are physically small — group EVERY text element onto ONE shared text build plate instead
+    // of one plate per layer. The combined group holds each layer at its design position (so the assembled
+    // render is unchanged); on the plate it is auto-packed into a non-overlapping row (see layoutTextPlate).
+    if(nameGroups.length){const textPlate=new THREE.Group();nameGroups.forEach(gr=>textPlate.add(gr));partList.push({group:textPlate,name:(nameGroups.length>1?("Text · "+nameGroups.length+" layers"):"Text"),flip:false,textPlate:true});}
     imgGroups.forEach((gr,i)=>partList.push({group:gr,name:"Image "+(i+1),flip:false}));
     if(stlParts&&stlParts.length){stlParts.forEach(p=>partList.push(p));}
     else{models.forEach((mo,i)=>{if(!mo.obj)return;const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));inst.position.set(+mo.x||0,+mo.y||0,TT);grp.userData={isStl:true,modelId:mo.id};grp.add(inst);partList.push({group:grp,name:"3D "+((mo.name||("model "+(i+1))).slice(0,9)),flip:false,modelId:mo.id});});}
@@ -918,6 +926,7 @@ async function buildModel(){
       baseY=sz.y*0.10;baseDist=Math.max(sz.x,sz.y)*1.5+sz.z*1.1+150;applyZoom();
     } else {
       const idx=Math.min(selPlate,partList.length-1);const part=partList[idx];
+      if(part.textPlate)layoutTextPlate(part.group);   // pack the combined text layers into a tidy row
       part.group.rotation.x=part.flip?Math.PI/2:-Math.PI/2;part.group.updateMatrixWorld(true);
       const b=new THREE.Box3().setFromObject(part.group);
       const bed=PRINTERS[selPrinter];
@@ -941,16 +950,124 @@ function setPrinter(i){selPrinter=i;zoom=1;buildModel();}
 
 function buildSummary(){const nameExt=mmOf("nameExt")||10;let pocket=Math.max(0,Math.min(mmOf("nameDepth")||0,nameExt));const above=Math.round((nameExt-pocket)*10)/10;const liveTexts=texts.filter(t=>(t.str||"").trim());const parts=2+liveTexts.length+images.length+models.length;const bed=PRINTERS[selPrinter];const tnames=liveTexts.map(t=>t.str.trim()).join(", ")||"—";g("summary").innerHTML=`<b>${(v("letter")||"A").toUpperCase()}</b> · ${selFont.name} · overall ${fmt(mmOf("lh"))} tall × ${fmt(mmOf("bd"))} deep<br>Text layers (${liveTexts.length||"none"}): <b>${tnames}</b> · ${fmt(nameExt)} tall, ${fmt(above)} proud<br>Images: ${images.length||"none"} · 3D models: ${models.length||"none"}<br>Printer <b>${bed.n}</b> (${bed.x}×${bed.y} mm bed)<br><b>${parts} separate printable parts</b> — lid prints face-down`;}
 
+/* ---------- Combined text plate: pack each layer into a non-overlapping row on the shared plate ---------- */
+function layoutTextPlate(group){
+  if(!group||group.children.length<2)return;   // a single layer is centred by the normal seat logic
+  group.position.set(0,0,0);group.rotation.set(0,0,0);group.updateMatrixWorld(true);
+  const gap=8;
+  const ms=group.children.map(ch=>{ch.position.set(0,0,0);ch.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(ch);return{ch,cx:(b.min.x+b.max.x)/2,cy:(b.min.y+b.max.y)/2,w:Math.max(1,b.max.x-b.min.x)};});
+  const total=ms.reduce((s,m)=>s+m.w,0)+gap*(ms.length-1);let x=-total/2;
+  ms.forEach(m=>{const target=x+m.w/2;m.ch.position.x+=(target-m.cx);m.ch.position.y+=(0-m.cy);x+=m.w+gap;});
+  group.updateMatrixWorld(true);
+}
+
+/* ============================ Multi-plate export (Bambu Studio-ready 3MF) ============================
+   Every build plate (lid, body, the combined text plate, each catalog model) becomes its OWN named 3MF
+   <object>, placed on its OWN Bambu plate via Metadata/model_settings.config. Opening the file in Bambu
+   Studio shows the parts already segregated onto distinct plates (Plate 1: Lid, Plate 2: Body, Plate 3:
+   Text, …). The geometry is baked in print orientation (Z-up, resting on Z=0). The package is a standard
+   3MF (OPC zip), so it also opens cleanly in PrusaSlicer/Orca/Cura as multiple distinct objects. */
+function xmlEsc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function f3(n){return Math.round(n*1000)/1000;}
+// Bake one plate's meshes into print-oriented triangles: Z up, part centred in XY, bottom resting on Z=0.
+function partTriangles(part){
+  const clone=part.group.clone(true);
+  if(part.textPlate)layoutTextPlate(clone);
+  clone.rotation.x=part.flip?Math.PI/2:-Math.PI/2;clone.position.set(0,0,0);clone.updateMatrixWorld(true);
+  const v=new THREE.Vector3(),tris=[];
+  clone.traverse(o=>{if(!o.isMesh||!o.geometry)return;const ge=o.geometry,pos=ge.attributes&&ge.attributes.position;if(!pos)return;const mw=o.matrixWorld,idx=ge.index;
+    const gv=i=>{v.fromBufferAttribute(pos,i).applyMatrix4(mw);return{x:v.x,y:v.y,z:v.z};};
+    if(idx){for(let i=0;i<idx.count;i+=3)tris.push([gv(idx.getX(i)),gv(idx.getX(i+1)),gv(idx.getX(i+2))]);}
+    else{for(let i=0;i<pos.count;i+=3)tris.push([gv(i),gv(i+1),gv(i+2)]);}});
+  if(!tris.length)return null;
+  let mnx=1/0,mxx=-1/0,mnz=1/0,mxz=-1/0,mny=1/0;
+  tris.forEach(t=>t.forEach(p=>{mnx=Math.min(mnx,p.x);mxx=Math.max(mxx,p.x);mnz=Math.min(mnz,p.z);mxz=Math.max(mxz,p.z);mny=Math.min(mny,p.y);}));
+  const cx=(mnx+mxx)/2,cz=(mnz+mxz)/2;   // map THREE(x,y,z) -> world(X=x-cx, Y=z-cz, Z=y-mny)
+  return tris.map(t=>t.map(p=>({x:f3(p.x-cx),y:f3(p.z-cz),z:f3(p.y-mny)})));
+}
+function build3MFModelXML(plates){
+  let objs="",items="",offX=0;const gap=20;
+  plates.forEach((pl,i)=>{const id=i+1;const map=new Map(),verts=[];
+    const vi=p=>{const k=p.x+","+p.y+","+p.z;let j=map.get(k);if(j===undefined){j=verts.length;verts.push(p);map.set(k,j);}return j;};
+    const idx=pl.tris.map(t=>[vi(t[0]),vi(t[1]),vi(t[2])]);
+    let vx="";verts.forEach(p=>{vx+=`<vertex x="${p.x}" y="${p.y}" z="${p.z}"/>`;});
+    let tx="";idx.forEach(t=>{tx+=`<triangle v1="${t[0]}" v2="${t[1]}" v3="${t[2]}"/>`;});
+    objs+=`<object id="${id}" type="model" name="${xmlEsc(pl.name)}"><mesh><vertices>${vx}</vertices><triangles>${tx}</triangles></mesh></object>`;
+    let mnx=1/0,mxx=-1/0;verts.forEach(p=>{mnx=Math.min(mnx,p.x);mxx=Math.max(mxx,p.x);});const w=isFinite(mnx)?(mxx-mnx):0;
+    const tX=f3(offX-(isFinite(mnx)?mnx:0));
+    items+=`<item objectid="${id}" transform="1 0 0 0 1 0 0 0 1 ${tX} 0 0"/>`;offX+=w+gap;});
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><metadata name="Application">Lightbox Designer</metadata><resources>${objs}</resources><build>${items}</build></model>`;
+}
+function buildModelSettingsXML(plates){
+  let s=`<?xml version="1.0" encoding="UTF-8"?>\n<config>`;
+  plates.forEach((pl,i)=>{const id=i+1;s+=`<object id="${id}"><metadata key="name" value="${xmlEsc(pl.name)}"/></object>`;});
+  plates.forEach((pl,i)=>{const id=i+1;s+=`<plate><metadata key="plater_id" value="${id}"/><metadata key="plater_name" value="${xmlEsc(pl.name)}"/><model_instance><metadata key="object_id" value="${id}"/><metadata key="instance_id" value="0"/></model_instance></plate>`;});
+  return s+`</config>`;
+}
+// ---- minimal store-only ZIP writer (3MF is an OPC zip) with correct CRC-32 ----
+const _crcTab=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=_crcTab[(c^b[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zipStore(files){
+  const enc=new TextEncoder();const u16=n=>[n&255,(n>>>8)&255],u32=n=>[n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255];
+  const parts=[],cen=[];let off=0;
+  files.forEach(f=>{const nm=enc.encode(f.name),data=f.data,crc=crc32(data);
+    const lh=new Uint8Array([].concat(u32(0x04034b50),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(nm.length),u16(0)));
+    parts.push(lh,nm,data);
+    cen.push(new Uint8Array([].concat(u32(0x02014b50),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(nm.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(off))),nm);
+    off+=lh.length+nm.length+data.length;});
+  let cenSize=0;cen.forEach(c=>cenSize+=c.length);
+  const end=new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cenSize),u32(off),u16(0)));
+  const all=parts.concat(cen,[end]);let len=0;all.forEach(a=>len+=a.length);
+  const out=new Uint8Array(len);let p=0;all.forEach(a=>{out.set(a,p);p+=a.length;});return out;
+}
+function exportPlates(){
+  const btn=g("exportBtn");
+  try{
+    if(!PLATES||!PLATES.length){alert("Nothing to export yet — design a lightbox first.");return;}
+    const plates=[];
+    PLATES.forEach((part,i)=>{const tris=partTriangles(part);if(!tris||!tris.length)return;
+      const clean=(part.name||("part "+(i+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
+      plates.push({name:"Plate "+(plates.length+1)+" - "+clean,tris});});
+    if(!plates.length){alert("No printable geometry found to export.");return;}
+    const enc=new TextEncoder();
+    const files=[
+      {name:"[Content_Types].xml",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Override PartName="/Metadata/model_settings.config" ContentType="text/xml"/></Types>`)},
+      {name:"_rels/.rels",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rel0" Target="/3D/3dmodel.model" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>`)},
+      {name:"3D/3dmodel.model",data:enc.encode(build3MFModelXML(plates))},
+      {name:"Metadata/model_settings.config",data:enc.encode(buildModelSettingsXML(plates))}
+    ];
+    const zip=zipStore(files);
+    const blob=new Blob([zip],{type:"model/3mf"});
+    const letter=(v("letter")||"A").toUpperCase()[0];
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`lightbox_${letter}_${plates.length}plates.3mf`;
+    document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},800);
+    if(btn){const o=btn.textContent;btn.textContent="✓ Exported "+plates.length+" plates";setTimeout(()=>{btn.textContent=o;},1800);}
+  }catch(e){console.error(e);alert("Export failed: "+(e&&e.message||e));}
+}
+
 paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();
-// First paint.
-buildModel().then(buildSummary);
-// PART 1 — guarantee the default centred text renders its letter counters (e.g. the hollow inside
-// of "A") correctly on FIRST load, with no manual nudge. At the very end of init, on window load,
-// we wait for the cursive font + Clipper to be fully ready and then EXPLICITLY re-run the whole text
-// mesh-generation / path-extrusion / geometry-refresh pipeline (buildModel), and once more on the next
-// animation frame so the corrected geometry is committed before the user ever interacts.
-function forceTextGeometryRefresh(){return loadOT(selNameFont.url).catch(()=>{}).finally(()=>{return buildModel().then(buildSummary).then(()=>{requestAnimationFrame(()=>{buildModel().then(buildSummary);});});});}
-window.addEventListener("load",()=>{if(document.fonts&&document.fonts.ready){document.fonts.ready.then(forceTextGeometryRefresh,forceTextGeometryRefresh);}else{forceTextGeometryRefresh();}});
+// ---------- PART 1: deterministic first-load letter/text geometry (no nudge required) ----------
+// The capital-letter counter (the 'A' triangle) and every cursive-name counter must already be hollow on
+// the FIRST paint. Root cause: the very first font.generateShapes()/opentype.getPath() pass can return a
+// glyph whose interior counter contours are not yet cached, so the hole→path Boolean routing is skipped on
+// that single pass (it only self-corrects after an interaction triggers a rebuild). Fix: PRIME the fonts
+// (one throwaway shape-generation pass) BEFORE the first visible build so that build is already the
+// corrected "second" pass, then run the full mesh-generation / path-Boolean pipeline and force an explicit
+// geometry + normal recompute so the hollow counters are committed to the canvas with zero interaction.
+function recomputeAllGeometry(){if(!pivot)return;pivot.traverse(o=>{if(o.isMesh&&o.geometry){try{o.geometry.computeVertexNormals();o.geometry.computeBoundingSphere();if(o.geometry.attributes&&o.geometry.attributes.position)o.geometry.attributes.position.needsUpdate=true;}catch(_){}}});pivot.updateMatrixWorld(true);}
+async function primeFonts(){
+  try{const f=await loadFont(selFont.url);if(f&&f.generateShapes){const L=(v("letter")||"A").toUpperCase()[0];f.generateShapes(L,140);}}catch(_){}
+  try{const o=await loadOT(selNameFont.url);if(o&&o.getPath){texts.forEach(t=>{const s=(t.str||"").trim();if(s)o.getPath(s,0,0,t.size||22);});}}catch(_){}
+}
+async function initApp(){
+  await primeFonts();
+  await buildModel();buildSummary();
+  // fully-primed second pass + explicit geometry/normal recompute → counters render correctly on first paint
+  await buildModel();buildSummary();recomputeAllGeometry();
+}
+initApp();
+// Belt-and-suspenders: once the window and any web fonts are fully ready, run one final clean pass.
+window.addEventListener("load",()=>{const go=()=>buildModel().then(()=>{buildSummary();recomputeAllGeometry();});if(document.fonts&&document.fonts.ready){document.fonts.ready.then(go,go);}else{go();}});
 
 /* ============================================================================================
    FUTURE UPDATE ARCHIVE: SIGNATURE HOLLOW LETTER LIGHTBOX LOGIC
