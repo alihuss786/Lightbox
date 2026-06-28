@@ -88,6 +88,8 @@ input[type=text]:focus,input[type=number]:focus{border-color:var(--acc);box-shad
 .numbox.wide{width:96px}.numbox.wide input{width:60px}
 .useg{display:flex;gap:3px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px}
 .uchip{border:none;background:transparent;color:var(--txt2);font-size:12px;font-weight:700;padding:6px 13px;border-radius:7px;cursor:pointer}
+.uchip.sel{background:var(--acc);color:#11140f}
+.lbtype{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 15px;margin-bottom:14px;box-shadow:var(--shadow)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
 
@@ -192,6 +194,14 @@ img.pad-img.sel{outline:2px solid var(--mint)}
 </div>
 
 <div class="controls">
+  <div class="lbtype">
+    <div class="sub" style="margin:0 2px 8px">Lightbox type</div>
+    <div class="useg" style="width:100%">
+      <button class="uchip lbt sel" id="lbtStd" onclick="setLbType('standard')" style="flex:1">Standard Box</button>
+      <button class="uchip lbt" id="lbtSig" onclick="setLbType('signature')" style="flex:1">Signature Outline</button>
+    </div>
+    <div class="hint" style="margin-top:7px">Standard = solid letter box. Signature = the same capital letter as a bold hollow outline (channel-letter), with your name spanning the front.</div>
+  </div>
   <div class="acc">
     <div class="acc-h" onclick="accT(this)">Colour <i class="chev">⌄</i></div>
     <div class="acc-b">
@@ -322,6 +332,8 @@ const ut=document.createElement("div");ut.className="srow";ut.style.cssText="jus
 DIMS.forEach(d=>{const row=document.createElement("div");row.className="row";row.innerHTML=`<span class="lbl">${d.l}</span><div class="srow"><input type="range" id="${d.id}R" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><div class="numbox wide"><input type="number" id="${d.id}" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><span class="u">mm</span></div></div>`;dr.appendChild(row);const R=g(d.id+"R"),N=g(d.id);R.oninput=()=>{N.value=UNIT==="cm"?tidy(R.value/10):R.value;rebuild();};N.oninput=()=>{R.value=UNIT==="cm"?Math.round(N.value*10):N.value;rebuild();};});
 
 let images=[],selImg=-1,models=[],selModel=-1,uid=1,t1=null,mode="render",lightOn=true,diffOn=false,selPlate=0,DIM=null;
+let lbType="standard";   // "standard" = solid letter box · "signature" = bold hollow letter outline (channel-letter)
+function setLbType(t){lbType=(t==="signature")?"signature":"standard";const a=g("lbtStd"),b=g("lbtSig");if(a)a.classList.toggle("sel",lbType==="standard");if(b)b.classList.toggle("sel",lbType==="signature");rebuild();}
 const COLORS={front:"#E2663B",name:"#FFFFFF",image:"#FFFFFF",model:"#E8C99B",body:"#C9542C"};
 const MATS={};let glowFace=null,glowSpot=null,floorPlane=null;
 function scheduleBuild(){clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},100);}
@@ -771,17 +783,33 @@ async function buildModel(){
 
   let LW=lh*0.7,LH=lh;
   try{
-    const font=await loadFont(selFont.url);let cx=0,cy=0,filled=null,glyphSize=lh;
+    const font=await loadFont(selFont.url);let cx=0,cy=0,filled=null,bodyFilled=null,glyphSize=lh;
     if(hasClip){
       const f0=unionFilled(glyphSubj(font,letter,lh));const c0=pathsCenter(f0);const ex0=pathsExtent(f0,c0.x,c0.y);
       if(ex0.H>1){const k=ex0.H/lh;glyphSize=Math.max(8,lh-capMargin)/k;}
       filled=unionFilled(glyphSubj(font,letter,glyphSize));const c=pathsCenter(filled);cx=c.x;cy=c.y;const ex=pathsExtent(filled,cx,cy);LW=ex.W;LH=ex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
+      // Body/lid silhouette. Standard = the solid filled letter. Signature = a bold OUTLINE rim only: the
+      // letter minus an inset copy, so the box becomes a hollow channel-letter with an open interior. Name,
+      // images, models and the translation bounds still use the FULL letter (cx,cy,LW,LH) so they span it.
+      bodyFilled=filled;
+      if(lbType==="signature"){
+        // Bold outline rim = letter minus an inset copy. Shrink the outline width adaptively so even thin
+        // strokes keep a real hollow interior (a too-wide inset collapses the inner cut and would leave the
+        // letter solid).
+        let oW=Math.max(5,lh*0.06),rim=null;
+        for(let tries=0;tries<5&&!(rim&&rim.length);tries++){
+          const innerCut=off(filled,-oW);
+          if(innerCut&&innerCut.length){const r=diff(filled,innerCut);if(r&&r.length)rim=r;}
+          if(!(rim&&rim.length))oW*=0.6;
+        }
+        if(rim&&rim.length)bodyFilled=rim;
+      }
     } else {glyphSize=Math.max(8,lh-capMargin);const tg=new THREE.TextGeometry(letter,{font,size:glyphSize,height:1});tg.computeBoundingBox();cx=(tg.boundingBox.max.x+tg.boundingBox.min.x)/2;cy=(tg.boundingBox.max.y+tg.boundingBox.min.y)/2;}
 
     const bodyGroup=new THREE.Group();let builtHollow=false;
     if(hasClip&&filled){try{
-      const inner=off(filled,-wall);const ring=(inner&&inner.length)?diff(filled,inner):filled;
-      const ringShapes=shapesFromPaths(ring),backShapes=shapesFromPaths(filled);
+      const inner=off(bodyFilled,-wall);const ring=(inner&&inner.length)?diff(bodyFilled,inner):bodyFilled;
+      const ringShapes=shapesFromPaths(ring),backShapes=shapesFromPaths(bodyFilled);
       if(ringShapes.length&&backShapes.length){
         const wG=new THREE.ExtrudeGeometry(ringShapes,{depth,bevelEnabled:false,curveSegments:6});const bG=new THREE.ExtrudeGeometry(backShapes,{depth:wall,bevelEnabled:false,curveSegments:6});wG.translate(-cx,-cy,0);bG.translate(-cx,-cy,0);
         const walls=new THREE.Mesh(wG,MATS.body);walls.position.z=-depth;bodyGroup.add(walls);
@@ -789,11 +817,21 @@ async function buildModel(){
     }catch(e){}}
     if(!builtHollow){const geo=new THREE.TextGeometry(letter,{font,size:glyphSize,height:depth,curveSegments:8,bevelEnabled:false});geo.computeBoundingBox();const bb=geo.boundingBox;geo.translate(-(bb.max.x+bb.min.x)/2,-(bb.max.y+bb.min.y)/2,0);const body=new THREE.Mesh(geo,MATS.body);body.position.z=-depth;bodyGroup.add(body);}
 
-    if(mode==="render"){const fGeo=new THREE.TextGeometry(letter,{font,size:glyphSize*0.96,height:0.6,curveSegments:6,bevelEnabled:false});fGeo.computeBoundingBox();const fb=fGeo.boundingBox;fGeo.translate(-(fb.max.x+fb.min.x)/2,-(fb.max.y+fb.min.y)/2,0);glowFace=new THREE.Mesh(fGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.92}));glowFace.position.z=-1.2;glowFace.castShadow=false;bodyGroup.add(glowFace);}
+    if(mode==="render"){let fGeo;
+      if(lbType==="signature"){
+        // Signature: the glow follows the OUTLINE rim only, leaving the interior open (neon-outline look).
+        fGeo=new THREE.ExtrudeGeometry(shapesFromPaths(bodyFilled),{depth:0.6,bevelEnabled:false,curveSegments:6});fGeo.translate(-cx,-cy,0);
+      } else {
+        fGeo=new THREE.TextGeometry(letter,{font,size:glyphSize*0.96,height:0.6,curveSegments:6,bevelEnabled:false});fGeo.computeBoundingBox();const fb=fGeo.boundingBox;fGeo.translate(-(fb.max.x+fb.min.x)/2,-(fb.max.y+fb.min.y)/2,0);
+      }
+      glowFace=new THREE.Mesh(fGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.92}));glowFace.position.z=-1.2;glowFace.castShadow=false;bodyGroup.add(glowFace);}
 
     const capGroup=new THREE.Group();let nameGroup=null;const imgGroups=[];let stlParts=[];
     if(hasClip&&filled){try{
-      const A=off(filled,clearance),B=off(filled,clearance+capW);const band=diff(B,A);
+      const A=off(bodyFilled,clearance),B=off(bodyFilled,clearance+capW);const band=diff(B,A);
+      // Standard: the lid cap overhangs the body slightly (B). Signature: the lid IS the rim, so the hollow
+      // interior of the outline is preserved on the front face instead of being filled in by the cap lip.
+      const lidRegion=(lbType==="signature")?bodyFilled:B;
       const sG=new THREE.ExtrudeGeometry(shapesFromPaths(band),{depth:skirtD,bevelEnabled:false,curveSegments:6});sG.translate(-cx,-cy,0);const skirt=new THREE.Mesh(sG,skirtMat);skirt.position.z=-skirtD;capGroup.add(skirt);
       // ---- Gather pocket features. Name + images share the name pocket depth; each STL gets its own. ----
       const inlays=[];                 // solids that fill name/image pockets and stand proud
@@ -828,7 +866,7 @@ async function buildModel(){
       });
 
       // ---- Stacked-slab lid: solid floor + carved top layers (true inset pockets, never through-holes) ----
-      buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN).forEach(s=>{const m=new THREE.Mesh(s.geo,topMat);m.position.z=s.z;capGroup.add(m);});
+      buildLidSlabs(lidRegion,cx,cy,slabFeatures,TT,FLOOR_MIN).forEach(s=>{const m=new THREE.Mesh(s.geo,topMat);m.position.z=s.z;capGroup.add(m);});
 
       // ---- Drop the name/image inlay solids into their pockets (they stand proud by nameExt) ----
       // Build the inlay solids via the PolyTree converter so internal letter counters (the 'A' triangle,
