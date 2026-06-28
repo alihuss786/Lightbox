@@ -254,7 +254,7 @@ img.pad-img.sel{outline:2px solid var(--mint)}
           <div class="pad" id="pad_stl"><svg class="pad-svg" id="padSvg_stl"></svg><div class="pad-cross h"></div><div class="pad-cross v"></div><div class="pad-layer" id="stlLayer"></div></div>
           <div class="padhint">Drag to slide the model across the lid</div>
         </div>
-        <div class="hint">Each catalog model rests with its flat base sitting flush on the lid top surface. Only the exact footprint where that base touches the lid is carved as a clean <b>3.0&nbsp;mm</b> inset pocket, and a solid floor is always kept beneath so it never breaks through. Each model prints as its own part.</div>
+        <div class="hint">Each catalog model rests with its flat base sitting flush on top of the solid lid surface — the lid is left completely uncut, so you can place the printed model anywhere you like. Each model prints as its own part.</div>
       </div>
     </div>
   </div>
@@ -408,7 +408,6 @@ function syncSize(){const s=g("imgSize");if(s&&selImg>=0&&images[selImg])s.value
 function onImgSize(){if(selImg<0)return;const im=images[selImg];im.size=mmOf("imgSize")||60;im.key="";im.contours=null;drawPad();scheduleBuild();}
 
 /* ---------- Model catalog (baked-in local STL models) ---------- */
-const MODEL_POCKET=3.0;                       // fixed 3.0 mm inset pocket for every catalog model
 // Each entry's `path` is served from the ./stls/ folder that ships alongside this page (same origin),
 // so a catalog pick loads straight from your own domain. Display name = filename without ".stl".
 const STL_CATALOG=[
@@ -434,7 +433,7 @@ function loadGeometry(path){
   if(!THREE.STLLoader)return Promise.reject(new Error("STL loader unavailable"));
   const p=new Promise((res,rej)=>{
     new THREE.STLLoader().load(path,geo=>{
-      try{geo.computeVertexNormals();geo.computeBoundingBox();try{geoFootLocal(geo);}catch(_){}STL_CACHE[path]=geo;delete STL_PENDING[path];res(geo);}
+      try{geo.computeVertexNormals();geo.computeBoundingBox();STL_CACHE[path]=geo;delete STL_PENDING[path];res(geo);}
       catch(e){delete STL_PENDING[path];rej(e);}
     },undefined,err=>{delete STL_PENDING[path];rej(err||new Error("load failed"));});
   });
@@ -592,88 +591,18 @@ function imageContours(img,targetMm){const iw=img.naturalWidth||img.width||300,i
 /* ---------- STL inlay engine: flat seat + footprint pocket ---------- */
 function deg(d){return (+d||0)*Math.PI/180;}
 // ---- Flat catalog placement ----
-// Minimum solid floor of lid material that must remain beneath any pocket, so no feature
-// (name / image / model) can ever cut a hole clean through the lid.
+// Minimum solid floor of lid material that must remain beneath any NAME/IMAGE pocket, so those features
+// can never cut a hole clean through the lid. (Catalog STL models no longer carve the lid at all.)
 const FLOOR_MIN=0.8;
-// A catalog model is laid PERFECTLY FLAT on the lid top surface (z = TT) — no free-axis movement, no
-// intersection clipping. It carries only an in-plane rotation and a uniform scale. We sit its base on the
-// lid surface, then project its bottom silhouette to carve a clean fixed-depth (3.0 mm) inset pocket so it
-// keys into the lid exactly like the name/image inlays. A solid floor (>= FLOOR_MIN) is always kept beneath.
-// Cached on the model so dragging it around the lid reuses the geometry instead of recomputing.
+// A catalog model is laid PERFECTLY FLAT on the solid lid top surface (z = TT) — in-plane rotation and a
+// uniform scale only, base snapped onto the surface. The result is cached on the model so dragging it
+// around the lid reuses the geometry instead of recomputing.
 function flatKey(mo,TT){
   return (mo.size||40)+"|"+(mo.rz||0)+"|"+(+TT).toFixed(3);
 }
-// Precompute — once per geometry, cached on it — the triangles lying in the model's flat base plane,
-// in the geometry's own local coordinates. The base is planar, so this is a single cheap pass over the
-// position buffer. However dense the mesh (these run to ~600k triangles), the pocket footprint is then
-// derived from just these few base triangles instead of rasterising the whole-object silhouette — that
-// full-silhouette raster was the multi-second main-thread stall on selection.
-function geoBaseTris(geo){
-  if(geo.__baseTris)return geo.__baseTris;
-  if(!geo.boundingBox)geo.computeBoundingBox();
-  const pos=geo.attributes.position,idx=geo.index;
-  const minZ=geo.boundingBox.min.z,maxZ=geo.boundingBox.max.z;
-  const lim=minZ+Math.max(1e-4,(maxZ-minZ)*0.01),out=[];
-  const add=i=>{out.push(pos.getX(i),pos.getY(i),pos.getZ(i));};
-  const tri=(a,b,c)=>{if(pos.getZ(a)<=lim&&pos.getZ(b)<=lim&&pos.getZ(c)<=lim){add(a);add(b);add(c);}};
-  if(idx){const ia=idx.array;for(let t=0;t<ia.length;t+=3)tri(ia[t],ia[t+1],ia[t+2]);}
-  else{for(let t=0;t<pos.count;t+=3)tri(t,t+1,t+2);}
-  geo.__baseTris=out;return out;
-}
-// The flat base, projected to the lid plane, is one solid silhouette. Its outline is exactly the set of
-// triangle edges that belong to a single base triangle (shared interior edges cancel). We weld the
-// projected vertices, cancel interior edges and chain the surviving boundary edges into closed loops —
-// an O(triangles) pass that yields the TRUE crisp outline (and any interior holes) with no raster
-// staircase. unionFilled then merges/normalises those few boundary loops, exactly like the Name pocket.
-// Computed once per geometry in its own local XY and cached, so placement only transforms the result.
-function geoFootLocal(geo){
-  if(geo.__footLocal!==undefined)return geo.__footLocal;
-  const base=geoBaseTris(geo);
-  if(!base.length){geo.__footLocal=null;return null;}
-  const idOf=new Map(),vx=[],vy=[];
-  const vid=(x,y)=>{const X=Math.round(x*S),Y=Math.round(y*S),k=X+","+Y;let id=idOf.get(k);if(id===undefined){id=vx.length;vx.push(X);vy.push(Y);idOf.set(k,id);}return id;};
-  const ec=new Map();
-  const bump=(a,b)=>{const rk=b+">"+a,r=ec.get(rk)||0;if(r>0){r===1?ec.delete(rk):ec.set(rk,r-1);}else{const fk=a+">"+b;ec.set(fk,(ec.get(fk)||0)+1);}};
-  for(let i=0;i<base.length;i+=9){
-    const a=vid(base[i],base[i+1]),b=vid(base[i+3],base[i+4]),c=vid(base[i+6],base[i+7]);
-    if(a===b||b===c||c===a)continue;
-    const cross=(vx[b]-vx[a])*(vy[c]-vy[a])-(vx[c]-vx[a])*(vy[b]-vy[a]);
-    if(cross>0){bump(a,b);bump(b,c);bump(c,a);}else if(cross<0){bump(a,c);bump(c,b);bump(b,a);}
-  }
-  const adj=new Map();
-  ec.forEach((cnt,k)=>{const gt=k.indexOf(">"),a=+k.slice(0,gt),b=+k.slice(gt+1);let arr=adj.get(a);if(!arr){arr=[];adj.set(a,arr);}for(let n=0;n<cnt;n++)arr.push(b);});
-  const paths=[];
-  adj.forEach((arr,start)=>{
-    while(arr.length){
-      let cur=arr.pop();const loop=[{X:vx[start],Y:vy[start]}];let guard=0,ok=false;
-      while(guard++<2000000){
-        if(cur===start){ok=true;break;}
-        loop.push({X:vx[cur],Y:vy[cur]});
-        const nx=adj.get(cur);if(!nx||!nx.length)break;cur=nx.pop();
-      }
-      if(ok&&loop.length>=3)paths.push(loop);
-    }
-  });
-  let f=paths.length?unionFilled(paths):null;
-  if(!f||!f.length){            // fallback: robust (slower) direct union of every base triangle
-    const subj=[];
-    for(let i=0;i<base.length;i+=9){
-      const a={X:Math.round(base[i]*S),Y:Math.round(base[i+1]*S)},b={X:Math.round(base[i+3]*S),Y:Math.round(base[i+4]*S)},c={X:Math.round(base[i+6]*S),Y:Math.round(base[i+7]*S)};
-      const cr=(b.X-a.X)*(c.Y-a.Y)-(c.X-a.X)*(b.Y-a.Y);if(cr===0)continue;subj.push(cr>0?[a,b,c]:[a,c,b]);
-    }
-    f=subj.length?unionFilled(subj):null;
-  }
-  geo.__footLocal=(f&&f.length)?f:null;
-  return geo.__footLocal;
-}
-// Place the cached local footprint into the model's frame. A uniform scale + in-plane (Z) rotation +
-// translation leave the polygon planar, so transforming its 2D points by the mesh world matrix (z=0)
-// gives the exact contact outline where the base meets the lid.
-function baseFootprint(mesh){
-  const local=geoFootLocal(mesh.geometry);if(!local)return null;
-  const m=mesh.matrixWorld,v=new THREE.Vector3();
-  return local.map(p=>p.map(pt=>{v.set(pt.X/S,pt.Y/S,0).applyMatrix4(m);return {X:Math.round(v.x*S),Y:Math.round(v.y*S)};}));
-}
+// Catalog models sit flush ON TOP of the solid lid — they no longer carve a pocket, so there is no
+// footprint projection or subtraction here. We only scale, rotate in-plane and snap the absolute bottom
+// boundary (Box3.min.z) exactly onto the lid top surface (z = TT): never sinking in, never floating.
 function computeFlat(mo,TT){
   const inst=mo.obj.clone(true);
   inst.scale.setScalar((+mo.size||40)/Math.max(1e-6,mo.maxd));
@@ -681,14 +610,8 @@ function computeFlat(mo,TT){
   inst.updateMatrixWorld(true);
   let box=new THREE.Box3().setFromObject(inst);if(!isFinite(box.min.x))return {empty:true};
   const cxm=(box.min.x+box.max.x)/2,cym=(box.min.y+box.max.y)/2;
-  const pocketDepth=Math.max(0,Math.min(MODEL_POCKET,TT-FLOOR_MIN));   // fixed 3.0 mm inset pocket
-  // Centre in XY and seat the flat base flush on the lid top (z = TT). The model is used exactly as-is —
-  // a solid, untouched mesh with no added base layer; only the lid is carved.
   inst.position.x-=cxm;inst.position.y-=cym;inst.position.z+=(TT-box.min.z);inst.updateMatrixWorld(true);
-  // Footprint = the exact flat-base outline, projected straight down to carve the lid pocket.
-  let footprint=null;
-  try{let mesh=null;inst.traverse(o=>{if(o.isMesh&&!mesh)mesh=o;});if(mesh&&mesh.geometry)footprint=baseFootprint(mesh);}catch(e){}
-  return {inst,footprint,pocketDepth};
+  return {inst};
 }
 function buildFlatModelGroup(mo,TT){
   if(!mo.obj)return null;
@@ -700,7 +623,7 @@ function buildFlatModelGroup(mo,TT){
   const inst=c.inst.clone(true);
   inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});
   grp.add(inst);   // the raw STL, exactly as modelled — no pedestal, skirt or added thickness
-  return {group:grp,footprint:c.footprint,pocketDepth:c.pocketDepth,modelId:mo.id};
+  return {group:grp,modelId:mo.id};
 }
 // ---- Stacked-slab lid builder: true inset pockets that always keep a solid floor underneath ----
 // B is the full lid region (clipper paths). features = [{p:paths, depth}] — each carves a pocket of its
@@ -885,7 +808,8 @@ async function buildModel(){
       if(name){let nf=null;try{const otf=await loadOT(selNameFont.url);nf=unionFilled(nameSubjOT(otf,name,nameSize));}catch(_){nf=unionFilled(glyphSubj(font,name.toUpperCase(),nameSize));}const nc=pathsCenter(nf);const ns=translatePaths(nf,(cx+(+v("nameX")||0))-nc.x,(cy+(+v("nameY")||0))-nc.y);inlays.push({p:ns,mat:MATS.name,kind:"name",depth:pocket});if(pocket>0.01)slabFeatures.push({p:ns,depth:pocket});}
       images.forEach((im)=>{if(!im.img)return;const key=im.src+"@"+im.size;if(!im.contours||im.key!==key){im.contours=imageContours(im.img,im.size);im.key=key;}if(im.contours&&im.contours.length){let f=unionEO(im.contours);f=rotatePaths(f,im.rot);const is=translatePaths(f,cx+im.x,cy+im.y);inlays.push({p:is,mat:MATS.image,kind:"img",depth:pocket});if(pocket>0.01)slabFeatures.push({p:is,depth:pocket});}});
 
-      // ---- Catalog models: flat on the lid, bottom silhouette carves a fixed 3.0 mm inset pocket ----
+      // ---- Catalog models: sit flush ON TOP of the solid lid. They do NOT carve the lid — no pocket,
+      // no footprint projection, no subtraction. The lid top stays 100% solid and continuous. ----
       stlParts=[];
       models.forEach((mo)=>{
         if(!mo.obj)return;
@@ -893,8 +817,6 @@ async function buildModel(){
         try{
           const rcm=buildFlatModelGroup(mo,TT);
           if(rcm&&!rcm.empty&&rcm.group){
-            const pd=(rcm.pocketDepth==null?MODEL_POCKET:rcm.pocketDepth);
-            if(rcm.footprint&&rcm.footprint.length&&pd>0.01){const fpG=translatePaths(rcm.footprint,cx+(+mo.x||0),cy+(+mo.y||0));slabFeatures.push({p:fpG,depth:pd});}
             rcm.group.position.set(+mo.x||0,+mo.y||0,0);
             rcm.group.userData={isStl:true,modelId:mo.id};
             part={group:rcm.group,name:"3D "+((mo.name||"model").slice(0,9)),flip:false,modelId:mo.id};
