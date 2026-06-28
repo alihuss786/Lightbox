@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Dancing+Script&family=Pacifico&family=Lobster&family=Fredoka:wght@600&family=Alkatra:wght@500&family=Ole&family=Sacramento&family=Allura&family=Satisfy&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Dancing+Script&family=Pacifico&family=Fredoka:wght@600&family=Sacramento&family=Allura&family=Satisfy&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -135,6 +135,15 @@ details.precise>*:not(summary){padding:0 12px 12px}
 .tlayer .tlsz{font-size:11px;color:var(--txt3);min-width:42px;text-align:right;font-variant-numeric:tabular-nums}
 .addtext{width:100%;padding:11px;border:1.5px dashed var(--line2);border-radius:10px;background:transparent;color:var(--txt2);font-weight:600;font-size:13px;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
 .addtext:hover{border-color:var(--acc);color:var(--acc);background:rgba(255,138,43,.05)}
+.upfont{width:100%;padding:10px;border:1.5px solid var(--line2);border-radius:10px;background:rgba(255,138,43,.06);color:var(--txt2);font-weight:600;font-size:12.5px;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
+.upfont:hover{border-color:var(--acc);color:var(--acc);background:rgba(255,138,43,.12)}
+.nbtn{position:relative}
+.nbtn-x{position:absolute;top:2px;right:2px;width:16px;height:16px;line-height:14px;text-align:center;border:none;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:12px;cursor:pointer;padding:0}
+.nbtn-x:hover{background:#e23b3b}
+.fontwait{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:60;display:none;align-items:center;gap:10px;background:rgba(18,21,27,.93);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;padding:10px 16px;color:#fff;font-size:13px;font-weight:600;box-shadow:0 10px 34px rgba(0,0,0,.55)}
+.fontwait.show{display:flex}
+.fwspin{width:16px;height:16px;border:2px solid rgba(255,255,255,.22);border-top-color:var(--acc);border-radius:50%;animation:fwspin .7s linear infinite;flex:none}
+@keyframes fwspin{to{transform:rotate(360deg)}}
 .tchip{position:absolute;transform:translate(-50%,-50%);padding:3px 9px;border-radius:7px;font-size:15px;white-space:nowrap;cursor:grab;box-shadow:0 2px 8px rgba(0,0,0,.5);user-select:none;z-index:2;color:#11140f;background:var(--acc);border:2px solid transparent}
 .tchip.sel{border-color:#fff;box-shadow:0 0 0 2px var(--acc),0 2px 8px rgba(0,0,0,.5)}
 .pad-layer{position:absolute;inset:0;pointer-events:none}
@@ -211,6 +220,8 @@ img.pad-img.sel{outline:2px solid var(--mint)}
   </div>
 </div>
 
+<div class="fontwait" id="fontWait"><div class="fwspin"></div><span id="fontWaitMsg">Parsing font…</span></div>
+
 <div class="controls">
   <div class="acc">
     <div class="acc-h" onclick="accT(this)">Colour <i class="chev">⌄</i></div>
@@ -232,6 +243,8 @@ img.pad-img.sel{outline:2px solid var(--mint)}
       <div class="row"><span class="lbl">Capital letter</span><input type="text" class="letter-big" id="letter" maxlength="1" value="A" oninput="this.value=this.value.toUpperCase();rebuild()"></div>
       <div class="row"><span class="lbl">Letter font</span><div class="grid3" id="font-grid"></div></div>
       <div class="row"><span class="lbl">Cursive font (all text layers)</span><div class="grid3" id="name-grid"></div></div>
+      <button class="upfont" id="upFontBtn" onclick="g('fontFile').click()">⬆ Upload Custom Font (.ttf / .otf)</button>
+      <input type="file" id="fontFile" accept=".ttf,.otf,font/ttf,font/otf,application/font-sfnt" style="display:none" onchange="onFontUpload(this)">
       <div class="sub" style="margin-top:4px">Text layers</div>
       <div id="textList" style="display:flex;flex-direction:column;gap:11px"></div>
       <button class="addtext" onclick="addText()">＋ Add New Text</button>
@@ -319,13 +332,10 @@ const FB="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/fonts/";
 const FONTS=[{name:"Sans",url:FB+"helvetiker_bold.typeface.json",css:"Arial Black,sans-serif"},{name:"Serif",url:FB+"optimer_bold.typeface.json",css:"Georgia,serif"},{name:"Soft",url:FB+"gentilis_bold.typeface.json",css:"Trebuchet MS,sans-serif"}];
 const EX="https://cdn.jsdelivr.net/npm/@expo-google-fonts/";
 const NAME_FONTS=[
-  // Thicker, 3D-print-friendly scripts first (heavier strokes slice cleanly and resist snapping).
+  // Thick, clean, 3D-print-friendly scripts (heavier strokes slice cleanly and resist snapping).
   {name:"Pacifico",url:EX+"pacifico/Pacifico_400Regular.ttf",css:"'Pacifico',cursive"},
-  {name:"Lobster",url:EX+"lobster/Lobster_400Regular.ttf",css:"'Lobster',cursive"},
   {name:"Fredoka One",url:EX+"fredoka-one/FredokaOne_400Regular.ttf",css:"'Fredoka',cursive"},
-  {name:"Alkatra",url:EX+"alkatra/Alkatra_400Regular.ttf",css:"'Alkatra',cursive"},
-  {name:"Ole",url:EX+"ole/Ole_400Regular.ttf",css:"'Ole',cursive"},
-  // Original thinner scripts (still available; pair them with the new Line Thickness slider).
+  // Classic thinner scripts (pair them with the Line Thickness slider to make them printable).
   {name:"Great Vibes",url:EX+"great-vibes/GreatVibes_400Regular.ttf",css:"'Great Vibes',cursive"},
   {name:"Dancing Script",url:EX+"dancing-script/DancingScript_400Regular.ttf",css:"'Dancing Script',cursive"},
   {name:"Sacramento",url:EX+"sacramento/Sacramento_400Regular.ttf",css:"'Sacramento',cursive"},
@@ -346,7 +356,42 @@ function paintUnitSeg(){const mmS=UNIT==="mm";const a=g("u_mm"),b=g("u_cm");if(!
 function setUnit(u){if(u===UNIT)return;const store={};MEAS.forEach(m=>{store[m[0]]=mmOf(m[0]);});UNIT=u;const toU=(u==="cm"?0.1:1);MEAS.forEach(([id,mn,mx,st])=>{const el=g(id);if(!el)return;el.value=tidy(store[id]*toU);el.min=mn*toU;el.max=mx*toU;el.step=(u==="cm")?Math.max(0.1,Math.round(st)/10):st;const R=g(id+"R");if(R)R.value=store[id];});document.querySelectorAll(".numbox .u").forEach(s=>s.textContent=u);paintUnitSeg();rebuild();buildSummary();}
 
 const fg=g("font-grid");FONTS.forEach(f=>{const b=document.createElement("button");b.className="fbtn"+(f===selFont?" sel":"");b.innerHTML=`<div class="fs" style="font-family:${f.css}">Aa</div><div class="fn">${f.name}</div>`;b.onclick=()=>{selFont=f;document.querySelectorAll("#font-grid .fbtn").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");rebuild();};fg.appendChild(b);});
-const ng=g("name-grid");NAME_FONTS.forEach(f=>{const b=document.createElement("button");b.className="nbtn"+(f===selNameFont?" sel":"");b.innerHTML=`<div class="ns" style="font-family:${f.css}">Abc</div><div class="nn">${f.name}</div>`;b.onclick=()=>{selNameFont=f;document.querySelectorAll("#name-grid .nbtn").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");rebuild();};ng.appendChild(b);});
+function renderNameGrid(){const ng=g("name-grid");if(!ng)return;ng.innerHTML="";NAME_FONTS.forEach(f=>{const b=document.createElement("button");b.className="nbtn"+(f===selNameFont?" sel":"");b.innerHTML=`<div class="ns" style="font-family:${f.css}">Abc</div><div class="nn">${f.name}</div>`+(f.custom?`<button class="nbtn-x" title="Remove custom font" onclick="event.stopPropagation();removeNameFont('${f.url}')">×</button>`:"");b.onclick=()=>selectNameFont(f);ng.appendChild(b);});}
+// Switching the cursive font must NOT black out the canvas. We parse the new font's vectors asynchronously
+// behind a small loading overlay (the scene keeps showing the CURRENT geometry the whole time), and only once
+// the font is fully cached do we rebuild — so buildModel never sits with an empty pivot waiting ~4s on the
+// network fetch + opentype parse. With the font cached, the rebuild is near-instant (no long black screen).
+async function selectNameFont(f){
+  if(!f)return;
+  showFontLoading(true,"Parsing "+f.name+"…");
+  try{await loadOT(f.url);}catch(_){/* leaves it to the sans fallback at build time */}
+  selNameFont=f;
+  document.querySelectorAll("#name-grid .nbtn").forEach((x,i)=>x.classList.toggle("sel",NAME_FONTS[i]===f));
+  // Font is now cached, so the rebuild is near-instant; keep the overlay up across it so the swap is covered.
+  updatePad();try{await buildModel();buildSummary();}catch(_){}
+  showFontLoading(false);
+}
+function showFontLoading(on,msg){const el=g("fontWait");if(!el)return;if(msg&&g("fontWaitMsg"))g("fontWaitMsg").textContent=msg;el.classList.toggle("show",!!on);}
+// Custom font upload: parse the user's .ttf/.otf entirely in the browser with opentype.js, pre-cache the
+// parsed font (so loadOT() returns it instantly), register it for the preview chip, add it to the dropdown,
+// and apply it to the text layers — then the Line Thickness slider can puff it out for printing.
+function onFontUpload(input){const file=input&&input.files&&input.files[0];if(!file)return;
+  showFontLoading(true,"Reading "+file.name+"…");
+  const reader=new FileReader();
+  reader.onload=ev=>{try{
+    const buf=ev.target.result;const otf=opentype.parse(buf);
+    const key="custom:"+(uid++);otCache[key]=otf;
+    const nm=(file.name.replace(/\.(ttf|otf)$/i,"").trim().slice(0,18))||"Custom";
+    try{const ff=new FontFace(nm,buf.slice(0));document.fonts.add(ff);ff.load().catch(()=>{});}catch(_){}
+    const entry={name:nm,url:key,css:`'${nm}',cursive`,custom:true};
+    NAME_FONTS.push(entry);renderNameGrid();
+    selectNameFont(entry);
+  }catch(err){showFontLoading(false);alert("Could not read that font. Please upload a standard .ttf or .otf file.");}};
+  reader.onerror=()=>{showFontLoading(false);alert("Could not read that file.");};
+  reader.readAsArrayBuffer(file);input.value="";
+}
+function removeNameFont(key){const i=NAME_FONTS.findIndex(f=>f.url===key);if(i<0)return;const wasSel=NAME_FONTS[i]===selNameFont;NAME_FONTS.splice(i,1);delete otCache[key];if(wasSel)selNameFont=NAME_FONTS[0];renderNameGrid();if(wasSel)rebuild();}
+renderNameGrid();
 
 const DIMS=[{id:"lh",l:"Letter height",min:50,max:400,st:1,val:140},{id:"bd",l:"Light box depth",min:15,max:150,st:1,val:40},{id:"wall",l:"Wall thickness",min:1.5,max:8,st:.5,val:3},{id:"topT",l:"Lid top thickness",min:1,max:12,st:.5,val:3},{id:"capW",l:"Cap wall",min:1.5,max:8,st:.5,val:3},{id:"skirt",l:"Skirt depth",min:3,max:120,st:1,val:14}];
 const dr=g("dimRows");
