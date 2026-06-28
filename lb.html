@@ -1027,7 +1027,7 @@ function build3MFModelXML(groups,bedX,bedY){
 //   * one <object id="EVEN"> (name/extruder/face_count) per printable mesh, containing <part id="ODD"> with
 //     a 16-value matrix + mesh_stat, and
 //   * one <plate> PER GROUP whose <model_instance> children bind every object in that group (object_id=EVEN)
-//     to the SAME plater_id — so Lid+Body land on plate 1, all text on plate 2, all models on plate 3.
+//     to the SAME plater_id — Box, Lid, all Text, and all Models each land on their own distinct plate.
 function buildModelSettingsXML(groups){
   let s=`<?xml version="1.0" encoding="UTF-8"?>\n<config>`;
   groups.forEach(grp=>grp.objects.forEach(o=>{const fc=o.faceCount||0;
@@ -1041,6 +1041,23 @@ function buildModelSettingsXML(groups){
   groups.forEach(grp=>grp.objects.forEach(o=>{s+=`<assemble_item object_id="${o.wrapId}" instance_id="0" transform="1 0 0 0 1 0 0 0 1 ${o.worldX||0} ${o.worldY||0} 0" offset="0 0 0"/>`;}));
   s+=`</assemble>`;
   return s+`</config>`;
+}
+// Map our printer dropdown entry to a real Bambu preset identifier and emit project_settings.config.
+// Without a valid printer_settings_id, Bambu can't map the machine and mislabels the printer with the
+// file name — so we inject printer_settings_id / printer_model / printer_variant from the selected printer.
+function bambuPrinterIds(p){const n=(p&&p.n)||"X1 Carbon";const model="Bambu Lab "+n;return {model,settingsId:model+" 0.4 nozzle",variant:"0.4"};}
+function buildProjectSettings(p){const b=bambuPrinterIds(p);
+  return JSON.stringify({
+    name:"project_settings",
+    from:"project",
+    version:"02.07.01.57",
+    is_bbl_printer:"1",
+    printer_settings_id:b.settingsId,
+    printer_model:b.model,
+    printer_variant:b.variant,
+    nozzle_diameter:["0.4"],
+    curr_bed_type:"Textured PEI Plate"
+  },null,4);
 }
 // ---- minimal store-only ZIP writer (3MF is an OPC zip) with correct CRC-32 ----
 const _crcTab=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
@@ -1068,15 +1085,17 @@ async function exportPlates(){
     if(!geomReady)await updateTextGeometry();
     await new Promise(r=>requestAnimationFrame(()=>r()));   // let the rebuilt scene graph settle
     if(!PLATES||!PLATES.length){alert("Nothing to export yet — design a lightbox first.");return;}
-    // Categorise every printable part, then GROUP into the three requested plates:
-    //   Plate 1 = Main Box & Lid (lid + body) · Plate 2 = All text layers · Plate 3 = Catalog models.
-    const bucket={box:[],text:[],model:[]};
+    // Categorise every printable part, then enforce the STRICT 4-plate split:
+    //   Plate 1 = Main Box (body) · Plate 2 = Lid · Plate 3 = ALL text layers · Plate 4 = ALL catalog models.
+    // The lid is the only face-down (flip) part; text/models are detected by their flags.
+    const bucket={box:[],lid:[],text:[],model:[]};
     PLATES.forEach((part,i)=>{const tris=partTriangles(part);if(!tris||!tris.length)return;
       const clean=(part.name||("part "+(i+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
-      const cat=part.textPlate?"text":((part.modelId!=null)?"model":"box");
+      const cat=part.textPlate?"text":((part.modelId!=null)?"model":(part.flip?"lid":"box"));
       bucket[cat].push({name:clean,tris});});
     const groups=[];
-    if(bucket.box.length)groups.push({name:"Plate 1 - Main Box & Lid",objects:bucket.box});
+    if(bucket.box.length)groups.push({name:"Plate "+(groups.length+1)+" - Main Box",objects:bucket.box});
+    if(bucket.lid.length)groups.push({name:"Plate "+(groups.length+1)+" - Lid",objects:bucket.lid});
     if(bucket.text.length)groups.push({name:"Plate "+(groups.length+1)+" - Text Layers",objects:bucket.text});
     if(bucket.model.length)groups.push({name:"Plate "+(groups.length+1)+" - Catalog Models",objects:bucket.model});
     if(!groups.length){alert("No printable geometry found to export.");return;}
@@ -1092,10 +1111,10 @@ async function exportPlates(){
       {name:"3D/3dmodel.model",data:enc.encode(modelXML)},
       {name:"Metadata/model_settings.config",data:enc.encode(settingsXML)},
       {name:"Metadata/slice_info.config",data:enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <header>\n    <header_item key="X-BBL-Client-Type" value="slicer"/>\n    <header_item key="X-BBL-Client-Version" value="02.07.01.57"/>\n  </header>\n</config>`)},
-      // project_settings.config is the marker that makes Bambu OPEN this as a multi-plate PROJECT (reading
-      // model_settings.config's <plate> blocks) instead of flat-importing every object onto one plate. Kept
-      // printer-agnostic (no printer_settings_id) so Bambu keeps the user's selected printer/filament.
-      {name:"Metadata/project_settings.config",data:enc.encode(JSON.stringify({name:"project_settings",from:"project",version:"02.07.01.57",nozzle_diameter:["0.4"],curr_bed_type:"Textured PEI Plate"},null,4))}
+      // project_settings.config makes Bambu OPEN this as a multi-plate PROJECT (reading model_settings.config's
+      // <plate> blocks) AND carries the real printer profile (from the UI dropdown) so the machine maps
+      // correctly instead of Bambu falling back to the file name.
+      {name:"Metadata/project_settings.config",data:enc.encode(buildProjectSettings(PRINTERS[selPrinter]))}
     ];
     const zip=zipStore(files);
     const blob=new Blob([zip],{type:"model/3mf"});
@@ -1120,7 +1139,7 @@ paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTe
 //       depends on), priming the glyph first, then run the full mesh/path pipeline and force a complete
 //       mesh refresh (computeVertexNormals + matrix update + explicit scene render).
 function renderNow(){try{if(typeof renderer!=="undefined"&&renderer&&scene&&camera){if(pivot)pivot.rotation.set(rotX,rotY,0);renderer.render(scene,camera);}}catch(_){}}
-function recomputeAllGeometry(){if(!pivot)return;pivot.traverse(o=>{if(o.isMesh&&o.geometry){try{o.geometry.computeVertexNormals();o.geometry.computeBoundingBox();o.geometry.computeBoundingSphere();if(o.geometry.attributes&&o.geometry.attributes.position)o.geometry.attributes.position.needsUpdate=true;}catch(_){}}});pivot.updateMatrixWorld(true);renderNow();}
+function recomputeAllGeometry(){if(!pivot)return;pivot.traverse(o=>{if(o.isMesh&&o.geometry){try{o.geometry.computeVertexNormals();o.geometry.computeBoundingBox();o.geometry.computeBoundingSphere();if(o.geometry.attributes&&o.geometry.attributes.position)o.geometry.attributes.position.needsUpdate=true;}catch(_){}}o.matrixWorldNeedsUpdate=true;});pivot.updateMatrixWorld(true);renderNow();}
 // Full mesh refresh: rebuild every text/letter mesh + cutouts, then recompute normals/matrices and render.
 function updateTextGeometry(){return buildModel().then(()=>{buildSummary();recomputeAllGeometry();}).catch(()=>{});}
 // The init builds are SERIALISED through one promise chain (initChain) so two buildModel() passes can never
