@@ -1005,7 +1005,10 @@ function build3MFModelXML(groups,bedX,bedY){
   const bx=bedX||256, by=bedY||256, gap=30;
   let res="",items="",k=0;
   groups.forEach((grp,gi)=>{
-    const cellX=gi*(bx+60)+bx/2, cellY=by/2;
+    // Every plate's objects are centred on the SAME bed (bed centre), Z=0 so their bottom faces sit flush on
+    // the plate surface. Plate membership is carried by model_settings.config — NOT by a global grid — so we
+    // must NOT fling plates 2..N out to far X positions (that left them floating off their plate in Bambu).
+    const cellX=bx/2, cellY=by/2;
     // first pass: dedupe verts + measure each object's width so we can lay them out in a centred row
     grp.objects.forEach(o=>{const map=new Map(),verts=[];
       const vi=p=>{const key=p.x+","+p.y+","+p.z;let j=map.get(key);if(j===undefined){j=verts.length;verts.push(p);map.set(key,j);}return j;};
@@ -1046,7 +1049,9 @@ function buildModelSettingsXML(groups){
 // Without a valid printer_settings_id, Bambu can't map the machine and mislabels the printer with the
 // file name — so we inject printer_settings_id / printer_model / printer_variant from the selected printer.
 function bambuPrinterIds(p){const n=(p&&p.n)||"X1 Carbon";const model="Bambu Lab "+n;return {model,settingsId:model+" 0.4 nozzle",variant:"0.4"};}
-function buildProjectSettings(p){const b=bambuPrinterIds(p);
+// Bambu's short machine code used in process/filament preset suffixes ("@BBL <code>").
+function bambuCode(n){const m={"A1 mini":"A1M","A1":"A1","P1P":"P1P","P1S":"P1S","X1 Carbon":"X1C","X1":"X1","X1E":"X1E","H2D":"H2D","H2S":"H2S"};return m[n]||(n||"X1C").replace(/\s+/g,"");}
+function buildProjectSettings(p){const b=bambuPrinterIds(p),code=bambuCode((p&&p.n)||"X1 Carbon");
   return JSON.stringify({
     name:"project_settings",
     from:"project",
@@ -1055,6 +1060,8 @@ function buildProjectSettings(p){const b=bambuPrinterIds(p);
     printer_settings_id:b.settingsId,
     printer_model:b.model,
     printer_variant:b.variant,
+    print_settings_id:"0.20mm Standard @BBL "+code,
+    filament_settings_id:["Bambu PLA Basic @BBL "+code],
     nozzle_diameter:["0.4"],
     curr_bed_type:"Textured PEI Plate"
   },null,4);
@@ -1142,18 +1149,27 @@ function renderNow(){try{if(typeof renderer!=="undefined"&&renderer&&scene&&came
 function recomputeAllGeometry(){if(!pivot)return;pivot.traverse(o=>{if(o.isMesh&&o.geometry){try{o.geometry.computeVertexNormals();o.geometry.computeBoundingBox();o.geometry.computeBoundingSphere();if(o.geometry.attributes&&o.geometry.attributes.position)o.geometry.attributes.position.needsUpdate=true;}catch(_){}}o.matrixWorldNeedsUpdate=true;});pivot.updateMatrixWorld(true);renderNow();}
 // Full mesh refresh: rebuild every text/letter mesh + cutouts, then recompute normals/matrices and render.
 function updateTextGeometry(){return buildModel().then(()=>{buildSummary();recomputeAllGeometry();}).catch(()=>{});}
-// The init builds are SERIALISED through one promise chain (initChain) so two buildModel() passes can never
-// run concurrently — overlapping passes corrupt the shared scene/bounding-box state (stray camera framing).
-// 1) Immediate first build so the scene is never blank (buildModel internally awaits the letter font and
-//    handles the name font per-text with its own try/catch, so it is safe on its own).
-let initChain=buildModel().then(buildSummary).catch(()=>{})
-  // 2) Prime the name font's glyph outlines (non-blocking — failure is ignored), letter glyphs are already
-  //    warm from the first build, then run ONE authoritative full mesh refresh so the counters are correct.
-  .then(()=>loadOT(selNameFont.url).then(o=>{if(o&&o.getPath)texts.forEach(t=>{const s=(t.str||"").trim();if(s){try{o.getPath(s,0,0,t.size||22);}catch(_){}}});},()=>{}))
-  .then(()=>updateTextGeometry()).then(()=>{geomReady=true;}).catch(()=>{geomReady=true;});
-// 3) Belt-and-suspenders: once the window + any web fonts are fully ready, queue one final clean pass onto
-//    the same chain (never overlapping the passes above).
-window.addEventListener("load",()=>{initChain=initChain.then(()=>{const go=()=>updateTextGeometry();return (document.fonts&&document.fonts.ready)?document.fonts.ready.then(go,go):go();}).catch(()=>{});});
+// Initialisation lifecycle — the lid letter's counter (the 'A' triangle/V cavity) MUST be hollow on the very
+// first paint and in an immediate export. The first font.generateShapes() for a glyph can return its outer
+// outline before the inner counter contour is indexed into the path buffer, so the first silhouette comes
+// back solid (the bug: it only cuts through after a manual drag triggers a second build). Fix: do the COMPLETE
+// primary geometry build — mesh generation + Clipper Boolean cutouts + bounding-box/normal refresh — strictly
+// INSIDE loadFont()'s success callback, AFTER a throwaway generateShapes() that warms the glyph's outline
+// cache, so the build the user sees is already the fully-indexed pass. geomReady (which gates export) only
+// flips true once that path math has run, so no render or export array reads pre-cutout geometry.
+let initChain=Promise.resolve();
+function primaryBuild(){return buildModel().then(()=>{buildSummary();recomputeAllGeometry();});}
+function bootGeometry(font){
+  if(font&&font.generateShapes){const L=(v("letter")||"A").toUpperCase()[0];try{font.generateShapes(L,140);font.generateShapes(L,140);}catch(_){}}
+  initChain=primaryBuild()
+    .then(()=>loadOT(selNameFont.url).then(o=>{if(o&&o.getPath)texts.forEach(t=>{const s=(t.str||"").trim();if(s){try{o.getPath(s,0,0,t.size||22);}catch(_){}}});},()=>{}))
+    .then(()=>primaryBuild())   // second pass with the name font primed too
+    .then(()=>{geomReady=true;}).catch(()=>{geomReady=true;});
+  return initChain;
+}
+loadFont(selFont.url).then(bootGeometry,()=>bootGeometry(null));
+// Belt-and-suspenders: once the window + any web fonts are fully ready, queue one more clean pass.
+window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise.resolve()).then(()=>updateTextGeometry()).catch(()=>{});};if(document.fonts&&document.fonts.ready)document.fonts.ready.then(run,run);else run();});
 
 /* ============================================================================================
    FUTURE UPDATE ARCHIVE: SIGNATURE HOLLOW LETTER LIGHTBOX LOGIC
