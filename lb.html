@@ -549,6 +549,34 @@ function union2(a,b){const cl=new ClipperLib.Clipper();cl.AddPaths(a,ClipperLib.
 function off(filled,delta){const co=new ClipperLib.ClipperOffset(2,0.25);co.AddPaths(filled,ClipperLib.JoinType.jtRound,ClipperLib.EndType.etClosedPolygon);const sol=new ClipperLib.Paths();co.Execute(sol,delta*S);return sol;}
 function diff(a,b){const c=new ClipperLib.Clipper();c.AddPaths(a,ClipperLib.PolyType.ptSubject,true);c.AddPaths(b,ClipperLib.PolyType.ptClip,true);const s=new ClipperLib.Paths();c.Execute(ClipperLib.ClipType.ctDifference,s,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return s;}
 function intersect(a,b){const c=new ClipperLib.Clipper();c.AddPaths(a,ClipperLib.PolyType.ptSubject,true);c.AddPaths(b,ClipperLib.PolyType.ptClip,true);const s=new ClipperLib.Paths();c.Execute(ClipperLib.ClipType.ctIntersection,s,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return s;}
+// Robust subject−clip → THREE.Shapes. Executes the difference to a Clipper PolyTree, which carries the
+// EXPLICIT outer→hole→island hierarchy, then walks it. This replaces the old parity/point-in-polygon
+// nesting in shapesFromPaths, which misclassified outers vs holes when the carved region shared vertices
+// with the lid boundary (the cause of the fractured / missing pocket sections at the lid edge).
+function diffToShapes(subj,clip,minAreaMm2){
+  const c=new ClipperLib.Clipper();
+  c.AddPaths(subj,ClipperLib.PolyType.ptSubject,true);
+  if(clip&&clip.length)c.AddPaths(clip,ClipperLib.PolyType.ptClip,true);
+  const tree=new ClipperLib.PolyTree();
+  c.Execute(ClipperLib.ClipType.ctDifference,tree,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);
+  const minA=(minAreaMm2||0)*S*S;
+  const toV2=ct=>ct.map(pt=>new THREE.Vector2(pt.X/S,pt.Y/S));
+  const shapes=[];
+  function outerToShape(node){
+    const shape=new THREE.Shape(toV2(node.Contour()));
+    node.Childs().forEach(hole=>{                              // children of an outer are its holes
+      if(Math.abs(ClipperLib.Clipper.Area(hole.Contour()))<minA)return;
+      shape.holes.push(new THREE.Path(toV2(hole.Contour())));
+      hole.Childs().forEach(inner=>{const s=outerToShape(inner);if(s)shapes.push(s);}); // islands inside a hole
+    });
+    return shape;
+  }
+  tree.Childs().forEach(node=>{                                // top-level children are outers
+    if(Math.abs(ClipperLib.Clipper.Area(node.Contour()))<minA)return;
+    shapes.push(outerToShape(node));
+  });
+  return shapes;
+}
 // Remove the micro self-intersections / near-duplicate vertices and zero-area slivers that the raster
 // silhouette can leave behind. Without this, a footprint that grazes the lid edge produces degenerate
 // polygons that extrude into stray, half-carved facets on the lid surface.
@@ -654,10 +682,10 @@ function computeFlat(mo,TT){
   let box=new THREE.Box3().setFromObject(inst);if(!isFinite(box.min.x))return {empty:true};
   const cxm=(box.min.x+box.max.x)/2,cym=(box.min.y+box.max.y)/2;
   const pocketDepth=Math.max(0,Math.min(MODEL_POCKET,TT-FLOOR_MIN));   // fixed 3.0 mm inset pocket
-  // Centre in XY and seat the flat base flush on the lid top (z = TT). The model is a solid, untouched
-  // mesh; a model-coloured pedestal (built in buildFlatModelGroup) fills the pocket beneath it.
+  // Centre in XY and seat the flat base flush on the lid top (z = TT). The model is used exactly as-is —
+  // a solid, untouched mesh with no added base layer; only the lid is carved.
   inst.position.x-=cxm;inst.position.y-=cym;inst.position.z+=(TT-box.min.z);inst.updateMatrixWorld(true);
-  // Footprint = the exact flat-base outline. The lid pocket and the pedestal that fills it both use it.
+  // Footprint = the exact flat-base outline, projected straight down to carve the lid pocket.
   let footprint=null;
   try{let mesh=null;inst.traverse(o=>{if(o.isMesh&&!mesh)mesh=o;});if(mesh&&mesh.geometry)footprint=baseFootprint(mesh);}catch(e){}
   return {inst,footprint,pocketDepth};
@@ -671,19 +699,7 @@ function buildFlatModelGroup(mo,TT){
   const grp=new THREE.Group();
   const inst=c.inst.clone(true);
   inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});
-  grp.add(inst);
-  // Solid model-coloured pedestal that fills the 3 mm pocket beneath the base, so the recess is never an
-  // empty, see-through / hollow gap under the model. The footprint is inset slightly and the top kept just
-  // under the base cap, so the pedestal stays hidden behind the model's own walls (no cream rim poking out)
-  // while still backing the pocket solid — the seam then reads as one crisp 3 mm inset.
-  if(c.footprint&&c.footprint.length&&c.pocketDepth>0.2){
-    try{
-      let inner=off(c.footprint,-0.5);if(!inner||!inner.length)inner=c.footprint;
-      const shp=shapesFromPaths(inner);
-      if(shp.length){const depth=c.pocketDepth-0.2;const pg=new THREE.ExtrudeGeometry(shp,{depth,bevelEnabled:false,curveSegments:6});
-        const ped=new THREE.Mesh(pg,MATS.model);ped.position.z=TT-c.pocketDepth;grp.add(ped);}
-    }catch(e){}
-  }
+  grp.add(inst);   // the raw STL, exactly as modelled — no pedestal, skirt or added thickness
   return {group:grp,footprint:c.footprint,pocketDepth:c.pocketDepth,modelId:mo.id};
 }
 // ---- Stacked-slab lid builder: true inset pockets that always keep a solid floor underneath ----
@@ -702,7 +718,7 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin){
   // solid floor slab (z 0 .. TT-maxD) — always present, never cut
   const floorThick=TT-maxD;
   if(floorThick>eps){
-    const g=new THREE.ExtrudeGeometry(shapesFromPaths(B),{depth:floorThick,bevelEnabled:false,curveSegments:6});
+    const g=new THREE.ExtrudeGeometry(diffToShapes(B,null,0),{depth:floorThick,bevelEnabled:false,curveSegments:6});
     g.translate(-cx,-cy,0);out.push({geo:g,z:0});
   }
   // carved slabs between consecutive pocket depths
@@ -711,15 +727,13 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin){
     const dj=depths[j],thick=dj-prev;
     if(thick>eps){
       let cut=null;fs.forEach(f=>{if(f.depth>=dj-eps)cut=cut?union2(cut,f.p):f.p;});
-      // Clip the pocket to the lid region and clean it, so a footprint that sits near or overhangs the
-      // lid edge only ever carves the part that actually overlaps the lid — never leaving stray, distorted
-      // or half-cut facets along the boundary.
+      // STRICT containment: clip the pocket to the lid region so a footprint that overhangs the edge only
+      // ever carves the exact portion that physically sits on the lid. Clean removes micro-artifacts.
       if(cut&&cut.length){cut=cleanPaths(intersect(cut,B));}
-      let region=(cut&&cut.length)?cleanPaths(diff(B,cut)):B;
-      // Drop any sub-0.02 mm² fragments the boolean can leave at the boundary, so no zero-width sliver
-      // walls or jagged islands are ever extruded into the lid.
-      region=region.filter(p=>Math.abs(ClipperLib.Clipper.Area(p))>0.02*S*S);
-      const shps=shapesFromPaths(region);
+      // Build the carved slab (lid minus pocket) straight from a Clipper PolyTree, so outer/hole nesting is
+      // explicit and correct even where the pocket meets the lid boundary — no fractured or missing sections.
+      // Sub-0.02 mm² fragments are dropped so no zero-width sliver walls are extruded.
+      const shps=(cut&&cut.length)?diffToShapes(B,cut,0.02):shapesFromPaths(B);
       if(shps.length){
         const g=new THREE.ExtrudeGeometry(shps,{depth:thick,bevelEnabled:false,curveSegments:6});
         g.translate(-cx,-cy,0);out.push({geo:g,z:TT-dj});   // sits from (TT-dj) up to (TT-prev)
@@ -836,10 +850,7 @@ async function buildModel(){
   MATS.body=new THREE.MeshLambertMaterial({color:COLORS.body,side:THREE.DoubleSide});
   MATS.name=new THREE.MeshLambertMaterial({color:COLORS.name});
   MATS.image=new THREE.MeshLambertMaterial({color:COLORS.image});
-  // polygonOffset biases the model+pedestal slightly toward the camera so that wherever their faces meet
-  // the lid pocket at the same depth, the model wins the depth test cleanly instead of z-fighting into the
-  // fractured / hollow-looking flicker at the seam.
-  MATS.model=new THREE.MeshLambertMaterial({color:COLORS.model,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+  MATS.model=new THREE.MeshLambertMaterial({color:COLORS.model});
   const skirtMat=MATS.front,backMat=MATS.body,floorMat=MATS.front,topMat=MATS.front;
 
   let LW=lh*0.7,LH=lh;
