@@ -88,8 +88,6 @@ input[type=text]:focus,input[type=number]:focus{border-color:var(--acc);box-shad
 .numbox.wide{width:96px}.numbox.wide input{width:60px}
 .useg{display:flex;gap:3px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px}
 .uchip{border:none;background:transparent;color:var(--txt2);font-size:12px;font-weight:700;padding:6px 13px;border-radius:7px;cursor:pointer}
-.uchip.sel{background:var(--acc);color:#11140f}
-.lbtype{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 15px;margin-bottom:14px;box-shadow:var(--shadow)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
 
@@ -120,6 +118,20 @@ details.precise>*:not(summary){padding:0 12px 12px}
 .pad-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .pad-cross{position:absolute;background:#2a313c;pointer-events:none}.pad-cross.h{left:0;right:0;top:50%;height:1px}.pad-cross.v{top:0;bottom:0;left:50%;width:1px}
 .pad-chip{position:absolute;transform:translate(-50%,-50%);padding:4px 11px;border-radius:8px;font-size:17px;white-space:nowrap;cursor:grab;box-shadow:0 2px 8px rgba(0,0,0,.5);user-select:none;z-index:2;color:#11140f;background:var(--acc)}
+/* ----- dynamic text layers ----- */
+.tlayer{border:1px solid var(--line);border-radius:11px;background:var(--panel2);padding:10px 11px;display:flex;flex-direction:column;gap:9px;transition:border-color .15s}
+.tlayer.sel{border-color:var(--acc)}
+.tlayer .tlrow{display:flex;align-items:center;gap:9px}
+.tlayer input[type=text]{flex:1}
+.tlayer .tldel{flex:none;width:32px;height:32px;border:1px solid var(--line2);border-radius:8px;background:transparent;color:var(--txt2);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center}
+.tlayer .tldel:hover{border-color:#e06a6a;color:#e89090}
+.tlayer .tlsize{display:flex;align-items:center;gap:9px}
+.tlayer .tlsize input[type=range]{flex:1;accent-color:var(--acc)}
+.tlayer .tlsz{font-size:11px;color:var(--txt3);min-width:42px;text-align:right;font-variant-numeric:tabular-nums}
+.addtext{width:100%;padding:11px;border:1.5px dashed var(--line2);border-radius:10px;background:transparent;color:var(--txt2);font-weight:600;font-size:13px;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
+.addtext:hover{border-color:var(--acc);color:var(--acc);background:rgba(255,138,43,.05)}
+.tchip{position:absolute;transform:translate(-50%,-50%);padding:3px 9px;border-radius:7px;font-size:15px;white-space:nowrap;cursor:grab;box-shadow:0 2px 8px rgba(0,0,0,.5);user-select:none;z-index:2;color:#11140f;background:var(--acc);border:2px solid transparent}
+.tchip.sel{border-color:#fff;box-shadow:0 0 0 2px var(--acc),0 2px 8px rgba(0,0,0,.5)}
 .pad-layer{position:absolute;inset:0;pointer-events:none}
 img.pad-img{position:absolute;transform-origin:center;border-radius:2px;box-shadow:0 1px 6px rgba(0,0,0,.5);outline:1px solid rgba(93,202,165,.5);background:rgba(255,255,255,.5);object-fit:contain;-webkit-user-drag:none}
 img.pad-img.sel{outline:2px solid var(--mint)}
@@ -194,14 +206,6 @@ img.pad-img.sel{outline:2px solid var(--mint)}
 </div>
 
 <div class="controls">
-  <div class="lbtype">
-    <div class="sub" style="margin:0 2px 8px">Lightbox type</div>
-    <div class="useg" style="width:100%">
-      <button class="uchip lbt sel" id="lbtStd" onclick="setLbType('standard')" style="flex:1">Standard Box</button>
-      <button class="uchip lbt" id="lbtSig" onclick="setLbType('signature')" style="flex:1">Signature Outline</button>
-    </div>
-    <div class="hint" style="margin-top:7px">Standard = solid letter box. Signature = the same capital letter as a bold hollow outline (channel-letter), with your name spanning the front.</div>
-  </div>
   <div class="acc">
     <div class="acc-h" onclick="accT(this)">Colour <i class="chev">⌄</i></div>
     <div class="acc-b">
@@ -222,19 +226,19 @@ img.pad-img.sel{outline:2px solid var(--mint)}
     <div class="acc-b">
       <div class="row"><span class="lbl">Capital letter</span><input type="text" class="letter-big" id="letter" maxlength="1" value="A" oninput="this.value=this.value.toUpperCase();rebuild()"></div>
       <div class="row"><span class="lbl">Letter font</span><div class="grid3" id="font-grid"></div></div>
-      <div class="row"><span class="lbl">Name or word</span><input type="text" id="name" placeholder="e.g. Aiyla" value="Aiyla" maxlength="20" oninput="rebuild()"></div>
-      <div class="row"><span class="lbl">Cursive font</span><div class="grid3" id="name-grid"></div></div>
-      <div class="grid3">
-        <div class="row"><span class="lbl">Name height</span><div class="numbox"><input type="number" id="nameSize" value="22" min="8" max="120" oninput="rebuild()"><span class="u">mm</span></div></div>
-        <div class="row"><span class="lbl">Pocket</span><div class="numbox"><input type="number" id="nameDepth" value="3" min="0" max="30" step="0.5" oninput="rebuild()"><span class="u">mm</span></div></div>
+      <div class="row"><span class="lbl">Cursive font (all text layers)</span><div class="grid3" id="name-grid"></div></div>
+      <div class="sub" style="margin-top:4px">Text layers</div>
+      <div id="textList" style="display:flex;flex-direction:column;gap:11px"></div>
+      <button class="addtext" onclick="addText()">＋ Add New Text</button>
+      <div class="grid2">
+        <div class="row"><span class="lbl">Pocket depth</span><div class="numbox"><input type="number" id="nameDepth" value="3" min="0" max="30" step="0.5" oninput="rebuild()"><span class="u">mm</span></div></div>
         <div class="row"><span class="lbl">Proud height</span><div class="numbox"><input type="number" id="nameExt" value="10" min="1" max="30" step="0.5" oninput="rebuild()"><span class="u">mm</span></div></div>
       </div>
       <div class="hint" id="syncHint"></div>
-      <div class="row"><span class="lbl">Position the name</span>
-        <div class="pad" id="pad_name"><svg class="pad-svg" id="padSvg_name"></svg><div class="pad-cross h"></div><div class="pad-cross v"></div><div class="pad-chip" id="padChip_name">Aiyla</div></div>
-        <div class="padhint">Drag the name onto the letter</div>
+      <div class="row"><span class="lbl">Position text — drag each layer onto the lid</span>
+        <div class="pad" id="pad_name"><svg class="pad-svg" id="padSvg_name"></svg><div class="pad-cross h"></div><div class="pad-cross v"></div><div class="pad-layer" id="textLayer"></div></div>
+        <div class="padhint">Tap a layer to select, drag any layer independently</div>
       </div>
-      <input type="hidden" id="nameX" value="0"><input type="hidden" id="nameY" value="0">
     </div>
   </div>
   <div class="acc">
@@ -316,7 +320,7 @@ async function loadOT(u){if(otCache[u])return otCache[u];if(typeof opentype==="u
 function g(i){return document.getElementById(i);}function v(i){return g(i).value;}
 
 let UNIT="mm";
-const MEAS=[["lh",50,400,1],["bd",15,150,1],["wall",1.5,8,.5],["topT",1,12,.5],["capW",1.5,8,.5],["skirt",3,120,1],["nameSize",8,120,1],["nameDepth",0,30,.5],["nameExt",1,30,.5],["imgSize",10,250,1]];
+const MEAS=[["lh",50,400,1],["bd",15,150,1],["wall",1.5,8,.5],["topT",1,12,.5],["capW",1.5,8,.5],["skirt",3,120,1],["nameDepth",0,30,.5],["nameExt",1,30,.5],["imgSize",10,250,1]];
 function mmOf(id){const raw=+v(id);if(isNaN(raw))return 0;return UNIT==="cm"?raw*10:raw;}
 function tidy(n){return (Math.round(n*100)/100).toString();}
 function fmt(mm){return UNIT==="cm"?(Math.round(mm/10*100)/100)+" cm":Math.round(mm)+" mm";}
@@ -332,8 +336,8 @@ const ut=document.createElement("div");ut.className="srow";ut.style.cssText="jus
 DIMS.forEach(d=>{const row=document.createElement("div");row.className="row";row.innerHTML=`<span class="lbl">${d.l}</span><div class="srow"><input type="range" id="${d.id}R" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><div class="numbox wide"><input type="number" id="${d.id}" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><span class="u">mm</span></div></div>`;dr.appendChild(row);const R=g(d.id+"R"),N=g(d.id);R.oninput=()=>{N.value=UNIT==="cm"?tidy(R.value/10):R.value;rebuild();};N.oninput=()=>{R.value=UNIT==="cm"?Math.round(N.value*10):N.value;rebuild();};});
 
 let images=[],selImg=-1,models=[],selModel=-1,uid=1,t1=null,mode="render",lightOn=true,diffOn=false,selPlate=0,DIM=null;
-let lbType="standard";   // "standard" = solid letter box · "signature" = bold hollow letter outline (channel-letter)
-function setLbType(t){lbType=(t==="signature")?"signature":"standard";const a=g("lbtStd"),b=g("lbtSig");if(a)a.classList.toggle("sel",lbType==="standard");if(b)b.classList.toggle("sel",lbType==="signature");rebuild();}
+// Dynamic, independent text layers on the lid. Each: {id, str, size(mm), x, y}. selText = active layer.
+let texts=[{id:uid++,str:"Aiyla",size:22,x:0,y:0}],selText=0;
 const COLORS={front:"#E2663B",name:"#FFFFFF",image:"#FFFFFF",model:"#E8C99B",body:"#C9542C"};
 const MATS={};let glowFace=null,glowSpot=null,floorPlane=null;
 function scheduleBuild(){clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},100);}
@@ -498,15 +502,33 @@ function onModelChange(){if(selModel<0)return;const mo=models[selModel];mo.size=
 const PAD={filled:null,cx:0,cy:0,w:180,h:180};
 function drawPad(){if(!PAD.filled)return;let mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;PAD.filled.forEach(p=>p.forEach(pt=>{const x=pt.X/S-PAD.cx,y=pt.Y/S-PAD.cy;if(x<mnx)mnx=x;if(x>mxx)mxx=x;if(y<mny)mny=y;if(y>mxy)mxy=y;}));const W=Math.max(1,mxx-mnx),H=Math.max(1,mxy-mny);PAD.w=W;PAD.h=H;
   ["name","img","stl"].forEach(pre=>{const pad=g("pad_"+pre);if(!pad||(pad.offsetParent===null))return;const svg=g("padSvg_"+pre);const r=pad.getBoundingClientRect();const padW=r.width||300,padH=r.height||184;const m=1.14;const scale=Math.min(padW/(W*m),padH/(H*m));PAD["scale_"+pre]=scale;let d="";PAD.filled.forEach(p=>{p.forEach((pt,i)=>{const x=pt.X/S-PAD.cx,y=pt.Y/S-PAD.cy;const px=padW/2+x*scale,py=padH/2-y*scale;d+=(i===0?"M":"L")+px.toFixed(1)+" "+py.toFixed(1)+" ";});d+="Z ";});svg.setAttribute("viewBox",`0 0 ${padW} ${padH}`);svg.innerHTML=`<path d="${d}" fill="#2b3037" stroke="#3a4047" stroke-width="1" fill-rule="evenodd"/>`;});
-  placeChip("name");renderImgLayer();drawStlPad();}
-function placeChip(pre){const pad=g("pad_"+pre),chip=g("padChip_"+pre),sc=PAD["scale_"+pre];if(!pad||!chip||!sc)return;const r=pad.getBoundingClientRect();const x=+v(pre+"X")||0,y=+v(pre+"Y")||0;chip.style.left=(r.width/2+x*sc)+"px";chip.style.top=(r.height/2-y*sc)+"px";}
-function setPos(pre,x,y,doRebuild){const hx=(PAD.w/2)*1.15,hy=(PAD.h/2)*1.15;x=Math.max(-hx,Math.min(hx,x));y=Math.max(-hy,Math.min(hy,y));g(pre+"X").value=Math.round(x);g(pre+"Y").value=Math.round(y);placeChip(pre);if(doRebuild)scheduleBuild();}
-function updatePad(){const ch=g("padChip_name");if(ch){ch.textContent=(v("name")||"name");ch.style.fontFamily=selNameFont.css;}}
+  drawTextPad();renderImgLayer();drawStlPad();}
+/* ---------- Dynamic text layers: add / delete / edit / select, each fully independent ---------- */
+function addText(){const t={id:uid++,str:"New Text",size:22,x:0,y:0};texts.push(t);selText=texts.length-1;renderTextList();drawTextPad();scheduleBuild();}
+function deleteText(id){const i=texts.findIndex(t=>t.id===id);if(i<0)return;texts.splice(i,1);if(selText>=texts.length)selText=texts.length-1;renderTextList();drawTextPad();scheduleBuild();}
+function onTextStr(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.str=val;drawTextPad();scheduleBuild();}
+function onTextSize(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.size=Math.max(8,Math.min(160,+val||22));const lab=g("tlsz_"+id);if(lab)lab.textContent=tidy(t.size*(UNIT==="cm"?0.1:1))+(UNIT==="cm"?" cm":" mm");drawTextPad();scheduleBuild();}
+function renderTextList(){const host=g("textList");if(!host)return;host.innerHTML="";
+  texts.forEach((t,idx)=>{const d=document.createElement("div");d.className="tlayer"+(idx===selText?" sel":"");d.onclick=()=>{if(selText!==idx){selText=idx;renderTextList();drawTextPad();}};
+    const sz=tidy(t.size*(UNIT==="cm"?0.1:1))+(UNIT==="cm"?" cm":" mm");
+    d.innerHTML=`<div class="tlrow"><input type="text" value="${(t.str||"").replace(/"/g,"&quot;")}" maxlength="24" placeholder="Text…" oninput="onTextStr(${t.id},this.value)"><button class="tldel" title="Delete this text layer" onclick="event.stopPropagation();deleteText(${t.id})">🗑</button></div>`+
+      `<div class="tlsize"><span class="lbl">Size</span><input type="range" min="8" max="120" step="1" value="${t.size}" oninput="onTextSize(${t.id},this.value)"><span class="tlsz" id="tlsz_${t.id}">${sz}</span></div>`;
+    host.appendChild(d);});}
+function drawTextPad(){const pad=g("pad_name"),layer=g("textLayer");if(!pad||!layer)return;layer.innerHTML="";if(pad.offsetParent===null)return;const sc=PAD["scale_name"];if(!sc)return;const r=pad.getBoundingClientRect();
+  texts.forEach((t,idx)=>{const csx=r.width/2+(t.x||0)*sc,csy=r.height/2-(t.y||0)*sc;const el=document.createElement("div");el.className="tchip"+(idx===selText?" sel":"");el.style.left=csx+"px";el.style.top=csy+"px";el.style.fontFamily=selNameFont.css;el.style.fontSize=Math.max(10,Math.min(24,(t.size||22)*sc*0.6))+"px";el.textContent=(t.str||"text").slice(0,18)||"text";layer.appendChild(el);});}
+function updatePad(){drawTextPad();}
 function imgWH(im){const iw=im.img.naturalWidth||im.img.width||300,ih=im.img.naturalHeight||im.img.height||300;const a=iw/ih;let bw,bh;if(a>=1){bw=im.size;bh=im.size/a;}else{bh=im.size;bw=im.size*a;}return{bw,bh};}
 function renderImgLayer(){const pad=g("pad_img"),layer=g("imgLayer");if(!pad||!layer)return;layer.innerHTML="";if(pad.offsetParent===null)return;const sc=PAD["scale_img"];if(!sc)return;const r=pad.getBoundingClientRect();images.forEach((im,idx)=>{if(!im.img)return;const {bw,bh}=imgWH(im);const csx=r.width/2+im.x*sc,csy=r.height/2-im.y*sc;const el=document.createElement("img");el.src=im.src;el.className="pad-img"+(idx===selImg?" sel":"");el.style.width=(bw*sc)+"px";el.style.height=(bh*sc)+"px";el.style.left=csx+"px";el.style.top=csy+"px";el.style.transform=`translate(-50%,-50%) rotate(${-im.rot}deg)`;layer.appendChild(el);if(idx===selImg){const R=(bh/2*sc)+24,rr2=im.rot*Math.PI/180,hx=csx+R*(-Math.sin(rr2)),hy=csy+R*(-Math.cos(rr2));const dxl=hx-csx,dyl=hy-csy,L=Math.hypot(dxl,dyl),ang=Math.atan2(dyl,dxl)*180/Math.PI;const ln=document.createElement("div");ln.className="rot-line";ln.style.left=csx+"px";ln.style.top=csy+"px";ln.style.width=L+"px";ln.style.transform=`rotate(${ang}deg)`;layer.appendChild(ln);const hh=document.createElement("div");hh.className="rot-handle";hh.style.left=hx+"px";hh.style.top=hy+"px";layer.appendChild(hh);}});}
 function modelWH(mo){const scale=(mo.size||40)/Math.max(1e-6,mo.maxd);return{bw:(mo.fw||1)*scale,bh:(mo.fh||1)*scale};}
 function drawStlPad(){const pad=g("pad_stl"),layer=g("stlLayer");if(!pad||!layer)return;layer.innerHTML="";if(pad.offsetParent===null)return;const sc=PAD["scale_stl"];if(!sc)return;const r=pad.getBoundingClientRect();models.forEach((mo,idx)=>{const {bw,bh}=modelWH(mo);const csx=r.width/2+(mo.x||0)*sc,csy=r.height/2-(mo.y||0)*sc;const el=document.createElement("div");el.className="mbox"+(idx===selModel?" sel":"");el.style.width=Math.max(16,bw*sc)+"px";el.style.height=Math.max(16,bh*sc)+"px";el.style.left=csx+"px";el.style.top=csy+"px";el.style.transform=`translate(-50%,-50%) rotate(${-(mo.rz||0)}deg)`;el.textContent="🧸";layer.appendChild(el);});}
-(function(){const pad=g("pad_name");let dg=false;function fE(e){const r=pad.getBoundingClientRect();const sc=PAD["scale_name"]||1;setPos("name",(e.clientX-r.left-r.width/2)/sc,-(e.clientY-r.top-r.height/2)/sc,true);}pad.addEventListener("pointerdown",e=>{dg=true;pad.setPointerCapture&&pad.setPointerCapture(e.pointerId);fE(e);e.preventDefault();});pad.addEventListener("pointermove",e=>{if(dg)fE(e);});window.addEventListener("pointerup",()=>dg=false);})();
+// Independent text-layer dragging: pointerdown hit-tests the chips and grabs whichever layer was clicked;
+// pointermove moves ONLY that layer, so other text layers never shift.
+(function(){const pad=g("pad_name");let dg=false,gx=0,gy=0;
+  function ctx(e){const r=pad.getBoundingClientRect();const sc=PAD["scale_name"]||1;return{r,sc,mx:(e.clientX-r.left-r.width/2)/sc,my:-(e.clientY-r.top-r.height/2)/sc};}
+  function half(t){const w=Math.max(10,(t.str||"x").length*(t.size||22)*0.34),h=Math.max(7,(t.size||22)*0.85);return{hw:w/2,hh:h/2};}
+  pad.addEventListener("pointerdown",e=>{if(!texts.length)return;const c=ctx(e);let hit=-1;for(let i=texts.length-1;i>=0;i--){const t=texts[i],{hw,hh}=half(t);if(Math.abs(c.mx-(t.x||0))<=Math.max(6,hw)&&Math.abs(c.my-(t.y||0))<=Math.max(5,hh)){hit=i;break;}}if(hit<0)hit=selText>=0?selText:0;selText=hit;const t=texts[selText];gx=(t.x||0)-c.mx;gy=(t.y||0)-c.my;dg=true;pad.setPointerCapture&&pad.setPointerCapture(e.pointerId);e.preventDefault();renderTextList();drawTextPad();});
+  pad.addEventListener("pointermove",e=>{if(!dg||selText<0)return;const c=ctx(e),t=texts[selText];const hx=(PAD.w/2)*1.15,hy=(PAD.h/2)*1.15;t.x=Math.round(Math.max(-hx,Math.min(hx,c.mx+gx)));t.y=Math.round(Math.max(-hy,Math.min(hy,c.my+gy)));drawTextPad();scheduleBuild();});
+  window.addEventListener("pointerup",()=>dg=false);})();
 (function(){const pad=g("pad_img");let mode2=null,gdx=0,gdy=0;function ctx(e){const r=pad.getBoundingClientRect();const sc=PAD["scale_img"]||1;return{r,sc,sxp:e.clientX-r.left,syp:e.clientY-r.top,mx:(e.clientX-r.left-r.width/2)/sc,my:-(e.clientY-r.top-r.height/2)/sc};}function hp(im,r,sc){const{bh}=imgWH(im);const csx=r.width/2+im.x*sc,csy=r.height/2-im.y*sc,R=(bh/2*sc)+24,rr2=im.rot*Math.PI/180;return{csx,csy,hx:csx+R*(-Math.sin(rr2)),hy:csy+R*(-Math.cos(rr2))};}
   pad.addEventListener("pointerdown",e=>{if(!images.length)return;const c=ctx(e);if(selImg>=0&&images[selImg]&&images[selImg].img){const h=hp(images[selImg],c.r,c.sc);if(Math.hypot(c.sxp-h.hx,c.syp-h.hy)<20){mode2="rotate";pad.setPointerCapture&&pad.setPointerCapture(e.pointerId);e.preventDefault();return;}}let hit=-1;for(let i=images.length-1;i>=0;i--){const im=images[i];if(!im.img)continue;const{bw,bh}=imgWH(im);const dx=c.mx-im.x,dy=c.my-im.y,rr2=im.rot*Math.PI/180,lx=dx*Math.cos(rr2)+dy*Math.sin(rr2),ly=-dx*Math.sin(rr2)+dy*Math.cos(rr2);if(Math.abs(lx)<=bw/2&&Math.abs(ly)<=bh/2){hit=i;break;}}if(hit>=0){selImg=hit;mode2="move";gdx=images[hit].x-c.mx;gdy=images[hit].y-c.my;syncSize();renderImgList();}else if(selImg>=0){mode2="move";gdx=0;gdy=0;const im=images[selImg];im.x=Math.round(c.mx);im.y=Math.round(c.my);}pad.setPointerCapture&&pad.setPointerCapture(e.pointerId);e.preventDefault();drawPad();scheduleBuild();});
   pad.addEventListener("pointermove",e=>{if(!mode2||selImg<0)return;const im=images[selImg],c=ctx(e);if(mode2==="move"){im.x=Math.round(c.mx+gdx);im.y=Math.round(c.my+gdy);}else{const csx=c.r.width/2+im.x*c.sc,csy=c.r.height/2-im.y*c.sc,dx=c.sxp-csx,dy=c.syp-csy;let deg=Math.atan2(-dx,-dy)*180/Math.PI;if(deg<0)deg+=360;im.rot=Math.round(deg);}drawPad();scheduleBuild();});
@@ -759,10 +781,10 @@ function makeThumb(part){try{thumbSetup();const obj=part.group.clone(true);obj.r
 let PLATES=[],PLATE_THUMBS=[];
 async function buildModel(){
   if(!renderer||!pivot)return;clearPivot();glowFace=null;glowSpot=null;floorPlane=null;DIM=null;
-  const letter=(v("letter")||"A").toUpperCase()[0];const name=(v("name")||"").trim();
+  const letter=(v("letter")||"A").toUpperCase()[0];const name=texts.map(t=>(t.str||"").trim()).filter(Boolean).join(" ");
   const lh=mmOf("lh")||140,depth=mmOf("bd")||40,wall=mmOf("wall")||3;
   const topT=mmOf("topT")||3,capW=mmOf("capW")||3,skirtD=mmOf("skirt")||14,clearance=0.4;
-  const nameSize=mmOf("nameSize")||22,nameExt=mmOf("nameExt")||10;
+  const nameExt=mmOf("nameExt")||10;
   let pocket=mmOf("nameDepth");if(isNaN(pocket))pocket=0;pocket=Math.max(0,Math.min(pocket,nameExt));
   const above=Math.round((nameExt-pocket)*10)/10,TT=Math.max(topT,pocket+FLOOR_MIN);
   const anyImg=images.some(i=>i.img);
@@ -783,33 +805,17 @@ async function buildModel(){
 
   let LW=lh*0.7,LH=lh;
   try{
-    const font=await loadFont(selFont.url);let cx=0,cy=0,filled=null,bodyFilled=null,glyphSize=lh;
+    const font=await loadFont(selFont.url);let cx=0,cy=0,filled=null,glyphSize=lh;
     if(hasClip){
       const f0=unionFilled(glyphSubj(font,letter,lh));const c0=pathsCenter(f0);const ex0=pathsExtent(f0,c0.x,c0.y);
       if(ex0.H>1){const k=ex0.H/lh;glyphSize=Math.max(8,lh-capMargin)/k;}
       filled=unionFilled(glyphSubj(font,letter,glyphSize));const c=pathsCenter(filled);cx=c.x;cy=c.y;const ex=pathsExtent(filled,cx,cy);LW=ex.W;LH=ex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
-      // Body/lid silhouette. Standard = the solid filled letter. Signature = a bold OUTLINE rim only: the
-      // letter minus an inset copy, so the box becomes a hollow channel-letter with an open interior. Name,
-      // images, models and the translation bounds still use the FULL letter (cx,cy,LW,LH) so they span it.
-      bodyFilled=filled;
-      if(lbType==="signature"){
-        // Bold outline rim = letter minus an inset copy. Shrink the outline width adaptively so even thin
-        // strokes keep a real hollow interior (a too-wide inset collapses the inner cut and would leave the
-        // letter solid).
-        let oW=Math.max(5,lh*0.06),rim=null;
-        for(let tries=0;tries<5&&!(rim&&rim.length);tries++){
-          const innerCut=off(filled,-oW);
-          if(innerCut&&innerCut.length){const r=diff(filled,innerCut);if(r&&r.length)rim=r;}
-          if(!(rim&&rim.length))oW*=0.6;
-        }
-        if(rim&&rim.length)bodyFilled=rim;
-      }
     } else {glyphSize=Math.max(8,lh-capMargin);const tg=new THREE.TextGeometry(letter,{font,size:glyphSize,height:1});tg.computeBoundingBox();cx=(tg.boundingBox.max.x+tg.boundingBox.min.x)/2;cy=(tg.boundingBox.max.y+tg.boundingBox.min.y)/2;}
 
     const bodyGroup=new THREE.Group();let builtHollow=false;
     if(hasClip&&filled){try{
-      const inner=off(bodyFilled,-wall);const ring=(inner&&inner.length)?diff(bodyFilled,inner):bodyFilled;
-      const ringShapes=shapesFromPaths(ring),backShapes=shapesFromPaths(bodyFilled);
+      const inner=off(filled,-wall);const ring=(inner&&inner.length)?diff(filled,inner):filled;
+      const ringShapes=shapesFromPaths(ring),backShapes=shapesFromPaths(filled);
       if(ringShapes.length&&backShapes.length){
         const wG=new THREE.ExtrudeGeometry(ringShapes,{depth,bevelEnabled:false,curveSegments:6});const bG=new THREE.ExtrudeGeometry(backShapes,{depth:wall,bevelEnabled:false,curveSegments:6});wG.translate(-cx,-cy,0);bG.translate(-cx,-cy,0);
         const walls=new THREE.Mesh(wG,MATS.body);walls.position.z=-depth;bodyGroup.add(walls);
@@ -817,26 +823,20 @@ async function buildModel(){
     }catch(e){}}
     if(!builtHollow){const geo=new THREE.TextGeometry(letter,{font,size:glyphSize,height:depth,curveSegments:8,bevelEnabled:false});geo.computeBoundingBox();const bb=geo.boundingBox;geo.translate(-(bb.max.x+bb.min.x)/2,-(bb.max.y+bb.min.y)/2,0);const body=new THREE.Mesh(geo,MATS.body);body.position.z=-depth;bodyGroup.add(body);}
 
-    if(mode==="render"){let fGeo;
-      if(lbType==="signature"){
-        // Signature: the glow follows the OUTLINE rim only, leaving the interior open (neon-outline look).
-        fGeo=new THREE.ExtrudeGeometry(shapesFromPaths(bodyFilled),{depth:0.6,bevelEnabled:false,curveSegments:6});fGeo.translate(-cx,-cy,0);
-      } else {
-        fGeo=new THREE.TextGeometry(letter,{font,size:glyphSize*0.96,height:0.6,curveSegments:6,bevelEnabled:false});fGeo.computeBoundingBox();const fb=fGeo.boundingBox;fGeo.translate(-(fb.max.x+fb.min.x)/2,-(fb.max.y+fb.min.y)/2,0);
-      }
-      glowFace=new THREE.Mesh(fGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.92}));glowFace.position.z=-1.2;glowFace.castShadow=false;bodyGroup.add(glowFace);}
+    if(mode==="render"){const fGeo=new THREE.TextGeometry(letter,{font,size:glyphSize*0.96,height:0.6,curveSegments:6,bevelEnabled:false});fGeo.computeBoundingBox();const fb=fGeo.boundingBox;fGeo.translate(-(fb.max.x+fb.min.x)/2,-(fb.max.y+fb.min.y)/2,0);glowFace=new THREE.Mesh(fGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.92}));glowFace.position.z=-1.2;glowFace.castShadow=false;bodyGroup.add(glowFace);}
 
-    const capGroup=new THREE.Group();let nameGroup=null;const imgGroups=[];let stlParts=[];
+    const capGroup=new THREE.Group();const nameGroups=[];const imgGroups=[];let stlParts=[];
     if(hasClip&&filled){try{
-      const A=off(bodyFilled,clearance),B=off(bodyFilled,clearance+capW);const band=diff(B,A);
-      // Standard: the lid cap overhangs the body slightly (B). Signature: the lid IS the rim, so the hollow
-      // interior of the outline is preserved on the front face instead of being filled in by the cap lip.
-      const lidRegion=(lbType==="signature")?bodyFilled:B;
+      const A=off(filled,clearance),B=off(filled,clearance+capW);const band=diff(B,A);
       const sG=new THREE.ExtrudeGeometry(shapesFromPaths(band),{depth:skirtD,bevelEnabled:false,curveSegments:6});sG.translate(-cx,-cy,0);const skirt=new THREE.Mesh(sG,skirtMat);skirt.position.z=-skirtD;capGroup.add(skirt);
       // ---- Gather pocket features. Name + images share the name pocket depth; each STL gets its own. ----
       const inlays=[];                 // solids that fill name/image pockets and stand proud
       const slabFeatures=[];           // every pocket carved into the lid top: {p, depth}
-      if(name){let nf=null;try{const otf=await loadOT(selNameFont.url);nf=unionFilled(nameSubjOT(otf,name,nameSize));}catch(_){nf=unionFilled(glyphSubj(font,name.toUpperCase(),nameSize));}const nc=pathsCenter(nf);const ns=translatePaths(nf,(cx+(+v("nameX")||0))-nc.x,(cy+(+v("nameY")||0))-nc.y);inlays.push({p:ns,mat:MATS.name,kind:"name",depth:pocket});if(pocket>0.01)slabFeatures.push({p:ns,depth:pocket});}
+      // Every independent text layer becomes its own inlay + pocket, placed at its own x/y.
+      for(const t of texts){const str=(t.str||"").trim();if(!str)continue;const tsz=t.size||22;
+        let nf=null;try{const otf=await loadOT(selNameFont.url);nf=unionFilled(nameSubjOT(otf,str,tsz));}catch(_){nf=unionFilled(glyphSubj(font,str.toUpperCase(),tsz));}
+        if(!nf||!nf.length)continue;const nc=pathsCenter(nf);const ns=translatePaths(nf,(cx+(+t.x||0))-nc.x,(cy+(+t.y||0))-nc.y);
+        inlays.push({p:ns,mat:MATS.name,kind:"name",depth:pocket});if(pocket>0.01)slabFeatures.push({p:ns,depth:pocket});}
       images.forEach((im)=>{if(!im.img)return;const key=im.src+"@"+im.size;if(!im.contours||im.key!==key){im.contours=imageContours(im.img,im.size);im.key=key;}if(im.contours&&im.contours.length){let f=unionEO(im.contours);f=rotatePaths(f,im.rot);const is=translatePaths(f,cx+im.x,cy+im.y);inlays.push({p:is,mat:MATS.image,kind:"img",depth:pocket});if(pocket>0.01)slabFeatures.push({p:is,depth:pocket});}});
 
       // ---- Catalog models: sit flush ON TOP of the solid lid. They do NOT carve the lid — no pocket,
@@ -866,20 +866,20 @@ async function buildModel(){
       });
 
       // ---- Stacked-slab lid: solid floor + carved top layers (true inset pockets, never through-holes) ----
-      buildLidSlabs(lidRegion,cx,cy,slabFeatures,TT,FLOOR_MIN).forEach(s=>{const m=new THREE.Mesh(s.geo,topMat);m.position.z=s.z;capGroup.add(m);});
+      buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN).forEach(s=>{const m=new THREE.Mesh(s.geo,topMat);m.position.z=s.z;capGroup.add(m);});
 
       // ---- Drop the name/image inlay solids into their pockets (they stand proud by nameExt) ----
       // Build the inlay solids via the PolyTree converter so internal letter counters (the 'A' triangle,
       // 'o'/'e' holes, …) stay hollow at EVERY position. The old parity/point-in-polygon nesting misfired
       // when the centred text put a contour's test vertex on another edge, filling the counters in.
-      inlays.forEach(it=>{const shp=diffToShapes(it.p,null,0);if(!shp.length)return;const ge=new THREE.ExtrudeGeometry(shp,{depth:nameExt,bevelEnabled:false,curveSegments:6});ge.translate(-cx,-cy,0);const mh=new THREE.Mesh(ge,it.mat);mh.position.z=TT-Math.max(0,Math.min(it.depth,TT-FLOOR_MIN));const grp=new THREE.Group();grp.add(mh);if(it.kind==="name")nameGroup=grp;else imgGroups.push(grp);});
+      inlays.forEach(it=>{const shp=diffToShapes(it.p,null,0);if(!shp.length)return;const ge=new THREE.ExtrudeGeometry(shp,{depth:nameExt,bevelEnabled:false,curveSegments:6});ge.translate(-cx,-cy,0);const mh=new THREE.Mesh(ge,it.mat);mh.position.z=TT-Math.max(0,Math.min(it.depth,TT-FLOOR_MIN));const grp=new THREE.Group();grp.add(mh);if(it.kind==="name")nameGroups.push(grp);else imgGroups.push(grp);});
     }catch(e){}}
 
     // Movement confines for catalog models: XY bounded by the letter (lid/body) footprint. Models are
     // seated flat on the lid — there is no free Z axis. The 2D pad clamps to this.
     window.__GB={hx:Math.max(8,LW/2),hy:Math.max(8,LH/2)};
     const partList=[{group:capGroup,name:"Lid · front",flip:true},{group:bodyGroup,name:"Body",flip:false}];
-    if(nameGroup)partList.push({group:nameGroup,name:"Name inlay",flip:false});
+    nameGroups.forEach((gr,i)=>partList.push({group:gr,name:"Text "+(i+1),flip:false}));
     imgGroups.forEach((gr,i)=>partList.push({group:gr,name:"Image "+(i+1),flip:false}));
     if(stlParts&&stlParts.length){stlParts.forEach(p=>partList.push(p));}
     else{models.forEach((mo,i)=>{if(!mo.obj)return;const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));inst.position.set(+mo.x||0,+mo.y||0,TT);grp.userData={isStl:true,modelId:mo.id};grp.add(inst);partList.push({group:grp,name:"3D "+((mo.name||("model "+(i+1))).slice(0,9)),flip:false,modelId:mo.id});});}
@@ -924,9 +924,45 @@ function renderPlateList(){const el=g("platelist");if(!el)return;if(mode!=="plat
 function renderPrinter(){const el=g("printerbox");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";el.innerHTML=`<div class="plbl">Printer</div><select class="psel" onchange="setPrinter(this.selectedIndex)">`+PRINTERS.map((p,i)=>`<option ${i===selPrinter?"selected":""}>${p.n} · ${p.x}×${p.y}mm</option>`).join("")+`</select>`;}
 function setPrinter(i){selPrinter=i;zoom=1;buildModel();}
 
-function buildSummary(){const nameExt=mmOf("nameExt")||10;let pocket=Math.max(0,Math.min(mmOf("nameDepth")||0,nameExt));const above=Math.round((nameExt-pocket)*10)/10;const parts=2+(v("name").trim()?1:0)+images.length+models.length;const bed=PRINTERS[selPrinter];g("summary").innerHTML=`<b>${(v("letter")||"A").toUpperCase()}</b> · ${selFont.name} · overall ${fmt(mmOf("lh"))} tall × ${fmt(mmOf("bd"))} deep<br>Name <b>${v("name")||"—"}</b> · ${fmt(nameExt)} tall, ${fmt(above)} proud<br>Images: ${images.length||"none"} · 3D models: ${models.length||"none"}<br>Printer <b>${bed.n}</b> (${bed.x}×${bed.y} mm bed)<br><b>${parts} separate printable parts</b> — lid prints face-down`;}
+function buildSummary(){const nameExt=mmOf("nameExt")||10;let pocket=Math.max(0,Math.min(mmOf("nameDepth")||0,nameExt));const above=Math.round((nameExt-pocket)*10)/10;const liveTexts=texts.filter(t=>(t.str||"").trim());const parts=2+liveTexts.length+images.length+models.length;const bed=PRINTERS[selPrinter];const tnames=liveTexts.map(t=>t.str.trim()).join(", ")||"—";g("summary").innerHTML=`<b>${(v("letter")||"A").toUpperCase()}</b> · ${selFont.name} · overall ${fmt(mmOf("lh"))} tall × ${fmt(mmOf("bd"))} deep<br>Text layers (${liveTexts.length||"none"}): <b>${tnames}</b> · ${fmt(nameExt)} tall, ${fmt(above)} proud<br>Images: ${images.length||"none"} · 3D models: ${models.length||"none"}<br>Printer <b>${bed.n}</b> (${bed.x}×${bed.y} mm bed)<br><b>${parts} separate printable parts</b> — lid prints face-down`;}
 
-paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();updatePad();renderImgList();renderModelList();buildModel().then(buildSummary);
+paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();buildModel().then(buildSummary);
+
+/* ============================================================================================
+   FUTURE UPDATE ARCHIVE: SIGNATURE HOLLOW LETTER LIGHTBOX LOGIC
+   --------------------------------------------------------------------------------------------
+   Preserved structural notes for re-integrating the "Signature Outline" lightbox type — a giant
+   capital letter rendered as a bold HOLLOW outline / channel-letter (open interior), as opposed
+   to the current solid letter box. Re-add a "Lightbox Type" selector (standard | signature) and
+   branch the geometry in buildModel(), keeping name/image/model placement on the FULL letter.
+
+   1. OUTLINE RIM (perimeter walls)
+      // `filled` = the solid capital-letter silhouette (Clipper paths from glyphSubj()).
+      // The rim is the letter minus an inset copy of itself:
+      //     innerCut = off(filled, -outlineW)          // ClipperOffset inward by outlineW (mm)
+      //     rim      = diff(filled, innerCut)           // boolean difference -> the wall band
+      // Adapt outlineW so thin strokes still hollow out (a too-wide inset collapses innerCut and
+      // leaves the letter solid). Loop: start outlineW ~ lh*0.06, while rim is empty -> outlineW *= 0.6.
+      //     bodyFilled = (rim && rim.length) ? rim : filled
+
+   2. INNER ISLAND SEGMENTS (counters / enclosed loops)
+      // off()/diff() already produce the rim around BOTH the outer contour AND any interior counters
+      // (A triangle, O/D/P/R/B bowls): offsetting the counter outward shrinks each hole, so the rim
+      // naturally wraps every island. Feed the rim through the PolyTree converter (diffToShapes) so the
+      // outer->hole->island nesting stays correct and nothing fractures along shared boundaries.
+
+   3. APPLY THE RIM TO BODY + LID + GLOW (open interior preserved)
+      //   walls/back : build from bodyFilled instead of filled  (off(bodyFilled,-wall) ring, back=bodyFilled)
+      //   skirt band : A=off(bodyFilled,clearance), B=off(bodyFilled,clearance+capW); band=diff(B,A)
+      //   lid region : use bodyFilled ITSELF (not the +capW expanded B) so the cap lip does not fill the
+      //                hollow channel back in on the front face.
+      //   glow face  : extrude bodyFilled (rim) at z=-1.2 instead of a solid TextGeometry, so only the
+      //                rim glows and the interior stays open (neon-outline look).
+
+   4. PLACEMENT + BOUNDS (unchanged across both types)
+      // Keep cx,cy,LW,LH and window.__GB from the FULL `filled` letter so text/images/models still center
+      // and clamp across the whole silhouette, spanning the open interior of the outline.
+   ============================================================================================ */
 </script>
 </body>
 </html>
