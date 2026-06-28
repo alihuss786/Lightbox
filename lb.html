@@ -123,8 +123,7 @@ details.precise>*:not(summary){padding:0 12px 12px}
 .tlayer.sel{border-color:var(--acc)}
 .tlayer .tlrow{display:flex;align-items:center;gap:9px}
 .tlayer input[type=text]{flex:1}
-.tlayer .tlcolor{flex:none;width:32px;height:32px;padding:0;border:1px solid var(--line2);border-radius:8px;background:transparent;cursor:pointer}
-.tlayer .tlcolor::-webkit-color-swatch-wrapper{padding:3px}.tlayer .tlcolor::-webkit-color-swatch{border:none;border-radius:5px}
+.tlayer .tlsw{width:26px;height:26px;flex:none}
 .tlayer .tldel{flex:none;width:32px;height:32px;border:1px solid var(--line2);border-radius:8px;background:transparent;color:var(--txt2);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center}
 .tlayer .tldel:hover{border-color:#e06a6a;color:#e89090}
 .tlayer .tlsize{display:flex;align-items:center;gap:9px}
@@ -214,7 +213,6 @@ img.pad-img.sel{outline:2px solid var(--mint)}
       <div class="sub">Front plate</div>
       <div class="sw-grid">
         <div class="sw-item"><span class="sw" id="sw_front" onclick="openPal('front',event)"></span><span class="swl">Front (lid)</span></div>
-        <div class="sw-item"><span class="sw" id="sw_name" onclick="openPal('name',event)"></span><span class="swl">Name</span></div>
         <div class="sw-item"><span class="sw" id="sw_image" onclick="openPal('image',event)"></span><span class="swl">Image</span></div>
         <div class="sw-item"><span class="sw" id="sw_model" onclick="openPal('model',event)"></span><span class="swl">3D model</span></div>
       </div>
@@ -348,11 +346,12 @@ function rebuild(){updatePad();clearTimeout(t1);t1=setTimeout(()=>{buildModel();
 const PRESETS=["#FFFFFF","#F4E9D8","#E8C99B","#C9A36A","#B0B5BB","#7E848B","#3A3F44","#15171A","#E23B3B","#E2663B","#E2A93B","#7FB23B","#2FB273","#3B9AE2","#3B57E2","#7A3BE2","#E23B86","#10100F","#F7C0D1","#9FE1CB","#FAC775","#B5D4F4","#CECBF6","#888780"];
 let palTarget=null;
 (function(){const grid=g("palGrid");PRESETS.forEach(hex=>{const c=document.createElement("div");c.className="c";c.style.background=hex;c.onclick=()=>pickColor(hex);grid.appendChild(c);});})();
-function openPal(t,ev){palTarget=t;const p=g("palette");g("palHex").value=COLORS[t];const r=ev.currentTarget.getBoundingClientRect();let x=Math.min(r.left,window.innerWidth-242),y=r.bottom+6;p.style.left=x+"px";p.style.top=y+"px";p.classList.add("show");ev.stopPropagation();}
-function pickColor(hex){if(!palTarget)return;COLORS[palTarget]=hex;applyColors();applyLight();g("palette").classList.remove("show");}
-function palHexIn(){let h=g("palHex").value.trim();if(/^#?[0-9a-fA-F]{6}$/.test(h)){if(h[0]!=="#")h="#"+h;COLORS[palTarget]=h;applyColors();applyLight();}}
+function palTextId(t){return (typeof t==="string"&&t.indexOf("text:")===0)?(+t.slice(5)):null;}
+function openPal(t,ev){palTarget=t;const p=g("palette");const tid=palTextId(t);let cur;if(tid!=null){const tx=texts.find(x=>x.id===tid);cur=(tx&&tx.color)||"#FFFFFF";}else{cur=COLORS[t];}g("palHex").value=cur;const r=ev.currentTarget.getBoundingClientRect();let x=Math.min(r.left,window.innerWidth-242),y=r.bottom+6;p.style.left=x+"px";p.style.top=y+"px";p.classList.add("show");ev.stopPropagation();}
+function pickColor(hex){if(!palTarget)return;const tid=palTextId(palTarget);if(tid!=null){onTextColor(tid,hex);const s=g("sw_text_"+tid);if(s)s.style.background=hex;g("palHex").value=hex;g("palette").classList.remove("show");return;}COLORS[palTarget]=hex;applyColors();applyLight();g("palette").classList.remove("show");}
+function palHexIn(){let h=g("palHex").value.trim();if(/^#?[0-9a-fA-F]{6}$/.test(h)){if(h[0]!=="#")h="#"+h;const tid=palTextId(palTarget);if(tid!=null){onTextColor(tid,h);const s=g("sw_text_"+tid);if(s)s.style.background=h;return;}COLORS[palTarget]=h;applyColors();applyLight();}}
 document.addEventListener("pointerdown",e=>{const p=g("palette");if(p.classList.contains("show")&&!p.contains(e.target)&&!(e.target.classList&&e.target.classList.contains("sw")))p.classList.remove("show");});
-function refreshSwatches(){["front","name","image","model","body"].forEach(k=>{const s=g("sw_"+k);if(s)s.style.background=COLORS[k];});}
+function refreshSwatches(){["front","name","image","model","body"].forEach(k=>{const s=g("sw_"+k);if(s)s.style.background=COLORS[k];});texts.forEach(t=>{const s=g("sw_text_"+t.id);if(s)s.style.background=t.color||"#FFFFFF";});}
 function applyColors(){refreshSwatches();if(MATS.front)MATS.front.color.set(COLORS.front);if(MATS.name)MATS.name.color.set(COLORS.name);if(MATS.image)MATS.image.color.set(COLORS.image);if(MATS.body)MATS.body.color.set(COLORS.body);if(MATS.model)MATS.model.color.set(COLORS.model);}
 
 function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");R.style.background=r?"#eef0f2":"transparent";R.style.color=r?"#16181b":"#fff";P.style.background=!r?"#eef0f2":"transparent";P.style.color=!r?"#16181b":"#fff";}
@@ -518,7 +517,7 @@ function onTextColor(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.col
 function renderTextList(){const host=g("textList");if(!host)return;host.innerHTML="";
   texts.forEach((t,idx)=>{const d=document.createElement("div");d.className="tlayer"+(idx===selText?" sel":"");d.onclick=()=>{if(selText!==idx){selText=idx;renderTextList();drawTextPad();}};
     const sz=tidy(t.size*(UNIT==="cm"?0.1:1))+(UNIT==="cm"?" cm":" mm");
-    d.innerHTML=`<div class="tlrow"><input type="color" class="tlcolor" title="Text colour" value="${t.color||"#FFFFFF"}" oninput="onTextColor(${t.id},this.value)"><input type="text" value="${(t.str||"").replace(/"/g,"&quot;")}" maxlength="24" placeholder="Text…" oninput="onTextStr(${t.id},this.value)"><button class="tldel" title="Delete this text layer" onclick="event.stopPropagation();deleteText(${t.id})">🗑</button></div>`+
+    d.innerHTML=`<div class="tlrow"><span class="sw tlsw" id="sw_text_${t.id}" title="Text colour" style="background:${t.color||"#FFFFFF"}" onclick="event.stopPropagation();openPal('text:${t.id}',event)"></span><input type="text" value="${(t.str||"").replace(/"/g,"&quot;")}" maxlength="24" placeholder="Text…" oninput="onTextStr(${t.id},this.value)"><button class="tldel" title="Delete this text layer" onclick="event.stopPropagation();deleteText(${t.id})">🗑</button></div>`+
       `<div class="tlsize"><span class="lbl">Size</span><input type="range" min="8" max="120" step="1" value="${t.size}" oninput="onTextSize(${t.id},this.value)"><span class="tlsz" id="tlsz_${t.id}">${sz}</span></div>`;
     host.appendChild(d);});}
 function drawTextPad(){const pad=g("pad_name"),layer=g("textLayer");if(!pad||!layer)return;layer.innerHTML="";if(pad.offsetParent===null)return;const sc=PAD["scale_name"];if(!sc)return;const r=pad.getBoundingClientRect();
@@ -943,9 +942,15 @@ function setPrinter(i){selPrinter=i;zoom=1;buildModel();}
 function buildSummary(){const nameExt=mmOf("nameExt")||10;let pocket=Math.max(0,Math.min(mmOf("nameDepth")||0,nameExt));const above=Math.round((nameExt-pocket)*10)/10;const liveTexts=texts.filter(t=>(t.str||"").trim());const parts=2+liveTexts.length+images.length+models.length;const bed=PRINTERS[selPrinter];const tnames=liveTexts.map(t=>t.str.trim()).join(", ")||"—";g("summary").innerHTML=`<b>${(v("letter")||"A").toUpperCase()}</b> · ${selFont.name} · overall ${fmt(mmOf("lh"))} tall × ${fmt(mmOf("bd"))} deep<br>Text layers (${liveTexts.length||"none"}): <b>${tnames}</b> · ${fmt(nameExt)} tall, ${fmt(above)} proud<br>Images: ${images.length||"none"} · 3D models: ${models.length||"none"}<br>Printer <b>${bed.n}</b> (${bed.x}×${bed.y} mm bed)<br><b>${parts} separate printable parts</b> — lid prints face-down`;}
 
 paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();
-// Initial build, then force a clean second geometry pass once the cursive font + Clipper are fully ready,
-// so the default centred text renders its counters correctly on load — no manual nudge needed.
-buildModel().then(buildSummary).then(()=>{loadOT(selNameFont.url).catch(()=>{}).finally(()=>{buildModel().then(buildSummary);});});
+// First paint.
+buildModel().then(buildSummary);
+// PART 1 — guarantee the default centred text renders its letter counters (e.g. the hollow inside
+// of "A") correctly on FIRST load, with no manual nudge. At the very end of init, on window load,
+// we wait for the cursive font + Clipper to be fully ready and then EXPLICITLY re-run the whole text
+// mesh-generation / path-extrusion / geometry-refresh pipeline (buildModel), and once more on the next
+// animation frame so the corrected geometry is committed before the user ever interacts.
+function forceTextGeometryRefresh(){return loadOT(selNameFont.url).catch(()=>{}).finally(()=>{return buildModel().then(buildSummary).then(()=>{requestAnimationFrame(()=>{buildModel().then(buildSummary);});});});}
+window.addEventListener("load",()=>{if(document.fonts&&document.fonts.ready){document.fonts.ready.then(forceTextGeometryRefresh,forceTextGeometryRefresh);}else{forceTextGeometryRefresh();}});
 
 /* ============================================================================================
    FUTURE UPDATE ARCHIVE: SIGNATURE HOLLOW LETTER LIGHTBOX LOGIC
