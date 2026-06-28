@@ -293,13 +293,8 @@ img.pad-img.sel{outline:2px solid var(--mint)}
 <script>
 const PRINTERS=[{n:"A1 mini",x:180,y:180},{n:"A1",x:256,y:256},{n:"P1P",x:256,y:256},{n:"P1S",x:256,y:256},{n:"X1 Carbon",x:256,y:256},{n:"X1E",x:256,y:256},{n:"P2S",x:256,y:256},{n:"X2D",x:256,y:256},{n:"A2L",x:330,y:320},{n:"H2D",x:350,y:320},{n:"H2S",x:350,y:320}];
 let selPrinter=3;
-let plateOpacity=0.62;          // build-plate translucency so pockets stay visible while placing parts
+const plateOpacity=0.12;        // build-plate translucency permanently locked at its lowest level
 let __plateMats=[];             // live references to the current plate's materials for instant opacity updates
-function setPlateOpacity(val){
-  plateOpacity=Math.max(0.12,Math.min(1,+val||0));
-  const solid=plateOpacity>=0.995;
-  __plateMats.forEach((m,i)=>{if(!m)return;m.transparent=!solid;m.opacity=(i===1)?Math.min(1,plateOpacity+0.12):plateOpacity;m.depthWrite=solid;m.needsUpdate=true;});
-}
 function accT(h){const acc=h.parentElement;const open=acc.classList.contains("open");document.querySelectorAll(".controls .acc.open").forEach(a=>a.classList.remove("open"));if(!open)acc.classList.add("open");setTimeout(()=>{try{drawPad();}catch(e){}},0);}
 const FB="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/fonts/";
 const FONTS=[{name:"Sans",url:FB+"helvetiker_bold.typeface.json",css:"Arial Black,sans-serif"},{name:"Serif",url:FB+"optimer_bold.typeface.json",css:"Georgia,serif"},{name:"Soft",url:FB+"gentilis_bold.typeface.json",css:"Trebuchet MS,sans-serif"}];
@@ -701,13 +696,11 @@ function makePlateTexture(bx,by){
 // notches cut into the back edge, and the front centre grab-tab protruding from the front edge.
 function buildPlateShape(bx,by){
   const M=PLATE_MARGIN, halfW=bx/2+M, halfH=by/2+M;
-  const rc=M*0.66, nx=halfW*0.46, nw=M*1.7, nd=M*0.62;     // outer corner radius + rear notches
+  const rc=M*0.66;                                         // outer corner radius
   const tw=Math.min(bx*0.20,80), ty=M*0.62, tr=ty*0.5;     // front grab-tab
   const s=new THREE.Shape();
   s.moveTo(-halfW+rc, halfH);
-  // rear edge with the two locating notches (cut inward, toward -y)
-  s.lineTo(-nx-nw/2, halfH);  s.lineTo(-nx-nw/2, halfH-nd); s.lineTo(-nx+nw/2, halfH-nd); s.lineTo(-nx+nw/2, halfH);
-  s.lineTo( nx-nw/2, halfH);  s.lineTo( nx-nw/2, halfH-nd); s.lineTo( nx+nw/2, halfH-nd); s.lineTo( nx+nw/2, halfH);
+  // straight rear edge — the two locating notches have been removed
   s.lineTo(halfW-rc, halfH);  s.quadraticCurveTo(halfW, halfH, halfW, halfH-rc);   // top-right corner
   s.lineTo(halfW, -halfH+rc); s.quadraticCurveTo(halfW, -halfH, halfW-rc, -halfH); // bottom-right corner
   // front edge into the centre grab-tab (protrudes toward -y) and back out
@@ -838,7 +831,10 @@ async function buildModel(){
       buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN).forEach(s=>{const m=new THREE.Mesh(s.geo,topMat);m.position.z=s.z;capGroup.add(m);});
 
       // ---- Drop the name/image inlay solids into their pockets (they stand proud by nameExt) ----
-      inlays.forEach(it=>{const ge=new THREE.ExtrudeGeometry(shapesFromPaths(it.p),{depth:nameExt,bevelEnabled:false,curveSegments:6});ge.translate(-cx,-cy,0);const mh=new THREE.Mesh(ge,it.mat);mh.position.z=TT-Math.max(0,Math.min(it.depth,TT-FLOOR_MIN));const grp=new THREE.Group();grp.add(mh);if(it.kind==="name")nameGroup=grp;else imgGroups.push(grp);});
+      // Build the inlay solids via the PolyTree converter so internal letter counters (the 'A' triangle,
+      // 'o'/'e' holes, …) stay hollow at EVERY position. The old parity/point-in-polygon nesting misfired
+      // when the centred text put a contour's test vertex on another edge, filling the counters in.
+      inlays.forEach(it=>{const shp=diffToShapes(it.p,null,0);if(!shp.length)return;const ge=new THREE.ExtrudeGeometry(shp,{depth:nameExt,bevelEnabled:false,curveSegments:6});ge.translate(-cx,-cy,0);const mh=new THREE.Mesh(ge,it.mat);mh.position.z=TT-Math.max(0,Math.min(it.depth,TT-FLOOR_MIN));const grp=new THREE.Group();grp.add(mh);if(it.kind==="name")nameGroup=grp;else imgGroups.push(grp);});
     }catch(e){}}
 
     // Movement confines for catalog models: XY bounded by the letter (lid/body) footprint. Models are
@@ -887,7 +883,7 @@ async function buildModel(){
 function renderPlateList(){const el=g("platelist");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";
   el.innerHTML=`<div class="plbl">Plates</div>`+PLATES.map((p,i)=>{const extra=p.flip?" · face-down":"";const th=PLATE_THUMBS[i]?`<img src="${PLATE_THUMBS[i]}">`:"";return `<div class="pcard${i===selPlate?' sel':''}" data-i="${i}"><div class="pth">${th}</div><div><div class="pnm">Plate ${i+1}</div><div class="psub">${p.name}${extra}</div></div></div>`;}).join("");
   el.querySelectorAll(".pcard").forEach(d=>d.onclick=()=>{selPlate=+d.dataset.i;zoom=1;buildModel();});}
-function renderPrinter(){const el=g("printerbox");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";el.innerHTML=`<div class="plbl">Printer</div><select class="psel" onchange="setPrinter(this.selectedIndex)">`+PRINTERS.map((p,i)=>`<option ${i===selPrinter?"selected":""}>${p.n} · ${p.x}×${p.y}mm</option>`).join("")+`</select>`+`<div class="plbl" style="margin-top:12px">Plate opacity</div><input type="range" min="0.12" max="1" step="0.01" value="${plateOpacity}" oninput="setPlateOpacity(this.value)" style="width:100%;accent-color:var(--acc)"><div class="psub" style="color:var(--txt2);margin-top:5px;text-shadow:0 1px 4px #000">Lower it to see through the plate and check the pockets.</div>`;}
+function renderPrinter(){const el=g("printerbox");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";el.innerHTML=`<div class="plbl">Printer</div><select class="psel" onchange="setPrinter(this.selectedIndex)">`+PRINTERS.map((p,i)=>`<option ${i===selPrinter?"selected":""}>${p.n} · ${p.x}×${p.y}mm</option>`).join("")+`</select>`;}
 function setPrinter(i){selPrinter=i;zoom=1;buildModel();}
 
 function buildSummary(){const nameExt=mmOf("nameExt")||10;let pocket=Math.max(0,Math.min(mmOf("nameDepth")||0,nameExt));const above=Math.round((nameExt-pocket)*10)/10;const parts=2+(v("name").trim()?1:0)+images.length+models.length;const bed=PRINTERS[selPrinter];g("summary").innerHTML=`<b>${(v("letter")||"A").toUpperCase()}</b> · ${selFont.name} · overall ${fmt(mmOf("lh"))} tall × ${fmt(mmOf("bd"))} deep<br>Name <b>${v("name")||"—"}</b> · ${fmt(nameExt)} tall, ${fmt(above)} proud<br>Images: ${images.length||"none"} · 3D models: ${models.length||"none"}<br>Printer <b>${bed.n}</b> (${bed.x}×${bed.y} mm bed)<br><b>${parts} separate printable parts</b> — lid prints face-down`;}
