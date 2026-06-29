@@ -637,43 +637,64 @@ function finishGeo(geo,path,res,rej){
   try{geo.computeVertexNormals();geo.computeBoundingBox();STL_CACHE[path]=geo;delete STL_PENDING[path];res(geo);}
   catch(e){delete STL_PENDING[path];rej(e);}
 }
-function loadGeometry(path){
+// A user click must always beat the background warming. Background fetches run through an AbortController
+// we track here; the moment the user actually picks a model, loadForeground() cancels the in-flight
+// background download (a different model) and pauses the queue, so the clicked model gets the whole pipe
+// and lands fast instead of crawling behind a prefetch.
+let BG_CTRL=null,BG_PATH=null,BG_PAUSED=0,BG_RUNNING=false,BG_INDEX=0;
+function loadGeometry(path,background){
   if(STL_CACHE[path])return Promise.resolve(STL_CACHE[path]);
   if(STL_PENDING[path])return STL_PENDING[path];
   if(!THREE.STLLoader)return Promise.reject(new Error("STL loader unavailable"));
   const p=new Promise((res,rej)=>{
     const plain=()=>new THREE.STLLoader().load(path,geo=>finishGeo(geo,path,res,rej),undefined,err=>{delete STL_PENDING[path];rej(err||new Error("load failed"));});
     if(typeof DecompressionStream==="undefined"||typeof fetch==="undefined"){plain();return;}
-    fetch(path+".gz").then(r=>{
+    const ctrl=(typeof AbortController!=="undefined")?new AbortController():null;
+    if(background&&ctrl){BG_CTRL=ctrl;BG_PATH=path;}
+    const clearBg=()=>{if(BG_CTRL===ctrl){BG_CTRL=null;BG_PATH=null;}};
+    fetch(path+".gz",ctrl?{signal:ctrl.signal}:undefined).then(r=>{
       if(!r.ok||!r.body)throw 0;
       return new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
     }).then(buf=>{
-      const geo=new THREE.STLLoader().parse(buf);finishGeo(geo,path,res,rej);
-    }).catch(()=>plain());   // .gz missing / unsupported / corrupt → plain .stl
+      clearBg();const geo=new THREE.STLLoader().parse(buf);finishGeo(geo,path,res,rej);
+    }).catch(err=>{
+      clearBg();
+      if(err&&err.name==="AbortError"){delete STL_PENDING[path];rej(err);return;}  // cancelled to free the pipe → refetched later
+      plain();   // .gz missing / unsupported / corrupt → plain .stl
+    });
   });
   STL_PENDING[path]=p;return p;
 }
+// Foreground (user-initiated) load: take priority over the background queue. Abort the in-flight background
+// download if it's a DIFFERENT model (never the one being requested), pause the queue, then load; resume
+// the queue once this settles. If the requested model is already the one prefetching, we just ride that
+// in-flight download — now uncontended — to completion.
+function loadForeground(path){
+  BG_PAUSED++;
+  if(BG_CTRL&&BG_PATH!==path){try{BG_CTRL.abort();}catch(e){}BG_CTRL=null;BG_PATH=null;}
+  const resume=()=>{if(BG_PAUSED>0)BG_PAUSED--;pumpPrefetch();};
+  return loadGeometry(path,false).then(geo=>{resume();return geo;},err=>{resume();throw err;});
+}
 // Warm the cache for a model the moment the pointer reaches its tile, so by the time it is clicked the
 // geometry is already parsed in memory and placement is instant.
-function prefetchModel(i){const e=STL_CATALOG[i];if(e&&!STL_CACHE[e.path]&&!STL_PENDING[e.path])loadGeometry(e.path).catch(()=>{});}
-// Quietly warm EVERY catalog model in the background during idle time, one at a time, so on a brand-new
-// machine (cold cache / private window) the models are already downloaded + parsed by the time the user
-// opens the catalog — the click then places instantly instead of waiting on a multi-MB fetch. Sequential
-// so it never saturates the connection or competes with itself; a pointer-hover prefetch simply jumps in
-// alongside (STL_PENDING dedupes). Kicks off well after first paint so it can't slow the initial load.
-function prefetchAllModels(){
+function prefetchModel(i){const e=STL_CATALOG[i];if(e&&!STL_CACHE[e.path]&&!STL_PENDING[e.path])loadGeometry(e.path,true).catch(()=>{});}
+// Quietly warm EVERY catalog model in the background, one at a time, so on a brand-new machine (cold cache
+// / private window) the models are already downloaded + parsed by the time the user opens the catalog — the
+// click then places instantly. Sequential so it never saturates the connection; a user click pauses this
+// queue and cancels the in-flight background download (see loadForeground) so the click is never throttled.
+// The queue is resumable: pumpPrefetch() picks up wherever it left off whenever it's un-paused.
+function pumpPrefetch(){
+  if(BG_RUNNING||BG_PAUSED>0)return;
+  while(BG_INDEX<STL_CATALOG.length&&(STL_CACHE[STL_CATALOG[BG_INDEX].path]||STL_PENDING[STL_CATALOG[BG_INDEX].path]))BG_INDEX++;
+  if(BG_INDEX>=STL_CATALOG.length)return;
   // The 3D viewport runs a constant requestAnimationFrame loop, so the page is never truly "idle" —
   // requestIdleCallback would be starved. Give it a guaranteed timeout (and fall back to setTimeout) so the
   // queue always advances, while still yielding to real work when the browser does get a breather.
   const idle=window.requestIdleCallback?function(f){return requestIdleCallback(f,{timeout:600});}:function(f){return setTimeout(f,250);};
-  let i=0;
-  (function next(){
-    while(i<STL_CATALOG.length&&(STL_CACHE[STL_CATALOG[i].path]||STL_PENDING[STL_CATALOG[i].path]))i++;
-    if(i>=STL_CATALOG.length)return;
-    const e=STL_CATALOG[i++];
-    loadGeometry(e.path).catch(()=>{}).then(()=>idle(next));
-  })();
+  BG_RUNNING=true;
+  loadGeometry(STL_CATALOG[BG_INDEX++].path,true).catch(()=>{}).then(()=>{BG_RUNNING=false;idle(pumpPrefetch);});
 }
+function prefetchAllModels(){pumpPrefetch();}
 function renderCatalog(){
   const grid=g("catalogGrid");if(!grid)return;grid.innerHTML="";
   STL_CATALOG.forEach((c,i)=>{
@@ -698,8 +719,9 @@ function loadCatalogModel(i,card){
   if(STL_CACHE[entry.path]){placeCatalogGeo(STL_CACHE[entry.path],entry.name);return;}
   if(card){card.classList.add("busy");card.querySelector(".cat-ico").innerHTML='<div class="spin"></div>';}
   const done=()=>{if(card){card.classList.remove("busy");card.querySelector(".cat-ico").innerHTML=CAT_ICON;}};
-  loadGeometry(entry.path).then(geo=>{placeCatalogGeo(geo,entry.name);done();}).catch(()=>{
+  loadForeground(entry.path).then(geo=>{placeCatalogGeo(geo,entry.name);done();}).catch(err=>{
     done();
+    if(err&&err.name==="AbortError")return;   // superseded by another pick; not a real failure
     alert('Could not load "'+entry.path+'".\n\nThe catalog loads each model from the "stls/" folder that ships next to this page (e.g. stls/'+entry.path.split("/").pop()+'). Make sure that folder is deployed alongside lb.html and served over http(s).');
   });
 }
@@ -1370,7 +1392,7 @@ paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTe
 // Warm the whole model catalog in the background a few seconds after first paint, so cold-cache machines
 // have the geometry ready before the user opens the catalog. Delayed so it never competes with the splash
 // image / library load on the initial paint.
-setTimeout(prefetchAllModels,3000);
+setTimeout(prefetchAllModels,800);
 // ---------- PART 2: deterministic first-load letter/text geometry (no nudge, no blank screen) ----------
 // The capital-letter counter (the 'A' triangle) and every cursive-name counter must be hollow on the FIRST
 // paint. Two failure modes are handled here:
