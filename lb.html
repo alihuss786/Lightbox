@@ -134,12 +134,14 @@ details.precise>*:not(summary){padding:0 12px 12px}
 .tlayer .tldel:hover{border-color:#e06a6a;color:#e89090}
 .tlayer .tlsize{display:flex;align-items:center;gap:9px}
 .tlayer .tlsize input[type=range]{flex:1;accent-color:var(--acc)}
+.tlayer .tlfont{flex:1;min-width:0;background:#16181b;color:#eaecef;border:1px solid #2b2e34;border-radius:7px;padding:5px 7px;font-size:12px;cursor:pointer}
+.tlayer .tlfont:focus{outline:none;border-color:var(--acc)}
 .tlayer .tlsz{font-size:11px;color:var(--txt3);min-width:42px;text-align:right;font-variant-numeric:tabular-nums}
 .addtext{width:100%;padding:11px;border:1.5px dashed var(--line2);border-radius:10px;background:transparent;color:var(--txt2);font-weight:600;font-size:13px;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
 .addtext:hover{border-color:var(--acc);color:var(--acc);background:rgba(201,163,106,.05)}
 .upfont{width:100%;padding:10px;border:1.5px solid var(--line2);border-radius:10px;background:rgba(201,163,106,.06);color:var(--txt2);font-weight:600;font-size:12.5px;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
 .upfont:hover{border-color:var(--acc);color:var(--acc);background:rgba(201,163,106,.12)}
-.nbtn{position:relative}
+.nbtn,.fbtn{position:relative}
 .nbtn-x{position:absolute;top:2px;right:2px;width:16px;height:16px;line-height:14px;text-align:center;border:none;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:12px;cursor:pointer;padding:0}
 .nbtn-x:hover{background:#e23b3b}
 .fontwait{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:60;display:none;align-items:center;gap:10px;background:rgba(18,21,27,.93);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;padding:10px 16px;color:#fff;font-size:13px;font-weight:600;box-shadow:0 10px 34px rgba(0,0,0,.55)}
@@ -344,8 +346,10 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
     <div class="acc-b">
       <div class="row"><span class="lbl">Capital letter</span><input type="text" class="letter-big" id="letter" maxlength="1" value="A" oninput="this.value=this.value.toUpperCase();rebuild()"></div>
       <div class="row"><span class="lbl">Letter font</span><div class="grid3" id="font-grid"></div></div>
-      <div class="row"><span class="lbl">Cursive font (all text layers)</span><div class="grid3" id="name-grid"></div></div>
-      <button class="upfont" id="upFontBtn" onclick="g('fontFile').click()">⬆ Upload Custom Font (.ttf / .otf)</button>
+      <button class="upfont" id="upLetterFontBtn" onclick="g('letterFontFile').click()">⬆ Upload Letter Font (.ttf / .otf)</button>
+      <input type="file" id="letterFontFile" accept=".ttf,.otf,font/ttf,font/otf,application/font-sfnt" style="display:none" onchange="onLetterFontUpload(this)">
+      <div class="row"><span class="lbl">Default cursive font (new text layers)</span><div class="grid3" id="name-grid"></div></div>
+      <button class="upfont" id="upFontBtn" onclick="g('fontFile').click()">⬆ Upload Cursive Font (.ttf / .otf)</button>
       <input type="file" id="fontFile" accept=".ttf,.otf,font/ttf,font/otf,application/font-sfnt" style="display:none" onchange="onFontUpload(this)">
       <div class="sub" style="margin-top:4px">Text layers</div>
       <div id="textList" style="display:flex;flex-direction:column;gap:11px"></div>
@@ -457,7 +461,38 @@ function fmt(mm){return UNIT==="cm"?(Math.round(mm/10*100)/100)+" cm":Math.round
 function paintUnitSeg(){const mmS=UNIT==="mm";const a=g("u_mm"),b=g("u_cm");if(!a)return;a.style.background=mmS?"#eef0f2":"transparent";a.style.color=mmS?"#16181b":"#fff";b.style.background=!mmS?"#eef0f2":"transparent";b.style.color=!mmS?"#16181b":"#fff";}
 function setUnit(u){if(u===UNIT)return;const store={};MEAS.forEach(m=>{store[m[0]]=mmOf(m[0]);});UNIT=u;const toU=(u==="cm"?0.1:1);MEAS.forEach(([id,mn,mx,st])=>{const el=g(id);if(!el)return;el.value=tidy(store[id]*toU);el.min=mn*toU;el.max=mx*toU;el.step=(u==="cm")?Math.max(0.1,Math.round(st)/10):st;const R=g(id+"R");if(R)R.value=store[id];});document.querySelectorAll(".numbox .u").forEach(s=>s.textContent=u);paintUnitSeg();rebuild();buildSummary();}
 
-const fg=g("font-grid");FONTS.forEach(f=>{const b=document.createElement("button");b.className="fbtn"+(f===selFont?" sel":"");b.innerHTML=`<div class="fs" style="font-family:${f.css}">Aa</div><div class="fn">${f.name}</div>`;b.onclick=()=>{selFont=f;document.querySelectorAll("#font-grid .fbtn").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");rebuild();};fg.appendChild(b);});
+function renderFontGrid(){const fg=g("font-grid");if(!fg)return;fg.innerHTML="";FONTS.forEach(f=>{const b=document.createElement("button");b.className="fbtn"+(f===selFont?" sel":"");b.innerHTML=`<div class="fs" style="font-family:${f.css}">Aa</div><div class="fn">${f.name}</div>`+(f.custom?`<button class="nbtn-x" title="Remove custom letter font" onclick="event.stopPropagation();removeLetterFont('${f.url}')">×</button>`:"");b.onclick=()=>{selFont=f;renderFontGrid();rebuild();};fg.appendChild(b);});}
+renderFontGrid();
+// Build a THREE.Font (the typeface.json shape the letter pipeline expects) directly from an uploaded .ttf/.otf
+// using opentype, so custom fonts work for the big capital letter — not just the cursive text. Each glyph's
+// opentype outline is rewritten into the typeface "o" command string (Y flipped to typeface's Y-up space).
+function otToThreeFont(otf,familyName){
+  if(typeof THREE==="undefined"||!THREE.Font)throw new Error("THREE.Font unavailable");
+  const upm=otf.unitsPerEm||1000,R=Math.round,glyphs={};
+  for(let code=32;code<127;code++){const ch=String.fromCharCode(code);let gi;try{gi=otf.charToGlyphIndex(ch);}catch(_){gi=0;}if(!gi&&ch!==" ")continue;const glyph=otf.glyphs.get(gi);if(!glyph)continue;let o="";try{glyph.getPath(0,0,upm).commands.forEach(c=>{if(c.type==="M")o+="m "+R(c.x)+" "+R(-c.y)+" ";else if(c.type==="L")o+="l "+R(c.x)+" "+R(-c.y)+" ";else if(c.type==="Q")o+="q "+R(c.x)+" "+R(-c.y)+" "+R(c.x1)+" "+R(-c.y1)+" ";else if(c.type==="C")o+="b "+R(c.x)+" "+R(-c.y)+" "+R(c.x1)+" "+R(-c.y1)+" "+R(c.x2)+" "+R(-c.y2)+" ";});}catch(_){}glyphs[ch]={ha:R(glyph.advanceWidth||upm*0.5),o:o.trim()};}
+  if(!glyphs["?"])glyphs["?"]={ha:R(upm*0.5),o:""};
+  const asc=otf.ascender||R(upm*0.8),desc=otf.descender||-R(upm*0.2);
+  return new THREE.Font({glyphs,familyName:familyName||"Custom",resolution:upm,boundingBox:{xMin:0,yMin:desc,xMax:upm,yMax:asc},underlineThickness:R(upm*0.05),underlinePosition:-R(upm*0.1),ascender:asc,descender:desc,original_font_information:{}});
+}
+function addCustomLetterFont(id,name,buf,apply){
+  try{const otf=opentype.parse(buf);const tf=otToThreeFont(otf,name);fontCache[id]=tf;
+    try{const ff=new FontFace("LF_"+id,buf.slice(0));document.fonts.add(ff);ff.load().catch(()=>{});}catch(_){}
+    const entry={name,url:id,css:`'LF_${id}',sans-serif`,custom:true};
+    FONTS.push(entry);renderFontGrid();
+    if(apply){selFont=entry;renderFontGrid();rebuild();}
+    return entry;
+  }catch(_){return null;}
+}
+function onLetterFontUpload(input){const file=input&&input.files&&input.files[0];if(!file)return;
+  showFontLoading(true,"Reading "+file.name+"…");
+  const reader=new FileReader();
+  reader.onload=ev=>{const buf=ev.target.result;const nm=(file.name.replace(/\.(ttf|otf)$/i,"").trim().slice(0,14))||"Custom";const id="letter-"+Date.now()+"-"+Math.floor(Math.random()*1e4);const entry=addCustomLetterFont(id,nm,buf,true);showFontLoading(false);
+    if(entry)dbPutFont({id,name:nm,buf,kind:"letter"});
+    else alert("Could not read that font. Please upload a standard .ttf or .otf file.");};
+  reader.onerror=()=>{showFontLoading(false);alert("Could not read that file.");};
+  reader.readAsArrayBuffer(file);input.value="";
+}
+function removeLetterFont(key){const i=FONTS.findIndex(f=>f.url===key);if(i<0)return;const wasSel=FONTS[i]===selFont;FONTS.splice(i,1);delete fontCache[key];dbDelFont(key);if(wasSel)selFont=FONTS[0];renderFontGrid();if(wasSel)rebuild();}
 function renderNameGrid(){const ng=g("name-grid");if(!ng)return;ng.innerHTML="";NAME_FONTS.forEach(f=>{const b=document.createElement("button");b.className="nbtn"+(f===selNameFont?" sel":"");b.innerHTML=`<div class="ns" style="font-family:${f.css}">Abc</div><div class="nn">${f.name}</div>`+(f.custom?`<button class="nbtn-x" title="Remove custom font" onclick="event.stopPropagation();removeNameFont('${f.url}')">×</button>`:"");b.onclick=()=>selectNameFont(f);ng.appendChild(b);});}
 // Switching the cursive font must NOT black out the canvas. We parse the new font's vectors asynchronously
 // behind a small loading overlay (the scene keeps showing the CURRENT geometry the whole time), and only once
@@ -468,6 +503,10 @@ async function selectNameFont(f){
   showFontLoading(true,"Parsing "+f.name+"…");
   try{await loadOT(f.url);}catch(_){/* leaves it to the sans fallback at build time */}
   selNameFont=f;
+  // The big cursive picker drives the ACTIVE text layer (and is the default for new layers); each layer can
+  // still be overridden individually from its own Font dropdown.
+  if(texts[selText])texts[selText].font=f.url;
+  renderTextList();
   document.querySelectorAll("#name-grid .nbtn").forEach((x,i)=>x.classList.toggle("sel",NAME_FONTS[i]===f));
   // Hold the last frame over the canvas, rebuild underneath (font cached -> fast), then reveal on the next
   // frame — the viewport never goes black during the swap.
@@ -517,7 +556,7 @@ function onFontUpload(input){const file=input&&input.files&&input.files[0];if(!f
 function removeNameFont(key){const i=NAME_FONTS.findIndex(f=>f.url===key);if(i<0)return;const wasSel=NAME_FONTS[i]===selNameFont;NAME_FONTS.splice(i,1);delete otCache[key];dbDelFont(key);if(wasSel)selNameFont=NAME_FONTS[0];renderNameGrid();if(wasSel)rebuild();}
 renderNameGrid();
 // Auto-hydrate previously-uploaded custom fonts from IndexedDB on launch (non-blocking, additive).
-dbAllFonts().then(recs=>{recs.forEach(r=>{if(r&&r.id&&r.buf)addCustomFont(r.id,r.name||"Custom",r.buf,false);});}).catch(()=>{});
+dbAllFonts().then(recs=>{recs.forEach(r=>{if(r&&r.id&&r.buf){if(r.kind==="letter")addCustomLetterFont(r.id,r.name||"Letter",r.buf,false);else addCustomFont(r.id,r.name||"Custom",r.buf,false);}});}).catch(()=>{});
 
 const DIMS=[{id:"lh",l:"Letter height",min:50,max:400,st:1,val:140},{id:"bd",l:"Light box depth",min:15,max:150,st:1,val:40},{id:"wall",l:"Wall thickness",min:1.5,max:8,st:.5,val:3},{id:"topT",l:"Lid top thickness",min:1,max:12,st:.5,val:3},{id:"capW",l:"Cap wall",min:1.5,max:8,st:.5,val:3},{id:"skirt",l:"Skirt depth",min:3,max:120,st:1,val:14}];
 const dr=g("dimRows");
@@ -747,10 +786,20 @@ function drawPad(){if(!PAD.filled)return;let mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e
   ["name","img","stl"].forEach(pre=>{const pad=g("pad_"+pre);if(!pad||(pad.offsetParent===null))return;const svg=g("padSvg_"+pre);const r=pad.getBoundingClientRect();const padW=r.width||300,padH=r.height||184;const m=1.14;const scale=Math.min(padW/(W*m),padH/(H*m));PAD["scale_"+pre]=scale;let d="";PAD.filled.forEach(p=>{p.forEach((pt,i)=>{const x=pt.X/S-PAD.cx,y=pt.Y/S-PAD.cy;const px=padW/2+x*scale,py=padH/2-y*scale;d+=(i===0?"M":"L")+px.toFixed(1)+" "+py.toFixed(1)+" ";});d+="Z ";});svg.setAttribute("viewBox",`0 0 ${padW} ${padH}`);svg.innerHTML=`<path d="${d}" fill="#2b3037" stroke="#3a4047" stroke-width="1" fill-rule="evenodd"/>`;});
   drawTextPad();renderImgLayer();drawStlPad();}
 /* ---------- Dynamic text layers: add / delete / edit / select, each fully independent ---------- */
-function addText(){const t={id:uid++,str:"New Text",size:22,x:0,y:0,color:COLORS.name||"#FFFFFF",bold:0};texts.push(t);selText=texts.length-1;renderTextList();drawTextPad();scheduleBuild();}
+function addText(){const t={id:uid++,str:"New Text",size:22,x:0,y:0,color:COLORS.name||"#FFFFFF",bold:0,font:selNameFont.url};texts.push(t);selText=texts.length-1;renderTextList();drawTextPad();scheduleBuild();}
+// Per-layer font helpers. Each text layer carries its own font id (t.font); fall back to the global default.
+function fontByUrl(u){return NAME_FONTS.find(f=>f.url===u)||selNameFont;}
+function otHasChar(otf,ch){if(ch===" ")return true;try{return otf.charToGlyphIndex(ch)!==0;}catch(_){return true;}}
+// Strip characters the chosen font has no glyph for (e.g. a display font with no digits) so they never
+// render as ".notdef" tofu boxes. Returns {kept (in order), dropped (distinct unsupported chars)}.
+function filterToFont(otf,str){let kept="",dropped="";for(const ch of str){if(otHasChar(otf,ch))kept+=ch;else if(dropped.indexOf(ch)<0)dropped+=ch;}return{kept,dropped};}
+function onTextFont(id,url){const t=texts.find(x=>x.id===id);if(!t)return;t.font=url;showFontLoading(true,"Loading font…");loadOT(url).catch(()=>{}).then(()=>{showFontLoading(false);drawTextPad();scheduleBuild();});}
+// After a build, surface (per layer) any characters the layer's font couldn't render. Lightweight DOM
+// update only — never re-renders the list, so it can't disturb an open dropdown or text field.
+function refreshTextWarnings(){texts.forEach(t=>{const el=g("tlwarn_"+t.id);if(!el)return;const d=t._dropped;if(d){el.textContent="⚠ This font has no: "+d.split("").join(" ")+" — those characters are skipped.";el.style.display="";}else el.style.display="none";});}
 function deleteText(id){const i=texts.findIndex(t=>t.id===id);if(i<0)return;texts.splice(i,1);if(selText>=texts.length)selText=texts.length-1;renderTextList();drawTextPad();scheduleBuild();}
 function onTextStr(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.str=val;drawTextPad();scheduleBuild();}
-function onTextSize(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.size=Math.max(8,Math.min(160,+val||22));const lab=g("tlsz_"+id);if(lab)lab.textContent=tidy(t.size*(UNIT==="cm"?0.1:1))+(UNIT==="cm"?" cm":" mm");drawTextPad();scheduleBuild();}
+function onTextSize(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.size=Math.max(2,Math.min(160,+val||22));const lab=g("tlsz_"+id);if(lab)lab.textContent=tidy(t.size*(UNIT==="cm"?0.1:1))+(UNIT==="cm"?" cm":" mm");drawTextPad();scheduleBuild();}
 // Line Thickness / Boldness: stroke offset (mm) added outward to this layer's letters before extrusion, so
 // thin cursive paths fatten into wide, solid, printable lines. 0 = font as-drawn. Rebuilds the geometry.
 function onTextBold(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.bold=Math.max(0,Math.min(2,(+val||0)));const lab=g("tlbd_"+id);if(lab)lab.textContent=(t.bold>0?"+":"")+tidy(t.bold)+" mm";scheduleBuild();}
@@ -760,12 +809,16 @@ function onTextColor(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.col
 function renderTextList(){const host=g("textList");if(!host)return;host.innerHTML="";
   texts.forEach((t,idx)=>{const d=document.createElement("div");d.className="tlayer"+(idx===selText?" sel":"");d.onclick=()=>{if(selText!==idx){selText=idx;renderTextList();drawTextPad();}};
     const sz=tidy(t.size*(UNIT==="cm"?0.1:1))+(UNIT==="cm"?" cm":" mm");
+    const curFont=t.font||selNameFont.url;
+    const fontOpts=NAME_FONTS.map(f=>`<option value="${f.url}"${f.url===curFont?" selected":""}>${f.name}</option>`).join("");
     d.innerHTML=`<div class="tlrow"><span class="sw tlsw" id="sw_text_${t.id}" title="Text colour" style="background:${t.color||"#FFFFFF"}" onclick="event.stopPropagation();openPal('text:${t.id}',event)"></span><input type="text" value="${(t.str||"").replace(/"/g,"&quot;")}" maxlength="24" placeholder="Text…" oninput="onTextStr(${t.id},this.value)"><button class="tldel" title="Delete this text layer" onclick="event.stopPropagation();deleteText(${t.id})">🗑</button></div>`+
-      `<div class="tlsize"><span class="lbl">Size</span><input type="range" min="8" max="120" step="1" value="${t.size}" oninput="onTextSize(${t.id},this.value)"><span class="tlsz" id="tlsz_${t.id}">${sz}</span></div>`+
-      `<div class="tlsize"><span class="lbl">Line Thickness</span><input type="range" min="0" max="2" step="0.05" value="${t.bold||0}" oninput="onTextBold(${t.id},this.value)"><span class="tlsz" id="tlbd_${t.id}">${(t.bold>0?"+":"")+tidy(t.bold||0)} mm</span></div>`;
+      `<div class="tlsize"><span class="lbl">Font</span><select class="tlfont" onclick="event.stopPropagation()" onchange="onTextFont(${t.id},this.value)">${fontOpts}</select></div>`+
+      `<div class="tlsize"><span class="lbl">Size</span><input type="range" min="2" max="120" step="0.5" value="${t.size}" oninput="onTextSize(${t.id},this.value)"><span class="tlsz" id="tlsz_${t.id}">${sz}</span></div>`+
+      `<div class="tlsize"><span class="lbl">Line Thickness</span><input type="range" min="0" max="2" step="0.05" value="${t.bold||0}" oninput="onTextBold(${t.id},this.value)"><span class="tlsz" id="tlbd_${t.id}">${(t.bold>0?"+":"")+tidy(t.bold||0)} mm</span></div>`+
+      `<div class="tlwarn" id="tlwarn_${t.id}" style="display:${t._dropped?"":"none"};color:#e6a06a;font-size:11px;line-height:1.3;margin-top:1px">${t._dropped?("⚠ This font has no: "+t._dropped.split("").join(" ")+" — those characters are skipped."):""}</div>`;
     host.appendChild(d);});}
 function drawTextPad(){const pad=g("pad_name"),layer=g("textLayer");if(!pad||!layer)return;layer.innerHTML="";if(pad.offsetParent===null)return;const sc=PAD["scale_name"];if(!sc)return;const r=pad.getBoundingClientRect();
-  texts.forEach((t,idx)=>{const csx=r.width/2+(t.x||0)*sc,csy=r.height/2-(t.y||0)*sc;const el=document.createElement("div");el.className="tchip"+(idx===selText?" sel":"");el.style.left=csx+"px";el.style.top=csy+"px";el.style.fontFamily=selNameFont.css;el.style.fontSize=Math.max(10,Math.min(24,(t.size||22)*sc*0.6))+"px";el.textContent=(t.str||"text").slice(0,18)||"text";layer.appendChild(el);});}
+  texts.forEach((t,idx)=>{const csx=r.width/2+(t.x||0)*sc,csy=r.height/2-(t.y||0)*sc;const el=document.createElement("div");el.className="tchip"+(idx===selText?" sel":"");el.style.left=csx+"px";el.style.top=csy+"px";el.style.fontFamily=fontByUrl(t.font||selNameFont.url).css;el.style.fontSize=Math.max(10,Math.min(24,(t.size||22)*sc*0.6))+"px";el.textContent=(t.str||"text").slice(0,18)||"text";layer.appendChild(el);});}
 function updatePad(){drawTextPad();}
 function imgWH(im){const iw=im.img.naturalWidth||im.img.width||300,ih=im.img.naturalHeight||im.img.height||300;const a=iw/ih;let bw,bh;if(a>=1){bw=im.size;bh=im.size/a;}else{bh=im.size;bw=im.size*a;}return{bw,bh};}
 function renderImgLayer(){const pad=g("pad_img"),layer=g("imgLayer");if(!pad||!layer)return;layer.innerHTML="";if(pad.offsetParent===null)return;const sc=PAD["scale_img"];if(!sc)return;const r=pad.getBoundingClientRect();images.forEach((im,idx)=>{if(!im.img)return;const {bw,bh}=imgWH(im);const csx=r.width/2+im.x*sc,csy=r.height/2-im.y*sc;const el=document.createElement("img");el.src=im.src;el.className="pad-img"+(idx===selImg?" sel":"");el.style.width=(bw*sc)+"px";el.style.height=(bh*sc)+"px";el.style.left=csx+"px";el.style.top=csy+"px";el.style.transform=`translate(-50%,-50%) rotate(${-im.rot}deg)`;layer.appendChild(el);if(idx===selImg){const R=(bh/2*sc)+24,rr2=im.rot*Math.PI/180,hx=csx+R*(-Math.sin(rr2)),hy=csy+R*(-Math.cos(rr2));const dxl=hx-csx,dyl=hy-csy,L=Math.hypot(dxl,dyl),ang=Math.atan2(dyl,dxl)*180/Math.PI;const ln=document.createElement("div");ln.className="rot-line";ln.style.left=csx+"px";ln.style.top=csy+"px";ln.style.width=L+"px";ln.style.transform=`rotate(${ang}deg)`;layer.appendChild(ln);const hh=document.createElement("div");hh.className="rot-handle";hh.style.left=hx+"px";hh.style.top=hy+"px";layer.appendChild(hh);}});}
@@ -869,7 +922,14 @@ function shapesFromPaths(paths){const polys=paths.map(p=>p.map(pt=>new THREE.Vec
 function pathsCenter(paths){let mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;paths.forEach(p=>p.forEach(pt=>{mnx=Math.min(mnx,pt.X);mny=Math.min(mny,pt.Y);mxx=Math.max(mxx,pt.X);mxy=Math.max(mxy,pt.Y);}));return{x:(mnx+mxx)/2/S,y:(mny+mxy)/2/S};}
 function pathsExtent(paths,cx,cy){let mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;paths.forEach(p=>p.forEach(pt=>{const x=pt.X/S-cx,y=pt.Y/S-cy;if(x<mnx)mnx=x;if(x>mxx)mxx=x;if(y<mny)mny=y;if(y>mxy)mxy=y;}));return{W:mxx-mnx,H:mxy-mny};}
 function traceMask(mask,h,w){const segs=[];for(let y=0;y<h-1;y++)for(let x=0;x<w-1;x++){const tl=mask[y][x],tr=mask[y][x+1],br=mask[y+1][x+1],bl=mask[y+1][x];const code=(tl<<3)|(tr<<2)|(br<<1)|bl;if(code===0||code===15)continue;const T=[x+0.5,y],R=[x+1,y+0.5],B=[x+0.5,y+1],L=[x,y+0.5];const a=(p,q)=>segs.push([p,q]);switch(code){case 1:a(L,B);break;case 2:a(B,R);break;case 3:a(L,R);break;case 4:a(R,T);break;case 5:a(L,T);a(R,B);break;case 6:a(B,T);break;case 7:a(L,T);break;case 8:a(T,L);break;case 9:a(T,B);break;case 10:a(T,R);a(B,L);break;case 11:a(T,R);break;case 12:a(R,L);break;case 13:a(R,B);break;case 14:a(B,L);break;}}const key=p=>Math.round(p[0]*2)+","+Math.round(p[1]*2);const adj=new Map(),pts=new Map();segs.forEach(([a,b])=>{const ka=key(a),kb=key(b);pts.set(ka,a);pts.set(kb,b);(adj.get(ka)||adj.set(ka,[]).get(ka)).push(kb);(adj.get(kb)||adj.set(kb,[]).get(kb)).push(ka);});const used=new Set(),loops=[];const ek=(a,b)=>a<b?a+"|"+b:b+"|"+a;for(const start of adj.keys()){if(!(adj.get(start)||[]).some(n=>!used.has(ek(start,n))))continue;const loop=[];let cur=start,gd=0;while(cur&&gd++<200000){loop.push(pts.get(cur));const ns=adj.get(cur)||[];let nx=null;for(const n of ns){if(!used.has(ek(cur,n))){nx=n;break;}}if(!nx)break;used.add(ek(cur,nx));cur=nx;if(cur===start)break;}if(loop.length>4)loops.push(loop);}return loops;}
-function imageContours(img,targetMm){const iw=img.naturalWidth||img.width||300,ih=img.naturalHeight||img.height||300;const maxd=170;const sc=Math.min(1,maxd/Math.max(iw,ih));const w=Math.max(2,Math.round(iw*sc)),h=Math.max(2,Math.round(ih*sc));const cv=document.createElement("canvas");cv.width=w;cv.height=h;const ctx=cv.getContext("2d");ctx.drawImage(img,0,0,w,h);let data;try{data=ctx.getImageData(0,0,w,h).data;}catch(e){return [];}let hasA=false;for(let i=3;i<data.length;i+=4){if(data[i]<250){hasA=true;break;}}const bg=[data[0],data[1],data[2]];const W=w+2,H=h+2;const mask=[];for(let y=0;y<H;y++)mask.push(new Array(W).fill(0));for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;let on;if(hasA){on=data[i+3]>128?1:0;}else{const dr2=data[i]-bg[0],dg=data[i+1]-bg[1],db=data[i+2]-bg[2];on=Math.sqrt(dr2*dr2+dg*dg+db*db)>60?1:0;}mask[y+1][x+1]=on;}const loops=traceMask(mask,H,W);const a=w/h;let bw,bh;if(a>=1){bw=targetMm;bh=targetMm/a;}else{bh=targetMm;bw=targetMm*a;}const sx=bw/w,sy=bh/h;const out=[];loops.forEach(loop=>{const dec=loop.filter((_,i)=>i%2===0);if(dec.length<4)return;const path=dec.map(p=>({X:Math.round(((p[0]-1)*sx-bw/2)*S),Y:Math.round((bh/2-(p[1]-1)*sy)*S)}));let ar=0;for(let i=0,n=path.length;i<n;i++){const q=path[(i+1)%n];ar+=path[i].X*q.Y-q.X*path[i].Y;}if(Math.abs(ar/2)<(1.5*S*S))return;out.push(path);});return out;}
+function imageContours(img,targetMm){const iw=img.naturalWidth||img.width||300,ih=img.naturalHeight||img.height||300;
+  // Trace at a high fixed resolution (rather than the source's native px) so vector/SVG art is rasterised
+  // crisply and large photos are downsampled — either way the contour edges come out fine, not chunky.
+  const tracePx=720;const sc=tracePx/Math.max(iw,ih);const w=Math.max(2,Math.round(iw*sc)),h=Math.max(2,Math.round(ih*sc));const cv=document.createElement("canvas");cv.width=w;cv.height=h;const ctx=cv.getContext("2d");ctx.drawImage(img,0,0,w,h);let data;try{data=ctx.getImageData(0,0,w,h).data;}catch(e){return [];}let hasA=false;for(let i=3;i<data.length;i+=4){if(data[i]<250){hasA=true;break;}}const bg=[data[0],data[1],data[2]];const W=w+2,H=h+2;const mask=[];for(let y=0;y<H;y++)mask.push(new Array(W).fill(0));for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;let on;if(hasA){on=data[i+3]>128?1:0;}else{const dr2=data[i]-bg[0],dg=data[i+1]-bg[1],db=data[i+2]-bg[2];on=Math.sqrt(dr2*dr2+dg*dg+db*db)>60?1:0;}mask[y+1][x+1]=on;}const loops=traceMask(mask,H,W);const a=w/h;let bw,bh;if(a>=1){bw=targetMm;bh=targetMm/a;}else{bh=targetMm;bw=targetMm*a;}const sx=bw/w,sy=bh/h;let out=[];loops.forEach(loop=>{if(loop.length<4)return;const path=loop.map(p=>({X:Math.round(((p[0]-1)*sx-bw/2)*S),Y:Math.round((bh/2-(p[1]-1)*sy)*S)}));let ar=0;for(let i=0,n=path.length;i<n;i++){const q=path[(i+1)%n];ar+=path[i].X*q.Y-q.X*path[i].Y;}if(Math.abs(ar/2)<(0.6*S*S))return;out.push(path);});
+  // Smooth the 1-pixel marching-squares stairstepping into crisp edges: merge sub-pixel vertices (~1px) and
+  // de-self-intersect. Genuine corners survive; only the raster "stairs" are flattened.
+  try{let s=ClipperLib.Clipper.CleanPolygons(out,1.4*sx*S);s=ClipperLib.Clipper.SimplifyPolygons(s,ClipperLib.PolyFillType.pftNonZero);s=s.filter(x=>x&&x.length>2);if(s.length)out=s;}catch(_){}
+  return out;}
 
 /* ---------- STL inlay engine: flat seat + footprint pocket ---------- */
 function deg(d){return (+d||0)*Math.PI/180;}
@@ -1093,8 +1153,8 @@ async function buildModel(){
       const inlays=[];                 // solids that fill name/image pockets and stand proud
       const slabFeatures=[];           // every pocket carved into the lid top: {p, depth}
       // Every independent text layer becomes its own inlay + pocket, placed at its own x/y, with its OWN colour.
-      for(const t of texts){const str=(t.str||"").trim();if(!str)continue;const tsz=t.size||22;
-        let nf=null;try{const otf=await loadOT(selNameFont.url);nf=unionFilled(nameSubjOT(otf,str,tsz));}catch(_){nf=unionFilled(glyphSubj(font,str.toUpperCase(),tsz));}
+      for(const t of texts){const raw=(t.str||"").trim();if(!raw){t._dropped="";continue;}const tsz=t.size||22;
+        let nf=null;try{const otf=await loadOT(t.font||selNameFont.url);const ft=filterToFont(otf,raw);t._dropped=ft.dropped;if(!ft.kept)continue;nf=unionFilled(nameSubjOT(otf,ft.kept,tsz));}catch(_){t._dropped="";nf=unionFilled(glyphSubj(font,raw.toUpperCase(),tsz));}
         if(!nf||!nf.length)continue;
         // Line Thickness / Boldness: expand the letter outlines outward by t.bold mm (rounded joins) so thin
         // cursive strokes fatten into wide, solid, printable walls. The thicker paths flow straight into the
@@ -1102,6 +1162,7 @@ async function buildModel(){
         const bold=Math.max(0,+t.bold||0);if(bold>0.001){try{const wb=off(nf,bold);if(wb&&wb.length)nf=wb;}catch(_){}}
         const nc=pathsCenter(nf);const ns=translatePaths(nf,(cx+(+t.x||0))-nc.x,(cy+(+t.y||0))-nc.y);
         inlays.push({p:ns,kind:"name",depth:pocket,color:(t.color||COLORS.name),tid:t.id});if(pocket>0.01)slabFeatures.push({p:ns,depth:pocket});}
+      try{refreshTextWarnings();}catch(_){}
       images.forEach((im)=>{if(!im.img)return;const key=im.src+"@"+im.size;if(!im.contours||im.key!==key){im.contours=imageContours(im.img,im.size);im.key=key;}if(im.contours&&im.contours.length){let f=unionEO(im.contours);f=rotatePaths(f,im.rot);const is=translatePaths(f,cx+im.x,cy+im.y);inlays.push({p:is,mat:MATS.image,kind:"img",depth:pocket});if(pocket>0.01)slabFeatures.push({p:is,depth:pocket});}});
 
       // ---- Catalog models: sit flush ON TOP of the solid lid. They do NOT carve the lid — no pocket,
