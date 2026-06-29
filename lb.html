@@ -630,21 +630,50 @@ const STL_CACHE={},STL_PENDING={};
 const CAT_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/></svg>';
 // Single source of truth for fetching + parsing a catalog model. Returns a cached Promise so concurrent
 // callers (hover prefetch + click) share one network request and one parse.
+// Transfer is ~40-60% smaller by fetching a pre-gzipped "<path>.gz" and inflating it in the browser with
+// the native DecompressionStream — fully lossless. Any hiccup (no .gz deployed, old browser without
+// DecompressionStream, decode error) silently falls back to streaming the plain "<path>" via STLLoader.
+function finishGeo(geo,path,res,rej){
+  try{geo.computeVertexNormals();geo.computeBoundingBox();STL_CACHE[path]=geo;delete STL_PENDING[path];res(geo);}
+  catch(e){delete STL_PENDING[path];rej(e);}
+}
 function loadGeometry(path){
   if(STL_CACHE[path])return Promise.resolve(STL_CACHE[path]);
   if(STL_PENDING[path])return STL_PENDING[path];
   if(!THREE.STLLoader)return Promise.reject(new Error("STL loader unavailable"));
   const p=new Promise((res,rej)=>{
-    new THREE.STLLoader().load(path,geo=>{
-      try{geo.computeVertexNormals();geo.computeBoundingBox();STL_CACHE[path]=geo;delete STL_PENDING[path];res(geo);}
-      catch(e){delete STL_PENDING[path];rej(e);}
-    },undefined,err=>{delete STL_PENDING[path];rej(err||new Error("load failed"));});
+    const plain=()=>new THREE.STLLoader().load(path,geo=>finishGeo(geo,path,res,rej),undefined,err=>{delete STL_PENDING[path];rej(err||new Error("load failed"));});
+    if(typeof DecompressionStream==="undefined"||typeof fetch==="undefined"){plain();return;}
+    fetch(path+".gz").then(r=>{
+      if(!r.ok||!r.body)throw 0;
+      return new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
+    }).then(buf=>{
+      const geo=new THREE.STLLoader().parse(buf);finishGeo(geo,path,res,rej);
+    }).catch(()=>plain());   // .gz missing / unsupported / corrupt → plain .stl
   });
   STL_PENDING[path]=p;return p;
 }
 // Warm the cache for a model the moment the pointer reaches its tile, so by the time it is clicked the
 // geometry is already parsed in memory and placement is instant.
 function prefetchModel(i){const e=STL_CATALOG[i];if(e&&!STL_CACHE[e.path]&&!STL_PENDING[e.path])loadGeometry(e.path).catch(()=>{});}
+// Quietly warm EVERY catalog model in the background during idle time, one at a time, so on a brand-new
+// machine (cold cache / private window) the models are already downloaded + parsed by the time the user
+// opens the catalog — the click then places instantly instead of waiting on a multi-MB fetch. Sequential
+// so it never saturates the connection or competes with itself; a pointer-hover prefetch simply jumps in
+// alongside (STL_PENDING dedupes). Kicks off well after first paint so it can't slow the initial load.
+function prefetchAllModels(){
+  // The 3D viewport runs a constant requestAnimationFrame loop, so the page is never truly "idle" —
+  // requestIdleCallback would be starved. Give it a guaranteed timeout (and fall back to setTimeout) so the
+  // queue always advances, while still yielding to real work when the browser does get a breather.
+  const idle=window.requestIdleCallback?function(f){return requestIdleCallback(f,{timeout:600});}:function(f){return setTimeout(f,250);};
+  let i=0;
+  (function next(){
+    while(i<STL_CATALOG.length&&(STL_CACHE[STL_CATALOG[i].path]||STL_PENDING[STL_CATALOG[i].path]))i++;
+    if(i>=STL_CATALOG.length)return;
+    const e=STL_CATALOG[i++];
+    loadGeometry(e.path).catch(()=>{}).then(()=>idle(next));
+  })();
+}
 function renderCatalog(){
   const grid=g("catalogGrid");if(!grid)return;grid.innerHTML="";
   STL_CATALOG.forEach((c,i)=>{
@@ -1338,6 +1367,10 @@ async function exportPlates(){
 }
 
 paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();
+// Warm the whole model catalog in the background a few seconds after first paint, so cold-cache machines
+// have the geometry ready before the user opens the catalog. Delayed so it never competes with the splash
+// image / library load on the initial paint.
+setTimeout(prefetchAllModels,3000);
 // ---------- PART 2: deterministic first-load letter/text geometry (no nudge, no blank screen) ----------
 // The capital-letter counter (the 'A' triangle) and every cursive-name counter must be hollow on the FIRST
 // paint. Two failure modes are handled here:
