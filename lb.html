@@ -789,7 +789,11 @@ function drawPad(){if(!PAD.filled)return;let mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e
 function addText(){const t={id:uid++,str:"New Text",size:22,x:0,y:0,color:COLORS.name||"#FFFFFF",bold:0,font:selNameFont.url};texts.push(t);selText=texts.length-1;renderTextList();drawTextPad();scheduleBuild();}
 // Per-layer font helpers. Each text layer carries its own font id (t.font); fall back to the global default.
 function fontByUrl(u){return NAME_FONTS.find(f=>f.url===u)||selNameFont;}
-function otHasChar(otf,ch){if(ch===" ")return true;try{return otf.charToGlyphIndex(ch)!==0;}catch(_){return true;}}
+function otFallbackGid(otf){if(otf.__fbGid!==undefined)return otf.__fbGid;let r=-1;try{const a=otf.charToGlyphIndex("\uE000"),b=otf.charToGlyphIndex("\uF8FF"),c=otf.charToGlyphIndex("\uE5FF");if(a===b&&b===c&&a>0)r=a;}catch(_){}otf.__fbGid=r;return r;}
+// A char is "supported" only if it maps to a real glyph: not .notdef (0), and not the font's fallback/
+// watermark glyph. Some demo fonts map digits/unsupported chars to a "PERSONAL USE ONLY" watermark glyph
+// (a non-zero index) instead of leaving them as .notdef; otFallbackGid sniffs that glyph via PUA probes.
+function otHasChar(otf,ch){if(ch===" ")return true;try{const gi=otf.charToGlyphIndex(ch);if(gi===0)return false;return gi!==otFallbackGid(otf);}catch(_){return true;}}
 // Strip characters the chosen font has no glyph for (e.g. a display font with no digits) so they never
 // render as ".notdef" tofu boxes. Returns {kept (in order), dropped (distinct unsupported chars)}.
 function filterToFont(otf,str){let kept="",dropped="";for(const ch of str){if(otHasChar(otf,ch))kept+=ch;else if(dropped.indexOf(ch)<0)dropped+=ch;}return{kept,dropped};}
@@ -1143,7 +1147,16 @@ async function buildModel(){
     }catch(e){}}
     if(!builtHollow){const geo=new THREE.TextGeometry(letter,{font,size:glyphSize,height:depth,curveSegments:8,bevelEnabled:false});geo.computeBoundingBox();const bb=geo.boundingBox;geo.translate(-(bb.max.x+bb.min.x)/2,-(bb.max.y+bb.min.y)/2,0);const body=new THREE.Mesh(geo,MATS.body);body.position.z=-depth;bodyGroup.add(body);}
 
-    if(mode==="render"){const fGeo=new THREE.TextGeometry(letter,{font,size:glyphSize*0.96,height:0.6,curveSegments:6,bevelEnabled:false});fGeo.computeBoundingBox();const fb=fGeo.boundingBox;fGeo.translate(-(fb.max.x+fb.min.x)/2,-(fb.max.y+fb.min.y)/2,0);glowFace=new THREE.Mesh(fGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.92}));glowFace.position.z=-1.2;glowFace.castShadow=false;bodyGroup.add(glowFace);}
+    if(mode==="render"){
+      // Build the glowing front face from the SAME even-odd silhouette as the body (winding-independent), so
+      // its counters (the 'A' triangle, 'B'/'o' holes …) are always hollow — including for uploaded fonts
+      // whose glyph winding can be inconsistent. Previously this used TextGeometry, whose hole detection IS
+      // winding-dependent, so a custom letter font showed a SOLID front counter in the render while the
+      // exported plate (built from the even-odd body) was correctly hollow.
+      let fGeo=null;
+      if(hasClip&&filled){try{const ins=off(filled,-0.8);const fShapes=shapesFromPaths((ins&&ins.length)?ins:filled);if(fShapes.length){fGeo=new THREE.ExtrudeGeometry(fShapes,{depth:0.6,bevelEnabled:false,curveSegments:6});fGeo.translate(-cx,-cy,0);}}catch(_){fGeo=null;}}
+      if(!fGeo){const tg=new THREE.TextGeometry(letter,{font,size:glyphSize*0.96,height:0.6,curveSegments:6,bevelEnabled:false});tg.computeBoundingBox();const fb=tg.boundingBox;tg.translate(-(fb.max.x+fb.min.x)/2,-(fb.max.y+fb.min.y)/2,0);fGeo=tg;}
+      glowFace=new THREE.Mesh(fGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.92}));glowFace.position.z=-1.2;glowFace.castShadow=false;bodyGroup.add(glowFace);}
 
     const capGroup=new THREE.Group();const nameGroups=[];const imgGroups=[];let stlParts=[];
     if(hasClip&&filled){try{
@@ -1153,15 +1166,23 @@ async function buildModel(){
       const inlays=[];                 // solids that fill name/image pockets and stand proud
       const slabFeatures=[];           // every pocket carved into the lid top: {p, depth}
       // Every independent text layer becomes its own inlay + pocket, placed at its own x/y, with its OWN colour.
-      for(const t of texts){const raw=(t.str||"").trim();if(!raw){t._dropped="";continue;}const tsz=t.size||22;
-        let nf=null;try{const otf=await loadOT(t.font||selNameFont.url);const ft=filterToFont(otf,raw);t._dropped=ft.dropped;if(!ft.kept)continue;nf=unionFilled(nameSubjOT(otf,ft.kept,tsz));}catch(_){t._dropped="";nf=unionFilled(glyphSubj(font,raw.toUpperCase(),tsz));}
-        if(!nf||!nf.length)continue;
-        // Line Thickness / Boldness: expand the letter outlines outward by t.bold mm (rounded joins) so thin
-        // cursive strokes fatten into wide, solid, printable walls. The thicker paths flow straight into the
-        // same extrusion + pocket pipeline, so the 3D mesh AND the exported geometry both thicken together.
-        const bold=Math.max(0,+t.bold||0);if(bold>0.001){try{const wb=off(nf,bold);if(wb&&wb.length)nf=wb;}catch(_){}}
-        const nc=pathsCenter(nf);const ns=translatePaths(nf,(cx+(+t.x||0))-nc.x,(cy+(+t.y||0))-nc.y);
-        inlays.push({p:ns,kind:"name",depth:pocket,color:(t.color||COLORS.name),tid:t.id});if(pocket>0.01)slabFeatures.push({p:ns,depth:pocket});}
+      for(const t of texts){const raw=(t.str||"").trim();if(!raw){t._dropped="";continue;}
+        // Build each layer in isolation: one problematic layer (some font/position combos yield self-
+        // intersecting or degenerate Clipper paths) is skipped instead of throwing and wiping the ENTIRE lid
+        // build (which surfaced as the whole render/plate "breaking").
+        try{
+          const tsz=t.size||22;
+          let nf=null;try{const otf=await loadOT(t.font||selNameFont.url);const ft=filterToFont(otf,raw);t._dropped=ft.dropped;if(!ft.kept)continue;nf=unionFilled(nameSubjOT(otf,ft.kept,tsz));}catch(_){t._dropped="";nf=unionFilled(glyphSubj(font,raw.toUpperCase(),tsz));}
+          if(!nf||!nf.length)continue;
+          const bold=Math.max(0,+t.bold||0);if(bold>0.001){try{const wb=off(nf,bold);if(wb&&wb.length)nf=wb;}catch(_){}}
+          // Resolve self-intersections (connected scripts overlap their own strokes, more so when boldened)
+          // into clean, correctly-nested polygons so the extrude cannot tear or invert faces.
+          try{const sp=ClipperLib.Clipper.SimplifyPolygons(nf,ClipperLib.PolyFillType.pftNonZero);if(sp&&sp.length){const fp=sp.filter(x=>x&&x.length>2);if(fp.length)nf=fp;}}catch(_){}
+          if(!nf||!nf.length)continue;
+          const nc=pathsCenter(nf);const ns=translatePaths(nf,(cx+(+t.x||0))-nc.x,(cy+(+t.y||0))-nc.y);
+          inlays.push({p:ns,kind:"name",depth:pocket,color:(t.color||COLORS.name),tid:t.id});if(pocket>0.01)slabFeatures.push({p:ns,depth:pocket});
+        }catch(_){/* skip just this layer, keep the rest of the build */}
+      }
       try{refreshTextWarnings();}catch(_){}
       images.forEach((im)=>{if(!im.img)return;const key=im.src+"@"+im.size;if(!im.contours||im.key!==key){im.contours=imageContours(im.img,im.size);im.key=key;}if(im.contours&&im.contours.length){let f=unionEO(im.contours);f=rotatePaths(f,im.rot);const is=translatePaths(f,cx+im.x,cy+im.y);inlays.push({p:is,mat:MATS.image,kind:"img",depth:pocket});if(pocket>0.01)slabFeatures.push({p:is,depth:pocket});}});
 
