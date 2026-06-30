@@ -1148,7 +1148,7 @@ async function buildModel(){
       let fGeo=null;
       if(hasClip&&filled){try{const ins=off(filled,-0.8);const fShapes=shapesFromPaths((ins&&ins.length)?ins:filled);if(fShapes.length){fGeo=new THREE.ExtrudeGeometry(fShapes,{depth:0.6,bevelEnabled:false,curveSegments:6});fGeo.translate(-cx,-cy,0);}}catch(_){fGeo=null;}}
       if(!fGeo){const tg=new THREE.TextGeometry(letter,{font,size:glyphSize*0.96,height:0.6,curveSegments:6,bevelEnabled:false});tg.computeBoundingBox();const fb=tg.boundingBox;tg.translate(-(fb.max.x+fb.min.x)/2,-(fb.max.y+fb.min.y)/2,0);fGeo=tg;}
-      glowFace=new THREE.Mesh(fGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.92}));glowFace.position.z=-1.2;glowFace.castShadow=false;bodyGroup.add(glowFace);}
+      glowFace=new THREE.Mesh(fGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.92}));glowFace.position.z=-1.2;glowFace.castShadow=false;glowFace.userData.isGlow=true;bodyGroup.add(glowFace);}
 
     const capGroup=new THREE.Group();const nameGroups=[];const imgGroups=[];let stlParts=[];
     if(hasClip&&filled){try{
@@ -1298,7 +1298,7 @@ function partTriangles(part){
   if(part.textPlate)layoutTextPlate(clone);
   clone.rotation.x=part.flip?Math.PI/2:-Math.PI/2;clone.position.set(0,0,0);clone.updateMatrixWorld(true);
   const v=new THREE.Vector3(),tris=[];
-  clone.traverse(o=>{if(!o.isMesh||!o.geometry)return;const ge=o.geometry,pos=ge.attributes&&ge.attributes.position;if(!pos)return;const mw=o.matrixWorld,idx=ge.index;
+  clone.traverse(o=>{if(!o.isMesh||!o.geometry||(o.userData&&o.userData.isGlow))return;const ge=o.geometry,pos=ge.attributes&&ge.attributes.position;if(!pos)return;const mw=o.matrixWorld,idx=ge.index;
     const gv=i=>{v.fromBufferAttribute(pos,i).applyMatrix4(mw);return{x:v.x,y:v.y,z:v.z};};
     // Drop any triangle with a non-finite vertex BEFORE it can poison the bounding-box centre below (a single
     // NaN there turns every exported coordinate into NaN -> Bambu "error serializing NaN").
