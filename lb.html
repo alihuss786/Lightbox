@@ -1308,8 +1308,14 @@ function partTriangles(part){
   if(!tris.length)return null;
   let mnx=1/0,mxx=-1/0,mnz=1/0,mxz=-1/0,mny=1/0;
   tris.forEach(t=>t.forEach(p=>{mnx=Math.min(mnx,p.x);mxx=Math.max(mxx,p.x);mnz=Math.min(mnz,p.z);mxz=Math.max(mxz,p.z);mny=Math.min(mny,p.y);}));
-  const cx=(mnx+mxx)/2,cz=(mnz+mxz)/2;   // map THREE(x,y,z) -> world(X=x-cx, Y=z-cz, Z=y-mny)
-  return tris.map(t=>t.map(p=>({x:f3(p.x-cx),y:f3(p.z-cz),z:f3(p.y-mny)})));
+  const cx=(mnx+mxx)/2,cz=(mnz+mxz)/2;   // map THREE(x,y,z) -> world(X=x-cx, Y=-(z-cz), Z=y-mny)
+  // Negate Y so the part is NOT mirrored on the bed: with the old (z-cz) mapping the printed face came out
+  // as a reflection, so names/images read backwards. Negating Y is a reflection, so each triangle's winding
+  // is reversed (swap v1/v2) to keep outward-facing normals and a valid manifold.
+  return tris.map(t=>{
+    const m=p=>({x:f3(p.x-cx),y:f3(cz-p.z),z:f3(p.y-mny)});
+    return [m(t[0]),m(t[2]),m(t[1])];
+  });
 }
 // Build the 3MF model EXACTLY like a Bambu Studio multi-plate project (mimicking HeartDog_split.3mf):
 //   * each printable mesh is an <object> with an ODD id (1,3,5,…) holding the <mesh>,
