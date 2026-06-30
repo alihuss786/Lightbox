@@ -1299,8 +1299,12 @@ function partTriangles(part){
   const v=new THREE.Vector3(),tris=[];
   clone.traverse(o=>{if(!o.isMesh||!o.geometry)return;const ge=o.geometry,pos=ge.attributes&&ge.attributes.position;if(!pos)return;const mw=o.matrixWorld,idx=ge.index;
     const gv=i=>{v.fromBufferAttribute(pos,i).applyMatrix4(mw);return{x:v.x,y:v.y,z:v.z};};
-    if(idx){for(let i=0;i<idx.count;i+=3)tris.push([gv(idx.getX(i)),gv(idx.getX(i+1)),gv(idx.getX(i+2))]);}
-    else{for(let i=0;i<pos.count;i+=3)tris.push([gv(i),gv(i+1),gv(i+2)]);}});
+    // Drop any triangle with a non-finite vertex BEFORE it can poison the bounding-box centre below (a single
+    // NaN there turns every exported coordinate into NaN -> Bambu "error serializing NaN").
+    const fin=p=>isFinite(p.x)&&isFinite(p.y)&&isFinite(p.z);
+    const addTri=(a,b2,c)=>{if(fin(a)&&fin(b2)&&fin(c))tris.push([a,b2,c]);};
+    if(idx){for(let i=0;i<idx.count;i+=3)addTri(gv(idx.getX(i)),gv(idx.getX(i+1)),gv(idx.getX(i+2)));}
+    else{for(let i=0;i<pos.count;i+=3)addTri(gv(i),gv(i+1),gv(i+2));}});
   if(!tris.length)return null;
   let mnx=1/0,mxx=-1/0,mnz=1/0,mxz=-1/0,mny=1/0;
   tris.forEach(t=>t.forEach(p=>{mnx=Math.min(mnx,p.x);mxx=Math.max(mxx,p.x);mnz=Math.min(mnz,p.z);mxz=Math.max(mxz,p.z);mny=Math.min(mny,p.y);}));
