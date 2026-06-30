@@ -978,39 +978,24 @@ function buildFlatModelGroup(mo,TT){
 // back face up to (TT - deepest pocket), then thin slabs between consecutive pocket depths, each with the
 // relevant footprints subtracted. The result is real recessed pockets, never holes through the lid.
 function buildLidSlabs(B,cx,cy,features,TT,floorMin){
+  // B = full lid region. features=[{p,depth}] each carve a recess of its depth into the TOP. To avoid a
+  // visible horizontal print seam, the NON-pocket area is built as ONE full-height extrusion (a single
+  // continuous outer wall); only the recessed pockets are separate, shorter pillars.
   const eps=0.01;
   const fs=(features||[]).filter(f=>f&&f.p&&f.depth>eps)
     .map(f=>({p:f.p,depth:Math.max(0,Math.min(f.depth,TT-floorMin))}))
     .filter(f=>f.depth>eps);
   const out=[];
-  const depths=[...new Set(fs.map(f=>+f.depth.toFixed(3)))].sort((a,b)=>a-b);
-  const maxD=depths.length?depths[depths.length-1]:0;
-  // solid floor slab (z 0 .. TT-maxD) — always present, never cut
-  const floorThick=TT-maxD;
-  if(floorThick>eps){
-    const g=new THREE.ExtrudeGeometry(diffToShapes(B,null,0),{depth:floorThick,bevelEnabled:false,curveSegments:6});
-    g.translate(-cx,-cy,0);out.push({geo:g,z:0});
-  }
-  // carved slabs between consecutive pocket depths
-  let prev=0;
-  for(let j=0;j<depths.length;j++){
-    const dj=depths[j],thick=dj-prev;
-    if(thick>eps){
-      let cut=null;fs.forEach(f=>{if(f.depth>=dj-eps)cut=cut?union2(cut,f.p):f.p;});
-      // STRICT containment: clip the pocket to the lid region so a footprint that overhangs the edge only
-      // ever carves the exact portion that physically sits on the lid. Clean removes micro-artifacts.
-      if(cut&&cut.length){cut=cleanPaths(intersect(cut,B));}
-      // Build the carved slab (lid minus pocket) straight from a Clipper PolyTree, so outer/hole nesting is
-      // explicit and correct even where the pocket meets the lid boundary — no fractured or missing sections.
-      // Sub-0.02 mm² fragments are dropped so no zero-width sliver walls are extruded.
-      const shps=(cut&&cut.length)?diffToShapes(B,cut,0.02):shapesFromPaths(B);
-      if(shps.length){
-        const g=new THREE.ExtrudeGeometry(shps,{depth:thick,bevelEnabled:false,curveSegments:6});
-        g.translate(-cx,-cy,0);out.push({geo:g,z:TT-dj});   // sits from (TT-dj) up to (TT-prev)
-      }
-    }
-    prev=dj;
-  }
+  const ex=(shps,thick)=>{if(shps&&shps.length&&thick>eps){const g=new THREE.ExtrudeGeometry(shps,{depth:thick,bevelEnabled:false,curveSegments:6});g.translate(-cx,-cy,0);out.push({geo:g,z:0});}};
+  if(!fs.length){ex(shapesFromPaths(B),TT);return out;}
+  // Union of every pocket footprint, clipped to the lid region.
+  let allP=null;fs.forEach(f=>{allP=allP?union2(allP,f.p):f.p;});
+  if(allP&&allP.length)allP=cleanPaths(intersect(allP,B));
+  // Solid (non-pocket) lid at FULL height TT — one piece, so the outer wall carries no slab seam.
+  ex((allP&&allP.length)?diffToShapes(B,allP,0.02):shapesFromPaths(B),TT);
+  // Each distinct pocket depth: fill its footprint only up to (TT - depth), leaving a recess of that depth.
+  const byDepth={};fs.forEach(f=>{const k=(+f.depth.toFixed(3));(byDepth[k]=byDepth[k]||[]).push(f.p);});
+  Object.keys(byDepth).forEach(k=>{const d=+k;if(d<=eps||(TT-d)<=eps)return;let reg=null;byDepth[k].forEach(p=>{reg=reg?union2(reg,p):p;});if(reg&&reg.length)reg=cleanPaths(intersect(reg,B));const shps=(reg&&reg.length)?diffToShapes(reg,null,0.02):null;ex(shps,TT-d);});
   return out;
 }
 
@@ -1139,7 +1124,10 @@ async function buildModel(){
     const bodyGroup=new THREE.Group();let builtHollow=false;
     if(hasClip&&filled){try{
       const inner=off(filled,-wall);const ring=(inner&&inner.length)?diff(filled,inner):filled;
-      const ringShapes=shapesFromPaths(ring),backShapes=shapesFromPaths(filled);
+      // Back cap fills only the cavity floor (inner), NOT the full silhouette — otherwise its outer perimeter
+      // coincides with the wall (ring) outer face over the bottom `wall` mm, producing a doubled surface that
+      // prints as a visible horizontal seam. With `inner`, the outer wall is one continuous extrusion (smooth).
+      const ringShapes=shapesFromPaths(ring),backShapes=shapesFromPaths((inner&&inner.length)?inner:filled);
       if(ringShapes.length&&backShapes.length){
         const wG=new THREE.ExtrudeGeometry(ringShapes,{depth,bevelEnabled:false,curveSegments:6});const bG=new THREE.ExtrudeGeometry(backShapes,{depth:wall,bevelEnabled:false,curveSegments:6});wG.translate(-cx,-cy,0);bG.translate(-cx,-cy,0);
         const walls=new THREE.Mesh(wG,MATS.body);walls.position.z=-depth;bodyGroup.add(walls);
@@ -1228,7 +1216,7 @@ async function buildModel(){
     // Movement confines for catalog models: XY bounded by the letter (lid/body) footprint. Models are
     // seated flat on the lid — there is no free Z axis. The 2D pad clamps to this.
     window.__GB={hx:Math.max(8,LW/2),hy:Math.max(8,LH/2)};
-    const partList=[{group:capGroup,name:"Lid · front",flip:true},{group:bodyGroup,name:"Body",flip:false}];
+    const partList=[{group:capGroup,name:"Lid · front",flip:false,isLid:true},{group:bodyGroup,name:"Body",flip:false}];
     // Text layers are physically small — group EVERY text element onto ONE shared text build plate instead
     // of one plate per layer. The combined group holds each layer at its design position (so the assembled
     // render is unchanged); on the plate it is auto-packed into a non-overlapping row (see layoutTextPlate).
@@ -1432,7 +1420,7 @@ async function exportPlates(){
     const bucket={box:[],lid:[],text:[],model:[]};
     PLATES.forEach((part,i)=>{const tris=partTriangles(part);if(!tris||!tris.length)return;
       const clean=(part.name||("part "+(i+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
-      const cat=part.textPlate?"text":((part.modelId!=null)?"model":(part.flip?"lid":"box"));
+      const cat=part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
       bucket[cat].push({name:clean,tris});});
     const groups=[];
     if(bucket.box.length)groups.push({name:"Plate "+(groups.length+1)+" - Main Box",objects:bucket.box});
