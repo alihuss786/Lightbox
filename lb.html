@@ -1131,7 +1131,7 @@ async function buildModel(){
     const bodyGroup=new THREE.Group();let builtHollow=false;
     if(hasClip&&filled){try{
       const inner=off(filled,-wall);const ring=(inner&&inner.length)?diff(filled,inner):filled;
-      const ringShapes=shapesFromPaths(ring),backShapes=shapesFromPaths(filled);
+      const ringShapes=shapesFromPaths(ring),backShapes=shapesFromPaths((inner&&inner.length)?inner:filled);  // back fills only the cavity floor so the outer wall is one continuous (seamless) extrusion
       if(ringShapes.length&&backShapes.length){
         const wG=new THREE.ExtrudeGeometry(ringShapes,{depth,bevelEnabled:false,curveSegments:6});const bG=new THREE.ExtrudeGeometry(backShapes,{depth:wall,bevelEnabled:false,curveSegments:6});wG.translate(-cx,-cy,0);bG.translate(-cx,-cy,0);
         const walls=new THREE.Mesh(wG,MATS.body);walls.position.z=-depth;bodyGroup.add(walls);
