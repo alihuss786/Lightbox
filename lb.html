@@ -990,14 +990,39 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
     .map(f=>({p:f.p,depth:Math.max(0,Math.min(f.depth,TT-floorMin))}))
     .filter(f=>f.depth>eps);
   const byDepth={};fs2.forEach(f=>{const k=(+f.depth.toFixed(3));(byDepth[k]=byDepth[k]||[]).push(f.p);});
+  // Outer-edge ring: a thin band just inside the lid's OUTER silhouette (counters excluded). Where a name/
+  // image runs up to the outer edge, clipping it to B leaves a razor wall of lid pinched between the pocket
+  // and that edge, so the pocket looks sealed from the side. We open ONLY those thin pinched walls (the slice
+  // of this ring that sits within EDGE_OPEN of a pocket), never solid border - a name that stops well short
+  // of the edge is untouched, and the interior outline (and counters) stays exactly as projected.
+  const EDGE_OPEN=1.6;
+  const Bouter=B.filter(p=>ClipperLib.Clipper.Area(p)>0);
+  const coreB=(EDGE_OPEN>eps&&Bouter.length)?off(Bouter,-EDGE_OPEN):null;
+  const edgeRing=(coreB&&coreB.length)?diff(Bouter,coreB):null;
   const groups=[];let pocketUnion=null;
   Object.keys(byDepth).forEach(k=>{const d=+k;if(d<=eps||(TT-d)<=eps)return;
-    let reg=null;byDepth[k].forEach(p=>{reg=reg?union2(reg,p):p;});
-    // Clip each pocket to B eroded by POCKET_MARGIN so it never reaches the outer wall or a letter counter.
-    // A pocket flush against those boundaries would share walls with them and tear the shell (holes / non-
-    // manifold edges); the sub-nozzle margin keeps every pocket a clean interior hole.
-    if(reg&&reg.length)reg=cleanPaths(intersect(reg,Bclip));
-    if(reg&&reg.length){groups.push({depth:d,reg:reg});pocketUnion=pocketUnion?union2(pocketUnion,reg):reg;}});
+    let raw=null;byDepth[k].forEach(p=>{raw=raw?union2(raw,p):p;});
+    if(raw&&raw.length)raw=cleanPaths(raw);
+    if(!raw||!raw.length)return;
+    // The carving VOID is the raw (unclipped) name/image. Where it overhangs the lid it already crosses the
+    // outer edge, so B minus void is a clean open notch (no wall). Where it runs up to but stops just inside
+    // the edge, extend it OUT PAST the edge so it still crosses cleanly - otherwise it would meet the boundary
+    // as a hair-thin slit (a keyhole) that earcut can't triangulate and it would fill the pocket solid. The
+    // floor is the void clipped back to the lid, so the printed name still seats to the exact edge.
+    let regVoid=raw;
+    if(edgeRing&&edgeRing.length){
+      // The thin wall = lid material (not pocket) in the outer rim within EDGE_OPEN of this pocket. Only that
+      // gets bridged out through the edge; parts of the name that already overhang the edge carve a clean
+      // notch on their own and are left untouched (bridging them too would double-cut and tear the cap).
+      const keep=diff(B,raw);
+      const thinWall=intersect(intersect(edgeRing,off(raw,EDGE_OPEN)),keep);
+      if(thinWall&&thinWall.length){const past=off(thinWall,EDGE_OPEN);
+        if(past&&past.length)regVoid=cleanPaths(union2(raw,past));}
+    }
+    const regClip=cleanPaths(intersect(regVoid,B));             // pocket footprint (floor) clipped to the lid
+    if(!regClip||!regClip.length)return;
+    groups.push({depth:d,reg:regVoid,regClip:regClip});
+    pocketUnion=pocketUnion?union2(pocketUnion,regClip):regClip;});
   // Skirt = an interior bottom recess. rec = the lifted core (over the box opening), band = the flange rim.
   const hasSkirt=!!(inner&&inner.length&&skirtD>eps);
   const rec=hasSkirt?cleanPaths(intersect(B,inner)):null;
@@ -1007,7 +1032,18 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
   const pos=[];
   const addTri=(a,b,c)=>{pos.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]);};
   const loopOf=obj=>{const cs=obj.curves;if(!cs||!cs.length)return [];return [cs[0].v1].concat(cs.map(c=>c.v2));};
-  const contoursOf=paths=>shapesFromPaths(paths).map(sh=>({outer:loopOf(sh),holes:(sh.holes||[]).map(loopOf)}));
+  // Nest contours via Clipper's PolyTree (correct parent/child), NOT point-in-polygon parity. When a pocket
+  // runs out to the lid edge the top-cap outline becomes a notch and its counters become islands; parity
+  // nesting mis-assigns those and earcut then tears a stray face across the pocket. PolyTree gives the exact
+  // outer/hole/island hierarchy, so caps triangulate cleanly even where a pocket breaches the outer edge.
+  const contoursOf=paths=>{if(!paths||!paths.length)return [];
+    const cl=new ClipperLib.Clipper();cl.AddPaths(paths,ClipperLib.PolyType.ptSubject,true);
+    const tree=new ClipperLib.PolyTree();cl.Execute(ClipperLib.ClipType.ctUnion,tree,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);
+    const V=ct=>ct.map(pt=>new THREE.Vector2(pt.X/S,pt.Y/S));const out=[];
+    const walk=node=>{const o={outer:V(node.Contour()),holes:[]};
+      node.Childs().forEach(h=>{o.holes.push(V(h.Contour()));h.Childs().forEach(isl=>walk(isl));});
+      if(o.outer.length>2)out.push(o);};
+    tree.Childs().forEach(n=>walk(n));return out;};
   const addCap=(paths,z,up)=>{if(!paths||!paths.length)return;contoursOf(paths).forEach(({outer,holes})=>{if(outer.length<3)return;
     const faces=THREE.ShapeUtils.triangulateShape(outer,holes);const verts=outer.concat(...holes);
     faces.forEach(f=>{const p0=verts[f[0]],p1=verts[f[1]],p2=verts[f[2]];
@@ -1028,7 +1064,7 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
   const bounds=[BOT].concat(cuts,[TT]);
   for(let k=0;k<bounds.length-1;k++)addWalls(crossFrom(bounds[k]),bounds[k],bounds[k+1]);  // banded outer + recess walls
   addCap(crossFrom(bounds[bounds.length-2]),TT,true);   // top face = B minus every pocket
-  groups.forEach(g=>addCap(g.reg,floorZ(g),true));       // pocket floors (face up)
+  groups.forEach(g=>addCap(g.regClip,floorZ(g),true));   // pocket floors (clipped to lid, face up)
   if(useSkirt){
     addCap(band,BOT,false);    // skirt flange underside
     addCap(rec,0,false);       // lid underside over the box opening (facing down)
