@@ -375,6 +375,25 @@ body.plates-mode .platelist{position:fixed !important;left:18px !important;top:1
 /* ensure top-left mode toggle sits above the WebGL canvas */
 .topbar{z-index:33 !important}
 .iconbtn{z-index:33 !important}
+
+/* ===== POPLAMP-CANVAS-OVERLAY-FIX =====
+   Post-processing (EffectComposer) GPU-composites the WebGL canvas; on Safari a
+   composited canvas can paint over sibling DOM regardless of z-index. Promote
+   each floating overlay onto its own compositing layer (translateZ) and lift its
+   z-index so the mode toggle / buttons / sidebar stay above the canvas. */
+#cv{position:relative;z-index:0}
+/* NB: do NOT promote .topbar itself — it holds position:fixed children
+   (.exportbtn/.lightbtn); a transform on it would re-anchor them to the topbar
+   box instead of the viewport. Promote the individual leaf overlays instead. */
+.seg,.controls,.platelist,.exportbtn,.lightbtn,.iconbtn,.palette{-webkit-transform:translateZ(0) !important;transform:translateZ(0) !important}
+.topbar{z-index:60 !important}
+.seg{position:relative;z-index:60 !important}
+.exportbtn{z-index:60 !important}
+.lightbtn{z-index:60 !important}
+.iconbtn{z-index:60 !important}
+.controls{z-index:55 !important}
+.platelist{z-index:55 !important}
+body.plates-mode .platelist{z-index:60 !important}
 </style>
 </head>
 <body>
@@ -681,12 +700,12 @@ function applyLight(){
   if(mode!=="render"){[MATS.front,MATS.name,MATS.image,MATS.body].forEach(m=>{if(m)m.emissive.setHex(0);});if(glowSpot)glowSpot.intensity=0;return;}
   const fc=new THREE.Color(COLORS.front);
   function em(mat,hex,frac){if(!mat)return;mat.emissive.copy(lightOn?new THREE.Color(hex).multiplyScalar(frac):new THREE.Color(0));}
-  em(MATS.front,COLORS.front,1.0);em(MATS.name,COLORS.name,1.0);em(MATS.image,COLORS.image,1.0);
+  em(MATS.front,COLORS.front,1.7);em(MATS.name,COLORS.name,0);em(MATS.image,COLORS.image,0);
   if(MATS.body)MATS.body.emissive.setHex(lightOn?0x080808:0);
   // each text layer keeps its own colour, so give each its own matching emissive glow when lit
   if(pivot)pivot.traverse(o=>{if(o.userData&&o.userData.textId!=null)o.traverse(m=>{if(m.isMesh&&m.material&&m.material.emissive)m.material.emissive.copy(lightOn?new THREE.Color(m.material.color.getHex()).multiplyScalar(1.4):new THREE.Color(0));});});
   if(glowFace){glowFace.visible=lightOn;glowFace.material.color.copy(fc.clone().lerp(new THREE.Color(0xffffff),0.06));glowFace.material.opacity=diffOn?0.8:0.92;}
-  if(glowSpot){glowSpot.color.copy(fc);glowSpot.intensity=lightOn?4:0;}if(window.__bloom){var _bl=lightOn&&mode==="render";window.__bloom.strength=_bl?0.72:0.0;window.__bloom.radius=0.72;window.__bloom.threshold=_bl?0.72:1.0;}
+  if(glowSpot){glowSpot.color.copy(fc);glowSpot.intensity=lightOn?2.2:0;}if(window.__bloom){var _bl=lightOn&&mode==="render";window.__bloom.strength=_bl?0.85:0.0;window.__bloom.radius=0.75;window.__bloom.threshold=_bl?0.62:1.0;}
 }
 
 function handleUpload(inp){const files=inp.files;if(!files||!files.length)return;Array.from(files).forEach(file=>{const ext=(file.name.split(".").pop()||"").toLowerCase();if(ext==="stl"||ext==="3mf"){alert("Custom 3D uploads have been replaced by the Model catalog below — pick a model from there.");return;}loadImage(file);});inp.value="";}
