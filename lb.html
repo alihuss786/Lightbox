@@ -294,6 +294,32 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 @media (max-aspect-ratio:1/1) and (max-width:480px){
   .splash-enter{padding:14px 32px;font-size:11.5px;letter-spacing:.2em}
 }
+
+/* ===== POPLAMP-MENU (dark theme) ===== */
+/* flatten accordion wells into one continuous POP LAMP menu */
+.controls .acc{background:transparent !important;border:none !important;border-radius:0 !important;box-shadow:none !important;overflow:visible !important}
+.controls .acc + .acc{border-top:1px solid var(--hair) !important;margin-top:2px}
+.controls .acc-h{padding:15px 4px !important}
+.controls .acc.open .acc-h{border-bottom:none !important}
+.controls .acc-b{padding:2px 4px 16px !important}
+/* light on/off button as a POP LAMP pill, bottom-right */
+#lightPill.lightbtn{position:fixed;right:20px;bottom:20px;width:auto;height:46px;padding:0 20px;gap:10px;border-radius:24px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;background:#141821;border:1px solid var(--line2);color:#fff;backdrop-filter:blur(8px);box-shadow:0 16px 32px -14px rgba(0,0,0,.75);z-index:41}
+#lightPill .lb-ic{font-size:15px;line-height:1}
+#lightPill .lb-tx{white-space:nowrap}
+#lightPill.lightbtn.on{background:var(--acc);border-color:var(--acc);color:#241d12;box-shadow:0 0 26px -6px rgba(201,163,106,.7)}
+@media(min-width:980px){#lightPill.lightbtn{right:412px}}
+
+/* POP LAMP collapsible header bar */
+.controls::before{display:none !important}
+.pl-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.pl-title{flex:1;display:flex;align-items:center;gap:11px;padding:12px 15px;border-radius:16px;border:1px solid #23262d;background:linear-gradient(180deg,#141519,#101115);color:var(--txt);font-size:14px;font-weight:700;font-style:italic;cursor:pointer;box-shadow:var(--shadow)}
+.pl-title .pl-ic{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;background:var(--accdim);color:var(--acc);font-size:14px;font-style:normal;flex:none}
+.pl-title .pl-chev{margin-left:auto;color:var(--txt2);transition:transform .2s;font-style:normal}
+.controls.pl-collapsed .pl-title .pl-chev{transform:rotate(-90deg)}
+.pl-dice{width:52px;height:52px;flex:none;border-radius:16px;border:1px solid #23262d;background:linear-gradient(180deg,#141519,#101115);color:var(--acc);font-size:21px;cursor:pointer;box-shadow:var(--shadow);transition:border-color .15s,transform .1s}
+.pl-dice:hover{border-color:var(--acc)}
+.pl-dice:active{transform:scale(.94)}
+.controls.pl-collapsed .acc{display:none !important}
 </style>
 </head>
 <body>
@@ -311,7 +337,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
     <img class="canvasfreeze" id="canvasFreeze" alt="">
     <div class="topbar">
       <div class="seg"><button class="seg-b" id="segR" onclick="setMode('render')">Rendering effect</button><button class="seg-b" id="segP" onclick="setMode('plates')">Plates</button></div>
-      <button class="lightbtn on" id="lightPill" onclick="toggleLight()">💡</button>
+      <button class="lightbtn on" id="lightPill" onclick="toggleLight()"><span class="lb-ic">🌙</span><span class="lb-tx" id="lightLbl">Turn off lamp</span></button>
       <button class="exportbtn" id="exportBtn" onclick="exportPlates()" title="Export every build plate as a Bambu Studio-ready 3D project (one object per plate)">⬇ Export STL</button>
     </div>
     <button class="iconbtn" id="resetBtn" onclick="resetView()">⟲</button>
@@ -326,7 +352,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 
 <div class="fontwait" id="fontWait"><div class="fwspin"></div><span id="fontWaitMsg">Parsing font…</span></div>
 
-<div class="controls">
+<div class="controls"><div class="pl-head"><button class="pl-title" onclick="plToggle()"><span class="pl-ic">✦</span><span>Designer Studio</span><i class="pl-chev">⌄</i></button><button class="pl-dice" onclick="plRandom()" title="Randomise colour">⚄</button></div>
   <div class="acc">
     <div class="acc-h" onclick="accT(this)">Colour <i class="chev">⌄</i></div>
     <div class="acc-b">
@@ -584,9 +610,9 @@ function applyColors(){refreshSwatches();if(MATS.front)MATS.front.color.set(COLO
 
 function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");R.style.background=r?"#eef0f2":"transparent";R.style.color=r?"#16181b":"#fff";P.style.background=!r?"#eef0f2":"transparent";P.style.color=!r?"#16181b":"#fff";}
 function setMode(m){mode=m;zoom=1;paintSeg();g("platelist").style.display=m==="plates"?"flex":"none";g("printerbox").style.display=m==="plates"?"flex":"none";g("zoomhint").style.display="block";clearTimeout(zhT);zhT=setTimeout(()=>g("zoomhint").style.display="none",1900);if(m==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}buildModel();buildSummary();}
-function toggleLight(){lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}
+function toggleLight(){lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
-function applyLight(){
+function applyLight(){{var _lbl=g("lightLbl");if(_lbl)_lbl.textContent=lightOn?"Turn off lamp":"Turn on lamp";}
   g("lightPill").classList.toggle("on",lightOn);
   if(mode!=="render"){[MATS.front,MATS.name,MATS.image,MATS.body].forEach(m=>{if(m)m.emissive.setHex(0);});if(glowSpot)glowSpot.intensity=0;return;}
   const fc=new THREE.Color(COLORS.front);
