@@ -998,7 +998,6 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
     // manifold edges); the sub-nozzle margin keeps every pocket a clean interior hole.
     if(reg&&reg.length)reg=cleanPaths(intersect(reg,Bclip));
     if(reg&&reg.length){groups.push({depth:d,reg:reg});pocketUnion=pocketUnion?union2(pocketUnion,reg):reg;}});
-  const topPaths=(pocketUnion&&pocketUnion.length)?diff(B,pocketUnion):B;
   // Skirt = an interior bottom recess. rec = the lifted core (over the box opening), band = the flange rim.
   const hasSkirt=!!(inner&&inner.length&&skirtD>eps);
   const rec=hasSkirt?cleanPaths(intersect(B,inner)):null;
@@ -1018,8 +1017,18 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
     const n=pts.length;if(n<2)return;for(let i=0;i<n;i++){const a=pts[i],b=pts[(i+1)%n];
       const ax=a.x-cx,ay=a.y-cy,bx=b.x-cx,by=b.y-cy;
       addTri([ax,ay,z0],[bx,by,z0],[bx,by,z1]);addTri([ax,ay,z0],[bx,by,z1],[ax,ay,z1]);}});});};
-  addWalls(B,BOT,TT);          // outer + counter walls: one continuous perimeter from skirt bottom to top
-  addCap(topPaths,TT,true);    // top face with the pockets cut out
+  // ---- Top: carve the recesses as horizontal bands. Where a pocket runs to the lid EDGE, only the wall
+  // BELOW its floor remains, so the top opens out to the side and the printed name/image can seat and
+  // overhang the edge (instead of being sealed in by a full-height wall). Where there is no pocket the
+  // bands share B's outline exactly, so the outer wall is ONE coplanar face -> no print seam. ----
+  const floorZ=g=>TT-g.depth;
+  const voidUpTo=(z)=>{let v=null;groups.forEach(g=>{if(floorZ(g)<=z+eps)v=v?union2(v,g.reg):g.reg;});return v;};
+  const crossFrom=(z)=>{const v=voidUpTo(z);return (v&&v.length)?diff(B,v):B;};   // no clean: keep B's outline exact
+  const cuts=[...new Set(groups.map(g=>+floorZ(g).toFixed(3)))].filter(z=>z>BOT+eps&&z<TT-eps).sort((a,b)=>a-b);
+  const bounds=[BOT].concat(cuts,[TT]);
+  for(let k=0;k<bounds.length-1;k++)addWalls(crossFrom(bounds[k]),bounds[k],bounds[k+1]);  // banded outer + recess walls
+  addCap(crossFrom(bounds[bounds.length-2]),TT,true);   // top face = B minus every pocket
+  groups.forEach(g=>addCap(g.reg,floorZ(g),true));       // pocket floors (face up)
   if(useSkirt){
     addCap(band,BOT,false);    // skirt flange underside
     addCap(rec,0,false);       // lid underside over the box opening (facing down)
@@ -1027,7 +1036,6 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
   }else{
     addCap(B,0,false);         // flat lid underside (no skirt)
   }
-  groups.forEach(g=>{addCap(g.reg,TT-g.depth,true);addWalls(g.reg,TT-g.depth,TT);});  // pocket floors + walls
   const geo=new THREE.BufferGeometry();
   geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
   geo.computeVertexNormals();geo.computeBoundingBox();
