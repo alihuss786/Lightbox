@@ -326,6 +326,12 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 .pl-dice:active{transform:scale(.94)}
 .controls.pl-collapsed .acc{display:none !important}
 .controls.pl-collapsed .pl-tabs{display:none !important}
+
+/* ===== lid textures menu ===== */
+.texgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.texcard{padding:11px 10px;border:1px solid var(--line);border-radius:11px;background:var(--panel2);color:var(--txt);font-size:11.5px;font-weight:600;text-align:left;cursor:pointer;line-height:1.25;transition:border-color .15s,background .15s}
+.texcard:hover{border-color:var(--line2)}
+.texcard.sel{border-color:var(--acc);background:var(--accdim);color:var(--acc2)}
 </style>
 </head>
 <body>
@@ -371,6 +377,13 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
       <div class="sub">Body plate</div>
       <div class="sw-grid"><div class="sw-item"><span class="sw" id="sw_body" onclick="openPal('body',event)"></span><span class="swl">Body</span></div></div>
       <div class="hint">When lit, the front glows and casts that colour forward across the floor.</div>
+    </div>
+  </div>
+  <div class="acc">
+    <div class="acc-h" onclick="accT(this)">Textures <i class="chev">⌄</i></div>
+    <div class="acc-b">
+      <div class="hint">Surface relief on the lid front — prints as real texture. Lid only.</div>
+      <div class="texgrid" id="texgrid"></div>
     </div>
   </div>
   <div class="acc open">
@@ -599,6 +612,38 @@ let images=[],selImg=-1,models=[],selModel=-1,uid=1,t1=null,mode="render",lightO
 // Dynamic, independent text layers on the lid. Each: {id, str, size(mm), x, y}. selText = active layer.
 let texts=[{id:uid++,str:"Aiyla",size:22,x:0,y:0,color:"#FFFFFF",bold:0}],selText=0;
 const COLORS={front:"#E2663B",name:"#FFFFFF",image:"#FFFFFF",model:"#E8C99B",body:"#C9542C"};
+/* ===== Lid surface textures (printable relief, lid front only) ===== */
+var TAU=Math.PI*2;
+function _tsat(v){return v<0?0:v>1?1:v;}
+function _tss(e0,e1,x){var t=_tsat((x-e0)/(e1-e0));return t*t*(3-2*t);}
+function _th(x,y){var n=Math.sin(x*127.1+y*311.7)*43758.5453;return n-Math.floor(n);}
+function _tvn(x,y){var xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi;var a=_th(xi,yi),b=_th(xi+1,yi),c=_th(xi,yi+1),d=_th(xi+1,yi+1);var u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;}
+function _tfbm(x,y){var s=0,a=0.5,t=0,f=1;for(var i=0;i<5;i++){s+=a*_tvn(x*f,y*f);t+=a;f*=2.03;a*=0.5;}return s/t;}
+function _tworley(x,y,cell){var gx=Math.floor(x/cell),gy=Math.floor(y/cell),md=9;for(var i=-1;i<=1;i++)for(var j=-1;j<=1;j++){var cx=gx+i,cy=gy+j,px=(cx+_th(cx,cy))*cell,py=(cy+_th(cy+31.4,cx-7.1))*cell,dx=x-px,dy=y-py,dd=Math.sqrt(dx*dx+dy*dy);if(dd<md)md=dd;}return md/cell;}
+var TEXTURES=[
+ {id:"none",name:"None (smooth)"},
+ {id:"hex",name:"Hexagonal Honeycomb",amp:0.75,grid:1.2,fn:function(x,y){var k=TAU/7;var v=Math.cos(k*x)+Math.cos(k*(0.5*x+0.8660254*y))+Math.cos(k*(-0.5*x+0.8660254*y));return _tsat((v+1.5)/4.5);}},
+ {id:"honeycomb2",name:"Debossed Geometric Honeycomb",deboss:1,amp:0.7,grid:1.2,fn:function(x,y){var k=TAU/7;var v=Math.cos(k*x)+Math.cos(k*(0.5*x+0.8660254*y))+Math.cos(k*(-0.5*x+0.8660254*y));return _tsat((v+1.5)/4.5);}},
+ {id:"knit",name:"Soft Knit Texture",amp:0.7,grid:1.1,fn:function(x,y){var P=5,u=x/P,v=y/P,col=Math.round(u),ph=(col%2?0.5:0),bump=0.5+0.5*Math.cos(TAU*(v+ph)),rib=0.5+0.5*Math.cos(TAU*u);return _tsat(0.3+0.45*bump+0.25*rib);}},
+ {id:"hammered",name:"Hammered Metal Finish",amp:0.55,grid:1.3,fn:function(x,y){var w=_tworley(x+_tfbm(x*0.3,y*0.3),y,5.5);return _tsat(0.15+0.95*w);}},
+ {id:"basket",name:"Embossed Basket Weave",amp:0.8,grid:1.3,fn:function(x,y){var P=8,cx=Math.floor(x/P),cy=Math.floor(y/P),horiz=((cx+cy)&1)===0,lx=x/P-cx,ly=y/P-cy,s=horiz?(0.5+0.5*Math.cos(TAU*(ly-0.5))):(0.5+0.5*Math.cos(TAU*(lx-0.5)));return _tsat(s);}},
+ {id:"rattan",name:"Embossed Woven Rattan",amp:0.7,grid:1.2,fn:function(x,y){var P=5,u=(x+y)/P,v=(x-y)/P,s1=0.5+0.5*Math.cos(TAU*u),s2=0.5+0.5*Math.cos(TAU*v),horiz=((Math.floor(u)+Math.floor(v))&1)===0;return _tsat(horiz?s1:s2);}},
+ {id:"herringbone",name:"Embossed Herringbone Brick",amp:0.75,grid:1.3,fn:function(x,y){var P=6,d1=(x*0.7071+y*0.7071),d2=(x*0.7071-y*0.7071),band=Math.floor(d2/(P*2))&1,v=band?d1:d2,groove=Math.abs(((v/P)%1+1)%1-0.5)*2;return _tsat(0.35+0.65*groove);}},
+ {id:"triangles",name:"Embossed Geometric Triangles",amp:0.85,grid:1.4,fn:function(x,y){var P=11,gx=Math.floor(x/P),gy=Math.floor(y/P),fx=x/P-gx,fy=y/P-gy,tri=(fx+fy<1)?0:1;return _tsat(0.15+0.85*_th(gx*3+tri*1.3,gy*3+tri*2.7));}},
+ {id:"pebbled",name:"Embossed Pebbled Leather",amp:0.7,grid:1.2,fn:function(x,y){var w=_tworley(x,y,6);return _tsat(1-_tss(0.3,0.62,w));}},
+ {id:"wood",name:"Embossed Wood Grain",amp:0.5,grid:1.3,fn:function(x,y){var g=_tfbm(x*0.08,y*0.5)*3,rings=Math.abs(Math.sin(x*0.35+g));return _tsat(0.35+0.65*rings);}},
+ {id:"stucco",name:"Embossed Stucco Finish",amp:0.5,grid:1.2,fn:function(x,y){return _tsat(0.15+0.85*_tfbm(x*0.6,y*0.6));}},
+ {id:"starmap",name:"Debossed Star Map",deboss:1,amp:0.6,grid:1.2,fn:function(x,y){var cell=8,md=9,gx=Math.floor(x/cell),gy=Math.floor(y/cell);for(var i=-1;i<=1;i++)for(var j=-1;j<=1;j++){var cxg=gx+i,cyg=gy+j,px=(cxg+_th(cxg,cyg))*cell,py=(cyg+_th(cyg+13.1,cxg+7.7))*cell,dx=x-px,dy=y-py,dd=Math.sqrt(dx*dx+dy*dy);if(dd<md)md=dd;}return _tsat(1-_tss(0,1.5,md));}},
+ {id:"floral",name:"Floral Embossment",amp:0.7,grid:1.3,fn:function(x,y){var cell=14,gx=Math.round(x/cell),gy=Math.round(y/cell),dx=x-gx*cell,dy=y-gy*cell,r=Math.sqrt(dx*dx+dy*dy),a=Math.atan2(dy,dx),petal=Math.abs(Math.cos(a*3)),edge=cell*0.5*(0.35+0.35*petal);return _tsat(_tss(edge,0,r));}},
+ {id:"florallace",name:"Embossed Floral Lace",amp:0.6,grid:1.2,fn:function(x,y){var w=_tfbm(x*0.12,y*0.12)*8,l=Math.sin((x+w)*0.5)+Math.sin((y-w)*0.5)+Math.sin((x+y+w)*0.3);return _tsat(0.5+0.24*l);}},
+ {id:"filigree",name:"Debossed Filigree Lace",deboss:1,amp:0.55,grid:1.1,fn:function(x,y){var w=_tfbm(x*0.16,y*0.16)*7,l=Math.sin((x-w)*0.6)+Math.sin((y+w)*0.6)+Math.cos((x-y+w)*0.4);return _tsat(0.5+0.24*l);}},
+ {id:"scrolls",name:"Debossed Ornate Scrolls",deboss:1,amp:0.6,grid:1.2,fn:function(x,y){var w=_tfbm(x*0.1,y*0.1)*9,l=Math.sin((x+w)*0.45)*Math.cos((y-w)*0.45)+Math.sin((x-y+w)*0.3);return _tsat(0.5+0.3*l);}}
+];
+var TEXFN={};TEXTURES.forEach(function(t){if(t.fn)TEXFN[t.id]={fn:t.fn,deboss:t.deboss,amp:t.amp,grid:t.grid};});
+var LIDTEX=null;
+function selectTexture(id){LIDTEX=(id&&id!=="none"&&TEXFN[id])?TEXFN[id]:null;window.__lidTexId=id||"none";try{renderTexList();}catch(e){}if(typeof scheduleBuild==="function")scheduleBuild();}
+function renderTexList(){var el=document.getElementById("texgrid");if(!el)return;var cur=window.__lidTexId||"none";el.innerHTML=TEXTURES.map(function(t){return '<button class="texcard'+(t.id===cur?' sel':'')+'" onclick="selectTexture(\''+t.id+'\')">'+t.name+'</button>';}).join("");}
+
 const MATS={};let glowFace=null,glowSpot=null,floorPlane=null;
 function scheduleBuild(){clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},100);}
 function rebuild(){updatePad();clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},150);}
@@ -1063,6 +1108,27 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
     faces.forEach(f=>{const p0=verts[f[0]],p1=verts[f[1]],p2=verts[f[2]];
       const A=[p0.x-cx,p0.y-cy,z],Bv=[p1.x-cx,p1.y-cy,z],C=[p2.x-cx,p2.y-cy,z];
       if(up)addTri(A,Bv,C);else addTri(A,C,Bv);});});};
+  const addCapTextured=(paths,z,tex)=>{
+    if(!paths||!paths.length){return;}
+    const amp=tex.amp||0.7,sgn=tex.deboss?-1:1,fn=tex.fn,d=tex.grid||1.3;
+    const full=contoursOf(paths);if(!full.length){addCap(paths,z,true);return;}
+    const erP=off(paths,-d*1.2)||[];const eroded=contoursOf(erP);
+    const pip=(px,py,poly)=>{let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const xi=poly[i].x,yi=poly[i].y,xj=poly[j].x,yj=poly[j].y;if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))inside=!inside;}return inside;};
+    const inR=(px,py,regs)=>{for(let r=0;r<regs.length;r++){const R=regs[r];if(pip(px,py,R.outer)){let hole=false;for(let q=0;q<R.holes.length;q++){if(pip(px,py,R.holes[q])){hole=true;break;}}if(!hole)return true;}}return false;};
+    const inFull=(px,py)=>inR(px,py,full);const inSafe=(px,py)=>inR(px,py,eroded);
+    const disp=(px,py)=>{const rx=px/d,ry=py/d;if(Math.abs(rx-Math.round(rx))>1e-4||Math.abs(ry-Math.round(ry))>1e-4)return 0;if(!inSafe(px,py))return 0;return sgn*amp*fn(px,py);};
+    const emit=(a,b,c)=>{addTri([a.x-cx,a.y-cy,z+disp(a.x,a.y)],[b.x-cx,b.y-cy,z+disp(b.x,b.y)],[c.x-cx,c.y-cy,z+disp(c.x,c.y)]);};
+    let mnX=1e9,mnY=1e9,mxX=-1e9,mxY=-1e9;full.forEach(r=>r.outer.forEach(p=>{if(p.x<mnX)mnX=p.x;if(p.x>mxX)mxX=p.x;if(p.y<mnY)mnY=p.y;if(p.y>mxY)mxY=p.y;}));
+    const i0=Math.floor(mnX/d),i1=Math.ceil(mxX/d),j0=Math.floor(mnY/d),j1=Math.ceil(mxY/d);
+    for(let i=i0;i<i1;i++)for(let j=j0;j<j1;j++){const x0=i*d,y0=j*d,x1=(i+1)*d,y1=(j+1)*d;
+      const s00=inSafe(x0,y0),s10=inSafe(x1,y0),s11=inSafe(x1,y1),s01=inSafe(x0,y1);
+      if(s00&&s10&&s11&&s01){emit({x:x0,y:y0},{x:x1,y:y0},{x:x1,y:y1});emit({x:x0,y:y0},{x:x1,y:y1},{x:x0,y:y1});continue;}
+      if(!inFull(x0,y0)&&!inFull(x1,y0)&&!inFull(x1,y1)&&!inFull(x0,y1)&&!inFull((x0+x1)/2,(y0+y1)/2))continue;
+      const cell=[[{X:Math.round(x0*S),Y:Math.round(y0*S)},{X:Math.round(x1*S),Y:Math.round(y0*S)},{X:Math.round(x1*S),Y:Math.round(y1*S)},{X:Math.round(x0*S),Y:Math.round(y1*S)}]];
+      let clip;try{clip=intersect(cell,paths);}catch(e){clip=null;}if(!clip||!clip.length)continue;
+      contoursOf(clip).forEach(({outer,holes})=>{if(outer.length<3)return;const faces=THREE.ShapeUtils.triangulateShape(outer,holes);const verts=outer.concat(...holes);faces.forEach(f=>{emit(verts[f[0]],verts[f[1]],verts[f[2]]);});});
+    }
+  };
   const addWalls=(paths,z0,z1)=>{if(!paths||!paths.length)return;contoursOf(paths).forEach(({outer,holes})=>{[outer].concat(holes).forEach(pts=>{
     const n=pts.length;if(n<2)return;for(let i=0;i<n;i++){const a=pts[i],b=pts[(i+1)%n];
       const ax=a.x-cx,ay=a.y-cy,bx=b.x-cx,by=b.y-cy;
@@ -1077,7 +1143,7 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
   const cuts=[...new Set(groups.map(g=>+floorZ(g).toFixed(3)))].filter(z=>z>BOT+eps&&z<TT-eps).sort((a,b)=>a-b);
   const bounds=[BOT].concat(cuts,[TT]);
   for(let k=0;k<bounds.length-1;k++)addWalls(crossFrom(bounds[k]),bounds[k],bounds[k+1]);  // banded outer + recess walls
-  addCap(crossFrom(bounds[bounds.length-2]),TT,true);   // top face = B minus every pocket
+  var _topReg=crossFrom(bounds[bounds.length-2]);if(typeof LIDTEX!=="undefined"&&LIDTEX&&LIDTEX.fn){addCapTextured(_topReg,TT,LIDTEX);}else{addCap(_topReg,TT,true);}   // top face = B minus every pocket
   groups.forEach(g=>addCap(g.regClip,floorZ(g),true));   // pocket floors (clipped to lid, face up)
   if(useSkirt){
     addCap(band,BOT,false);    // skirt flange underside
@@ -1554,7 +1620,7 @@ async function exportPlates(){
   finally{if(btn)btn.disabled=false;}
 }
 
-paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();try{plBuildTabs();}catch(e){}
+paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();try{plBuildTabs();}catch(e){}try{renderTexList();}catch(e){}
 // Warm the whole model catalog in the background a few seconds after first paint, so cold-cache machines
 // have the geometry ready before the user opens the catalog. Delayed so it never competes with the splash
 // image / library load on the initial paint.
