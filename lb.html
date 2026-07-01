@@ -364,6 +364,12 @@ input[type=text],input[type=number],.numbox{background:#f5f7fb!important;border-
 .lightbtn .lb-tx{text-transform:uppercase;font-size:12px;letter-spacing:.03em}
 .lightbtn.on{background:#f2a516 !important;color:#2a1c00 !important}
 
+
+/* ===== POPLAMP-PLATES ===== */
+body.plates-mode .controls{display:none !important}
+/* in plates mode the plate list gets the full left area */
+body.plates-mode .platelist{left:18px !important;top:70px !important;width:300px !important}
+
 </style>
 </head>
 <body>
@@ -528,7 +534,7 @@ const MEAS=[["lh",50,400,1],["bd",15,150,1],["wall",1.5,8,.5],["topT",1,12,.5],[
 function mmOf(id){const raw=+v(id);if(isNaN(raw))return 0;return UNIT==="cm"?raw*10:raw;}
 function tidy(n){return (Math.round(n*100)/100).toString();}
 function fmt(mm){return UNIT==="cm"?(Math.round(mm/10*100)/100)+" cm":Math.round(mm)+" mm";}
-function paintUnitSeg(){const mmS=UNIT==="mm";const a=g("u_mm"),b=g("u_cm");if(!a)return;a.style.background=mmS?"#eef0f2":"transparent";a.style.color=mmS?"#16181b":"#fff";b.style.background=!mmS?"#eef0f2":"transparent";b.style.color=!mmS?"#16181b":"#fff";}
+function paintUnitSeg(){const mmS=UNIT==="mm";const a=g("u_mm"),b=g("u_cm");if(!a)return;a.style.background=mmS?"#2f6bff":"transparent";a.style.color=mmS?"#fff":"#5d6774";b.style.background=!mmS?"#2f6bff":"transparent";b.style.color=!mmS?"#fff":"#5d6774";}
 function setUnit(u){if(u===UNIT)return;const store={};MEAS.forEach(m=>{store[m[0]]=mmOf(m[0]);});UNIT=u;const toU=(u==="cm"?0.1:1);MEAS.forEach(([id,mn,mx,st])=>{const el=g(id);if(!el)return;el.value=tidy(store[id]*toU);el.min=mn*toU;el.max=mx*toU;el.step=(u==="cm")?Math.max(0.1,Math.round(st)/10):st;const R=g(id+"R");if(R)R.value=store[id];});document.querySelectorAll(".numbox .u").forEach(s=>s.textContent=u);paintUnitSeg();rebuild();buildSummary();}
 
 function renderFontGrid(){const fg=g("font-grid");if(!fg)return;fg.innerHTML="";FONTS.forEach(f=>{const b=document.createElement("button");b.className="fbtn"+(f===selFont?" sel":"");b.innerHTML=`<div class="fs" style="font-family:${f.css}">Aa</div><div class="fn">${f.name}</div>`+(f.custom?`<button class="nbtn-x" title="Remove custom letter font" onclick="event.stopPropagation();removeLetterFont('${f.url}')">×</button>`:"");b.onclick=()=>{selFont=f;renderFontGrid();rebuild();};fg.appendChild(b);});}
@@ -653,13 +659,13 @@ function refreshSwatches(){["front","name","image","model","body"].forEach(k=>{c
 function applyColors(){refreshSwatches();if(MATS.front)MATS.front.color.set(COLORS.front);if(MATS.name)MATS.name.color.set(COLORS.name);if(MATS.image)MATS.image.color.set(COLORS.image);if(MATS.body)MATS.body.color.set(COLORS.body);if(MATS.model)MATS.model.color.set(COLORS.model);}
 
 function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");R.style.background=r?"#2f6bff":"transparent";R.style.color=r?"#fff":"#5d6774";P.style.background=!r?"#2f6bff":"transparent";P.style.color=!r?"#fff":"#5d6774";}
-function setMode(m){mode=m;zoom=1;paintSeg();g("platelist").style.display=m==="plates"?"flex":"none";g("printerbox").style.display=m==="plates"?"flex":"none";g("zoomhint").style.display="block";clearTimeout(zhT);zhT=setTimeout(()=>g("zoomhint").style.display="none",1900);if(m==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}buildModel();buildSummary();}
+function setMode(m){mode=m;zoom=1;paintSeg();document.body.classList.toggle("plates-mode",m==="plates");g("platelist").style.display=m==="plates"?"flex":"none";g("printerbox").style.display=m==="plates"?"flex":"none";g("zoomhint").style.display="block";clearTimeout(zhT);zhT=setTimeout(()=>g("zoomhint").style.display="none",1900);if(m==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}buildModel();buildSummary();}
 function toggleLight(){lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
 function applyLight(){
   g("lightPill").classList.toggle("on",lightOn);
   {var _ll=g("lightLbl");if(_ll)_ll.textContent=lightOn?"Turn off lamp":"Turn on lamp";}
-  {var _dim=lightOn&&mode==="render";try{if(scene)scene.background=new THREE.Color(_dim?0x0a0c11:0xeef1f7);if(typeof floorPlane!=="undefined"&&floorPlane&&floorPlane.material)floorPlane.material.color.setHex(_dim?0x0d0f14:0xeef1f7);if(window.__amb)window.__amb.intensity=_dim?0.05:0.32;if(window.__key)window.__key.intensity=_dim?0.18:0.6;if(window.__fill)window.__fill.intensity=_dim?0.05:0.12;}catch(e){}}
+  {var _dim=lightOn&&mode==="render";try{if(scene)scene.background=new THREE.Color(_dim?0x191b21:0xeef1f7);if(typeof floorPlane!=="undefined"&&floorPlane&&floorPlane.material)floorPlane.material.color.setHex(_dim?0x20222a:0xeef1f7);if(window.__amb)window.__amb.intensity=_dim?0.16:0.4;if(window.__key)window.__key.intensity=_dim?0.34:0.55;if(window.__fill)window.__fill.intensity=_dim?0.08:0.14;}catch(e){}}
   if(mode!=="render"){[MATS.front,MATS.name,MATS.image,MATS.body].forEach(m=>{if(m)m.emissive.setHex(0);});if(glowSpot)glowSpot.intensity=0;return;}
   const fc=new THREE.Color(COLORS.front);
   function em(mat,hex,frac){if(!mat)return;mat.emissive.copy(lightOn?new THREE.Color(hex).multiplyScalar(frac):new THREE.Color(0));}
@@ -668,7 +674,7 @@ function applyLight(){
   // each text layer keeps its own colour, so give each its own matching emissive glow when lit
   if(pivot)pivot.traverse(o=>{if(o.userData&&o.userData.textId!=null)o.traverse(m=>{if(m.isMesh&&m.material&&m.material.emissive)m.material.emissive.copy(lightOn?new THREE.Color(m.material.color.getHex()).multiplyScalar(0.65):new THREE.Color(0));});});
   if(glowFace){glowFace.visible=lightOn;glowFace.material.color.copy(fc.clone().lerp(new THREE.Color(0xffffff),0.06));glowFace.material.opacity=diffOn?0.8:0.92;}
-  if(glowSpot){glowSpot.color.copy(fc);glowSpot.intensity=lightOn?13:0;}
+  if(glowSpot){glowSpot.color.copy(fc);glowSpot.intensity=lightOn?7.5:0;}
 }
 
 function handleUpload(inp){const files=inp.files;if(!files||!files.length)return;Array.from(files).forEach(file=>{const ext=(file.name.split(".").pop()||"").toLowerCase();if(ext==="stl"||ext==="3mf"){alert("Custom 3D uploads have been replaced by the Model catalog below — pick a model from there.");return;}loadImage(file);});inp.value="";}
