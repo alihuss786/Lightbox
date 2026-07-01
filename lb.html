@@ -345,8 +345,9 @@ input[type=text],input[type=number],.numbox{background:#f5f7fb!important;border-
   .app{display:block !important}
   .stage{height:100vh !important;border:none !important}
   .canvas-wrap{height:100vh !important}
-  .controls{position:fixed !important;left:18px;top:74px;width:344px;max-height:calc(100vh - 108px);overflow-y:auto;overflow-x:hidden;background:#ffffff !important;border:1px solid #e6eaf1 !important;border-radius:20px !important;box-shadow:0 22px 54px -24px rgba(22,32,58,.32) !important;padding:14px !important;z-index:30;gap:10px}
+  .controls{position:fixed !important;left:18px;top:74px;bottom:18px;width:344px;overflow-y:auto !important;overflow-x:hidden !important;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:#ffffff !important;border:1px solid #e6eaf1 !important;border-radius:20px !important;box-shadow:0 22px 54px -24px rgba(22,32,58,.32) !important;padding:16px 14px !important;z-index:30;gap:10px}
   .controls::before{display:none !important}
+  .controls>*{flex:0 0 auto !important}
   /* nested accordions read as flat sections inside the one card */
   .controls .acc{background:transparent !important;border:none !important;border-radius:0 !important;box-shadow:none !important;border-bottom:1px solid #eef1f6 !important}
   .controls .acc:last-child{border-bottom:none !important}
