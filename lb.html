@@ -339,6 +339,30 @@ input[type=text],input[type=number],.numbox{background:#f5f7fb!important;border-
 /* splash lightened */
 .splash{background:#eef1f7!important}
 
+
+/* ===== POPLAMP-LAYOUT ===== */
+@media(min-width:980px){
+  .app{display:block !important}
+  .stage{height:100vh !important;border:none !important}
+  .canvas-wrap{height:100vh !important}
+  .controls{position:fixed !important;left:18px;top:74px;width:344px;max-height:calc(100vh - 108px);overflow-y:auto;overflow-x:hidden;background:#ffffff !important;border:1px solid #e6eaf1 !important;border-radius:20px !important;box-shadow:0 22px 54px -24px rgba(22,32,58,.32) !important;padding:14px !important;z-index:30;gap:10px}
+  .controls::before{display:none !important}
+  /* nested accordions read as flat sections inside the one card */
+  .controls .acc{background:transparent !important;border:none !important;border-radius:0 !important;box-shadow:none !important;border-bottom:1px solid #eef1f6 !important}
+  .controls .acc:last-child{border-bottom:none !important}
+  .acc-h{padding:11px 4px !important}
+  .acc-b{padding:2px 4px 14px !important}
+}
+/* top-right export pill (POP-LAMP slot) */
+.exportbtn{position:fixed !important;top:16px;right:18px;z-index:32}
+/* reset tucked next to it */
+.iconbtn{top:16px !important;right:150px !important;left:auto !important;z-index:32}
+/* light toggle -> bottom-right pill */
+.lightbtn{position:fixed !important;right:18px;bottom:18px;z-index:32;width:auto !important;height:46px !important;padding:0 20px !important;border-radius:24px !important;background:#1e2a4a !important;color:#fff !important;border:none !important;font-weight:700 !important;display:flex;align-items:center;gap:9px;box-shadow:0 12px 26px -10px rgba(30,42,74,.55) !important}
+.lightbtn .lb-ic{font-size:15px;line-height:1}
+.lightbtn .lb-tx{text-transform:uppercase;font-size:12px;letter-spacing:.03em}
+.lightbtn.on{background:#f2a516 !important;color:#2a1c00 !important}
+
 </style>
 </head>
 <body>
@@ -356,7 +380,7 @@ input[type=text],input[type=number],.numbox{background:#f5f7fb!important;border-
     <img class="canvasfreeze" id="canvasFreeze" alt="">
     <div class="topbar">
       <div class="seg"><button class="seg-b" id="segR" onclick="setMode('render')">Rendering effect</button><button class="seg-b" id="segP" onclick="setMode('plates')">Plates</button></div>
-      <button class="lightbtn on" id="lightPill" onclick="toggleLight()">💡</button>
+      <button class="lightbtn on" id="lightPill" onclick="toggleLight()"><span class="lb-ic">🌙</span><span class="lb-tx" id="lightLbl">Turn on lamp</span></button>
       <button class="exportbtn" id="exportBtn" onclick="exportPlates()" title="Export every build plate as a Bambu Studio-ready 3D project (one object per plate)">⬇ Export STL</button>
     </div>
     <button class="iconbtn" id="resetBtn" onclick="resetView()">⟲</button>
@@ -633,6 +657,7 @@ function toggleLight(){lightOn=!lightOn;g("lightPill").classList.toggle("on",lig
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
 function applyLight(){
   g("lightPill").classList.toggle("on",lightOn);
+  {var _ll=g("lightLbl");if(_ll)_ll.textContent=lightOn?"Turn off lamp":"Turn on lamp";}
   if(mode!=="render"){[MATS.front,MATS.name,MATS.image,MATS.body].forEach(m=>{if(m)m.emissive.setHex(0);});if(glowSpot)glowSpot.intensity=0;return;}
   const fc=new THREE.Color(COLORS.front);
   function em(mat,hex,frac){if(!mat)return;mat.emissive.copy(lightOn?new THREE.Color(hex).multiplyScalar(frac):new THREE.Color(0));}
