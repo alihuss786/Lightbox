@@ -997,26 +997,6 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD,edgeReach){
     // A pocket flush against those boundaries would share walls with them and tear the shell (holes / non-
     // manifold edges); the sub-nozzle margin keeps every pocket a clean interior hole.
     if(reg&&reg.length)reg=cleanPaths(intersect(reg,Bclip));
-    // The lid outline (B) sits edgeReach mm OUTSIDE the letter, so a name/image sized to the letter stops that
-    // far short of the lid edge and leaves the outer wall solid on the letter's outline ('you can't tell there
-    // is a pocket from the side'). Where a pocket comes within the wall margin of the lid edge, bridge it out
-    // to that edge so the banding below notches the outer wall there and the pocket opens to the side. The
-    // pocket depth is unchanged - it is still a recess; only its footprint reaches the edge on the outline.
-    if(reg&&reg.length&&edgeReach>eps){
-      const core=off(B,-edgeReach);                               // lid minus the wall margin
-      const ring=(core&&core.length)?diff(B,core):null;          // outer rim of the lid, width=edgeReach
-      if(ring&&ring.length){
-        let near=intersect(ring,off(reg,edgeReach+0.3));          // rim within reach of this pocket
-        if(near&&near.length){
-          // Close the bridge (dilate then erode) so it merges cleanly with the pocket and with the lid edge,
-          // swallowing the razor slivers of lid that would otherwise be trapped between adjacent strokes at
-          // the rim and double the wall there (non-manifold). Confine this to the rim ring so it never touches
-          // the letter counters further in - the counters must stay open exactly as projected.
-          near=intersect(off(off(near,0.35),-0.35)||near,ring);
-          reg=cleanPaths(union2(reg,near));
-        }
-      }
-    }
     if(reg&&reg.length){groups.push({depth:d,reg:reg});pocketUnion=pocketUnion?union2(pocketUnion,reg):reg;}});
   // Skirt = an interior bottom recess. rec = the lifted core (over the box opening), band = the flange rim.
   const hasSkirt=!!(inner&&inner.length&&skirtD>eps);
