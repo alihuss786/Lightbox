@@ -978,14 +978,18 @@ function buildFlatModelGroup(mo,TT){
 // skirt flange as a symmetric BOTTOM recess. Built as explicit caps + walls sharing exact vertices, so every
 // edge is used by exactly two triangles — no stacked slabs, no coincident faces, no perimeter print seam.
 function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
-  // Build the lid as ONE watertight, manifold solid (no stacked slabs, no separate skirt mesh). Stacking or
-  // overlapping separate extrusions made walls/caps coincide, which the slicer flagged as thousands of
-  // non-manifold edges and printed as the perimeter seam at pocket depth. Here the whole lid+skirt is a
-  // single closed shell: the letter counters stay as through-holes, the name/image pockets are interior top
-  // recesses, and the skirt is just a symmetric interior BOTTOM recess. Every edge is shared by two faces.
+  // Build the lid as ONE watertight, manifold solid (no stacked slabs, no separate skirt mesh). The letter
+  // counters stay open through-holes, EXCEPT directly under a name/image pocket: there the counter is filled
+  // (plus a small halo) so the pocket always has a floor to recess into instead of the inlay overhanging the
+  // open hole ('blocked from the side'). The name/image are interior top recesses; the skirt is a symmetric
+  // interior BOTTOM recess. Every edge is shared by exactly two faces.
   const eps=0.01;
-  const POCKET_MARGIN=0.3;  // mm: keep pockets this far clear of the outer wall + counters (sub-nozzle)
-  const Bclip=(POCKET_MARGIN>0)?(off(B,-POCKET_MARGIN)||B):B;
+  const POCKET_MARGIN=0.3;  // mm: keep pockets this far clear of the outer wall (sub-nozzle)
+  const HALO=0.8;           // mm: solid backing kept around a pocket where it crosses an open counter
+  // fillHoles: the outer silhouette of a region (all counters filled in).
+  const fillHoles=(paths)=>{if(!paths||!paths.length)return paths;const o=paths.filter(p=>ClipperLib.Clipper.Area(p)>0);if(!o.length)return paths;const c=new ClipperLib.Clipper();c.AddPaths(o,ClipperLib.PolyType.ptSubject,true);const r=new ClipperLib.Paths();c.Execute(ClipperLib.ClipType.ctUnion,r,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return (r&&r.length)?r:paths;};
+  const silB=fillHoles(B);
+  const Bclip=(POCKET_MARGIN>0)?(off(silB,-POCKET_MARGIN)||silB):silB;   // pockets stay clear of the OUTER edge but may cross counters
   const fs2=(features||[]).filter(f=>f&&f.p&&f.depth>eps)
     .map(f=>({p:f.p,depth:Math.max(0,Math.min(f.depth,TT-floorMin))}))
     .filter(f=>f.depth>eps);
@@ -993,17 +997,22 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
   const groups=[];let pocketUnion=null;
   Object.keys(byDepth).forEach(k=>{const d=+k;if(d<=eps||(TT-d)<=eps)return;
     let reg=null;byDepth[k].forEach(p=>{reg=reg?union2(reg,p):p;});
-    // Clip each pocket to B eroded by POCKET_MARGIN so it never reaches the outer wall or a letter counter.
-    // A pocket flush against those boundaries would share walls with them and tear the shell (holes / non-
-    // manifold edges); the sub-nozzle margin keeps every pocket a clean interior hole.
     if(reg&&reg.length)reg=cleanPaths(intersect(reg,Bclip));
     if(reg&&reg.length){groups.push({depth:d,reg:reg});pocketUnion=pocketUnion?union2(pocketUnion,reg):reg;}});
-  const topPaths=(pocketUnion&&pocketUnion.length)?diff(B,pocketUnion):B;
-  // Skirt = an interior bottom recess. rec = the lifted core (over the box opening), band = the flange rim.
-  const hasSkirt=!!(inner&&inner.length&&skirtD>eps);
-  const rec=hasSkirt?cleanPaths(intersect(B,inner)):null;
+  // Fill each region's counters ONLY under the pockets (+HALO), leaving the rest of every counter open. The
+  // halo keeps the pocket wall a hair inside the filled patch so it never coincides with the still-open
+  // counter wall (which would tear the shell). Applied to both the lid region B and the inner (skirt) region.
+  let Blid=B, innerLid=inner;
+  if(pocketUnion&&pocketUnion.length){
+    const patch=off(pocketUnion,HALO)||pocketUnion;
+    const fillUnder=(reg)=>{if(!reg||!reg.length)return reg;const sil=fillHoles(reg);const counters=diff(sil,reg);if(!counters||!counters.length)return reg;const stay=diff(counters,patch);const r=diff(sil,stay);return (r&&r.length)?r:reg;};
+    Blid=fillUnder(B);
+    if(inner&&inner.length)innerLid=fillUnder(inner);
+  }
+  const hasSkirt=!!(innerLid&&innerLid.length&&skirtD>eps);
+  const rec=hasSkirt?cleanPaths(intersect(Blid,innerLid)):null;
   const useSkirt=hasSkirt&&rec&&rec.length;
-  const band=useSkirt?diff(B,rec):null;
+  const band=useSkirt?diff(Blid,rec):null;
   const BOT=useSkirt?-skirtD:0;
   const pos=[];
   const addTri=(a,b,c)=>{pos.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]);};
@@ -1018,14 +1027,30 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
     const n=pts.length;if(n<2)return;for(let i=0;i<n;i++){const a=pts[i],b=pts[(i+1)%n];
       const ax=a.x-cx,ay=a.y-cy,bx=b.x-cx,by=b.y-cy;
       addTri([ax,ay,z0],[bx,by,z0],[bx,by,z1]);addTri([ax,ay,z0],[bx,by,z1],[ax,ay,z1]);}});});};
-  addWalls(B,BOT,TT);          // outer + counter walls: one continuous perimeter from skirt bottom to top
-  addCap(topPaths,TT,true);    // top face with the pockets cut out
+  addWalls(Blid,BOT,TT);       // outer + (open-)counter walls: one continuous perimeter, skirt bottom to top
+  // Top face: build it from the SAME contours the walls use (lid outline + counters, each pocket as a hole,
+  // each pocket island as its own solid cap) instead of a boolean diff. A diff re-emits shared boundaries
+  // with shifted vertices and tears the shell on real glyph outlines; sharing the contours keeps it watertight.
+  {
+    const lidShapes=shapesFromPaths(Blid);
+    const topC=lidShapes.map(sh=>({outer:loopOf(sh),holes:(sh.holes||[]).map(loopOf)}));
+    groups.forEach(g=>{shapesFromPaths(g.reg).forEach(ps=>{
+      const po=loopOf(ps);if(po.length<3)return;
+      let host=topC.find(tc=>tc.outer.length>2&&pip(po[0],tc.outer));if(!host)host=topC[0];
+      if(host)host.holes.push(po);
+      (ps.holes||[]).forEach(h=>{const hl=loopOf(h);if(hl.length>2)topC.push({outer:hl,holes:[]});});
+    });});
+    topC.forEach(({outer,holes})=>{if(outer.length<3)return;
+      const faces=THREE.ShapeUtils.triangulateShape(outer,holes);const verts=outer.concat(...holes);
+      faces.forEach(f=>{const p0=verts[f[0]],p1=verts[f[1]],p2=verts[f[2]];
+        addTri([p0.x-cx,p0.y-cy,TT],[p1.x-cx,p1.y-cy,TT],[p2.x-cx,p2.y-cy,TT]);});});
+  }
   if(useSkirt){
     addCap(band,BOT,false);    // skirt flange underside
     addCap(rec,0,false);       // lid underside over the box opening (facing down)
     addWalls(rec,BOT,0);       // step walls joining the flange bottom to the lid underside
   }else{
-    addCap(B,0,false);         // flat lid underside (no skirt)
+    addCap(Blid,0,false);      // flat lid underside (no skirt)
   }
   groups.forEach(g=>{addCap(g.reg,TT-g.depth,true);addWalls(g.reg,TT-g.depth,TT);});  // pocket floors + walls
   const geo=new THREE.BufferGeometry();
