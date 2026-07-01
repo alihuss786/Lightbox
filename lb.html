@@ -700,12 +700,12 @@ function applyLight(){
   if(mode!=="render"){[MATS.front,MATS.name,MATS.image,MATS.body].forEach(m=>{if(m)m.emissive.setHex(0);});if(glowSpot)glowSpot.intensity=0;return;}
   const fc=new THREE.Color(COLORS.front);
   function em(mat,hex,frac){if(!mat)return;mat.emissive.copy(lightOn?new THREE.Color(hex).multiplyScalar(frac):new THREE.Color(0));}
-  em(MATS.front,COLORS.front,1.7);em(MATS.name,COLORS.name,0);em(MATS.image,COLORS.image,0);
+  em(MATS.front,COLORS.front,0.55);em(MATS.name,COLORS.name,0.42);em(MATS.image,COLORS.image,0.42);
   if(MATS.body)MATS.body.emissive.setHex(lightOn?0x080808:0);
   // each text layer keeps its own colour, so give each its own matching emissive glow when lit
   if(pivot)pivot.traverse(o=>{if(o.userData&&o.userData.textId!=null)o.traverse(m=>{if(m.isMesh&&m.material&&m.material.emissive)m.material.emissive.copy(lightOn?new THREE.Color(m.material.color.getHex()).multiplyScalar(1.4):new THREE.Color(0));});});
   if(glowFace){glowFace.visible=lightOn;glowFace.material.color.copy(fc.clone().lerp(new THREE.Color(0xffffff),0.06));glowFace.material.opacity=diffOn?0.8:0.92;}
-  if(glowSpot){glowSpot.color.copy(fc);glowSpot.intensity=lightOn?2.2:0;}if(window.__bloom){var _bl=lightOn&&mode==="render";window.__bloom.strength=_bl?0.85:0.0;window.__bloom.radius=0.75;window.__bloom.threshold=_bl?0.62:1.0;}
+  if(glowSpot){glowSpot.color.copy(fc);glowSpot.intensity=lightOn?8:0;}if(window.__bloom){var _bl=lightOn&&mode==="render";window.__bloom.strength=_bl?0.28:0.0;window.__bloom.radius=0.9;window.__bloom.threshold=_bl?0.85:1.0;}
 }
 
 function handleUpload(inp){const files=inp.files;if(!files||!files.length)return;Array.from(files).forEach(file=>{const ext=(file.name.split(".").pop()||"").toLowerCase();if(ext==="stl"||ext==="3mf"){alert("Custom 3D uploads have been replaced by the Model catalog below — pick a model from there.");return;}loadImage(file);});inp.value="";}
@@ -974,7 +974,7 @@ function initThree(){const cv=g("cv");if(renderer){resize();return;}const W=cv.p
   cv.addEventListener("mousemove",mv);
   cv.addEventListener("touchmove",e=>{if(pinch&&e.touches.length===2){e.preventDefault();const d=tdist(e.touches);if(pStart>0){zoom=Math.max(0.4,Math.min(3.2,pZoom*pStart/d));applyZoom();}}else if(drag){e.preventDefault();mv(e);}},{passive:false});
   cv.addEventListener("wheel",e=>{e.preventDefault();zoom=Math.max(0.4,Math.min(3.2,zoom*(1+(e.deltaY>0?0.1:-0.1))));applyZoom();},{passive:false});
-  if(!started){started=true;(function loop(){requestAnimationFrame(loop);if(pivot)pivot.rotation.set(rotX,rotY,0);if(composer)composer.render();else renderer.render(scene,camera);updateDimLabels();})();}window.addEventListener("resize",()=>{resize();drawPad();});}
+  if(!started){started=true;(function loop(){requestAnimationFrame(loop);if(pivot)pivot.rotation.set(rotX,rotY,0);if(composer&&lightOn&&mode==="render")composer.render();else renderer.render(scene,camera);updateDimLabels();})();}window.addEventListener("resize",()=>{resize();drawPad();});}
 function resize(){const cv=g("cv");const W=cv.parentElement.clientWidth,H=cv.parentElement.clientHeight||330;if(composer){try{composer.setSize(W,H);}catch(e){}}renderer.setSize(W,H);camera.aspect=W/H;camera.updateProjectionMatrix();applyZoom();}
 
 function clearPivot(){while(pivot&&pivot.children.length)pivot.remove(pivot.children[0]);}
