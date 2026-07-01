@@ -990,36 +990,17 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
     .map(f=>({p:f.p,depth:Math.max(0,Math.min(f.depth,TT-floorMin))}))
     .filter(f=>f.depth>eps);
   const byDepth={};fs2.forEach(f=>{const k=(+f.depth.toFixed(3));(byDepth[k]=byDepth[k]||[]).push(f.p);});
-  // Outer-edge ring: a thin band just inside the lid's OUTER silhouette (counters excluded). Where a name/
-  // image runs up to the outer edge, clipping it to B leaves a razor wall of lid pinched between the pocket
-  // and that edge, so the pocket looks sealed from the side. We open ONLY those thin pinched walls (the slice
-  // of this ring that sits within EDGE_OPEN of a pocket), never solid border - a name that stops well short
-  // of the edge is untouched, and the interior outline (and counters) stays exactly as projected.
-  const EDGE_OPEN=1.6;
-  const Bouter=B.filter(p=>ClipperLib.Clipper.Area(p)>0);
-  const coreB=(EDGE_OPEN>eps&&Bouter.length)?off(Bouter,-EDGE_OPEN):null;
-  const edgeRing=(coreB&&coreB.length)?diff(Bouter,coreB):null;
   const groups=[];let pocketUnion=null;
   Object.keys(byDepth).forEach(k=>{const d=+k;if(d<=eps||(TT-d)<=eps)return;
     let raw=null;byDepth[k].forEach(p=>{raw=raw?union2(raw,p):p;});
     if(raw&&raw.length)raw=cleanPaths(raw);
     if(!raw||!raw.length)return;
-    // The carving VOID is the raw (unclipped) name/image. Where it overhangs the lid it already crosses the
-    // outer edge, so B minus void is a clean open notch (no wall). Where it runs up to but stops just inside
-    // the edge, extend it OUT PAST the edge so it still crosses cleanly - otherwise it would meet the boundary
-    // as a hair-thin slit (a keyhole) that earcut can't triangulate and it would fill the pocket solid. The
-    // floor is the void clipped back to the lid, so the printed name still seats to the exact edge.
-    let regVoid=raw;
-    if(edgeRing&&edgeRing.length){
-      // The thin wall = lid material (not pocket) in the outer rim within EDGE_OPEN of this pocket. Only that
-      // gets bridged out through the edge; parts of the name that already overhang the edge carve a clean
-      // notch on their own and are left untouched (bridging them too would double-cut and tear the cap).
-      const keep=diff(B,raw);
-      const thinWall=intersect(intersect(edgeRing,off(raw,EDGE_OPEN)),keep);
-      if(thinWall&&thinWall.length){const past=off(thinWall,EDGE_OPEN);
-        if(past&&past.length)regVoid=cleanPaths(union2(raw,past));}
-    }
-    const regClip=cleanPaths(intersect(regVoid,B));             // pocket footprint (floor) clipped to the lid
+    // Carve the top with the RAW (unclipped) name/image outline. Where it overhangs the lid it crosses the
+    // outer edge, so B minus it is a clean open notch (no wall) - not a hair-thin keyhole slit that earcut
+    // would mis-triangulate. The pocket floor is that raw outline clipped back to the lid, so the pocket is
+    // the EXACT projected name/image size (never widened) and the printed inlay seats to the exact edge.
+    const regVoid=raw;
+    const regClip=cleanPaths(intersect(regVoid,B));            // pocket footprint = exact outline clipped to the lid
     if(!regClip||!regClip.length)return;
     groups.push({depth:d,reg:regVoid,regClip:regClip});
     pocketUnion=pocketUnion?union2(pocketUnion,regClip):regClip;});
