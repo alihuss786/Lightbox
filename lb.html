@@ -368,8 +368,10 @@ input[type=text],input[type=number],.numbox{background:#f5f7fb!important;border-
 /* ===== POPLAMP-PLATES ===== */
 body.plates-mode .controls{display:none !important}
 /* in plates mode the plate list gets the full left area */
-body.plates-mode .platelist{position:fixed !important;left:18px !important;top:70px !important;width:300px !important;z-index:40 !important}
+body.plates-mode .platelist{position:fixed !important;left:18px !important;top:120px !important;width:300px !important;z-index:40 !important}
 
+/* remove the reset arrow near Export STL */
+#resetBtn{display:none !important}
 /* ensure top-left mode toggle sits above the WebGL canvas */
 .topbar{z-index:33 !important}
 .iconbtn{z-index:33 !important}
@@ -502,6 +504,13 @@ body.plates-mode .platelist{position:fixed !important;left:18px !important;top:7
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/MaskPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FontLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/TextGeometry.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
@@ -677,7 +686,7 @@ function applyLight(){
   // each text layer keeps its own colour, so give each its own matching emissive glow when lit
   if(pivot)pivot.traverse(o=>{if(o.userData&&o.userData.textId!=null)o.traverse(m=>{if(m.isMesh&&m.material&&m.material.emissive)m.material.emissive.copy(lightOn?new THREE.Color(m.material.color.getHex()).multiplyScalar(1.4):new THREE.Color(0));});});
   if(glowFace){glowFace.visible=lightOn;glowFace.material.color.copy(fc.clone().lerp(new THREE.Color(0xffffff),0.06));glowFace.material.opacity=diffOn?0.8:0.92;}
-  if(glowSpot){glowSpot.color.copy(fc);glowSpot.intensity=lightOn?4:0;}
+  if(glowSpot){glowSpot.color.copy(fc);glowSpot.intensity=lightOn?4:0;}if(window.__bloom){var _bl=lightOn&&mode==="render";window.__bloom.strength=_bl?0.72:0.0;window.__bloom.radius=0.72;window.__bloom.threshold=_bl?0.72:1.0;}
 }
 
 function handleUpload(inp){const files=inp.files;if(!files||!files.length)return;Array.from(files).forEach(file=>{const ext=(file.name.split(".").pop()||"").toLowerCase();if(ext==="stl"||ext==="3mf"){alert("Custom 3D uploads have been replaced by the Model catalog below — pick a model from there.");return;}loadImage(file);});inp.value="";}
@@ -926,11 +935,12 @@ function drawStlPad(){const pad=g("pad_stl"),layer=g("stlLayer");if(!pad||!layer
   pad.addEventListener("pointermove",e=>{if(!dg||selModel<0)return;const c=ctx(e),mo=models[selModel];let nx=Math.round(c.mx+gx),ny=Math.round(c.my+gy);const b=window.__GB;if(b){nx=Math.max(-b.hx,Math.min(b.hx,nx));ny=Math.max(-b.hy,Math.min(b.hy,ny));}mo.x=nx;mo.y=ny;syncModel();drawStlPad();scheduleBuild();});
   window.addEventListener("pointerup",()=>dg=false);})();
 
-const DRX=0.33,DRY=0.5;let renderer,scene,camera,pivot,started=false,rotX=DRX,rotY=DRY,zoom=1,baseDist=600,baseY=0,zhT=null;
+const DRX=0.33,DRY=0.5;let renderer,scene,camera,pivot,started=false,rotX=DRX,rotY=DRY,zoom=1,baseDist=600,baseY=0,zhT=null,composer=null;
 function applyZoom(){if(!camera)return;camera.position.set(0,baseY,baseDist*zoom);camera.lookAt(0,0,0);}
 function resetView(){zoom=1;if(mode==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}applyZoom();}
 function initThree(){const cv=g("cv");if(renderer){resize();return;}const W=cv.parentElement.clientWidth,H=cv.parentElement.clientHeight||330;renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(devicePixelRatio);renderer.setSize(W,H);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;
   scene=new THREE.Scene();scene.background=new THREE.Color(0xeef1f7);camera=new THREE.PerspectiveCamera(40,W/H,0.1,16000);camera.position.set(0,0,560);camera.lookAt(0,0,0);
+  try{if(THREE.EffectComposer&&THREE.RenderPass&&THREE.UnrealBloomPass){composer=new THREE.EffectComposer(renderer);composer.addPass(new THREE.RenderPass(scene,camera));var _bloom=new THREE.UnrealBloomPass(new THREE.Vector2(W,H),0.0,0.7,0.6);window.__bloom=_bloom;composer.addPass(_bloom);composer.setSize(W,H);}}catch(e){composer=null;window.__bloom=null;}
   window.__amb=new THREE.AmbientLight(0xffffff,0.32);scene.add(window.__amb);
   const key=new THREE.DirectionalLight(0xffffff,0.6);window.__key=key;key.position.set(300,440,260);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.near=10;key.shadow.camera.far=2600;key.shadow.camera.left=-800;key.shadow.camera.right=800;key.shadow.camera.top=800;key.shadow.camera.bottom=-800;key.shadow.bias=-0.0004;key.shadow.radius=4;scene.add(key);
   const fill=new THREE.DirectionalLight(0xbfd0ff,0.12);window.__fill=fill;fill.position.set(-180,80,260);scene.add(fill);
@@ -945,8 +955,8 @@ function initThree(){const cv=g("cv");if(renderer){resize();return;}const W=cv.p
   cv.addEventListener("mousemove",mv);
   cv.addEventListener("touchmove",e=>{if(pinch&&e.touches.length===2){e.preventDefault();const d=tdist(e.touches);if(pStart>0){zoom=Math.max(0.4,Math.min(3.2,pZoom*pStart/d));applyZoom();}}else if(drag){e.preventDefault();mv(e);}},{passive:false});
   cv.addEventListener("wheel",e=>{e.preventDefault();zoom=Math.max(0.4,Math.min(3.2,zoom*(1+(e.deltaY>0?0.1:-0.1))));applyZoom();},{passive:false});
-  if(!started){started=true;(function loop(){requestAnimationFrame(loop);if(pivot)pivot.rotation.set(rotX,rotY,0);renderer.render(scene,camera);updateDimLabels();})();}window.addEventListener("resize",()=>{resize();drawPad();});}
-function resize(){const cv=g("cv");const W=cv.parentElement.clientWidth,H=cv.parentElement.clientHeight||330;renderer.setSize(W,H);camera.aspect=W/H;camera.updateProjectionMatrix();applyZoom();}
+  if(!started){started=true;(function loop(){requestAnimationFrame(loop);if(pivot)pivot.rotation.set(rotX,rotY,0);if(composer)composer.render();else renderer.render(scene,camera);updateDimLabels();})();}window.addEventListener("resize",()=>{resize();drawPad();});}
+function resize(){const cv=g("cv");const W=cv.parentElement.clientWidth,H=cv.parentElement.clientHeight||330;if(composer){try{composer.setSize(W,H);}catch(e){}}renderer.setSize(W,H);camera.aspect=W/H;camera.updateProjectionMatrix();applyZoom();}
 
 function clearPivot(){while(pivot&&pivot.children.length)pivot.remove(pivot.children[0]);}
 function updateDimLabels(){const lx=g("dimX"),ly=g("dimY"),lz=g("dimZ");if(mode!=="render"||!DIM||!pivot){if(lx)lx.style.display="none";if(ly)ly.style.display="none";if(lz)lz.style.display="none";return;}const W=renderer.domElement.clientWidth,H=renderer.domElement.clientHeight;function put(el,x,y,z,txt){const p=new THREE.Vector3(x,y,z).applyMatrix4(pivot.matrixWorld).project(camera);if(p.z>1||p.z<-1){el.style.display="none";return;}el.style.display="block";el.textContent=txt;el.style.left=((p.x*0.5+0.5)*W)+"px";el.style.top=((-p.y*0.5+0.5)*H)+"px";}
