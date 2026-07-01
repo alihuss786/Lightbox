@@ -394,6 +394,7 @@ body.plates-mode .platelist{position:fixed !important;left:18px !important;top:1
 .controls{z-index:55 !important}
 .platelist{z-index:55 !important}
 body.plates-mode .platelist{z-index:60 !important}
+.palette{z-index:210 !important}
 </style>
 </head>
 <body>
@@ -700,12 +701,12 @@ function applyLight(){
   if(mode!=="render"){[MATS.front,MATS.name,MATS.image,MATS.body].forEach(m=>{if(m)m.emissive.setHex(0);});if(glowSpot)glowSpot.intensity=0;return;}
   const fc=new THREE.Color(COLORS.front);
   function em(mat,hex,frac){if(!mat)return;mat.emissive.copy(lightOn?new THREE.Color(hex).multiplyScalar(frac):new THREE.Color(0));}
-  em(MATS.front,COLORS.front,0.55);em(MATS.name,COLORS.name,0.42);em(MATS.image,COLORS.image,0.42);
+  em(MATS.front,COLORS.front,0.68);em(MATS.name,COLORS.name,0);em(MATS.image,COLORS.image,0);
   if(MATS.body)MATS.body.emissive.setHex(lightOn?0x080808:0);
   // each text layer keeps its own colour, so give each its own matching emissive glow when lit
-  if(pivot)pivot.traverse(o=>{if(o.userData&&o.userData.textId!=null)o.traverse(m=>{if(m.isMesh&&m.material&&m.material.emissive)m.material.emissive.copy(lightOn?new THREE.Color(m.material.color.getHex()).multiplyScalar(1.4):new THREE.Color(0));});});
+  if(pivot)pivot.traverse(o=>{if(o.userData&&o.userData.textId!=null)o.traverse(m=>{if(m.isMesh&&m.material&&m.material.emissive)m.material.emissive.copy(new THREE.Color(0));});});
   if(glowFace){glowFace.visible=lightOn;glowFace.material.color.copy(fc.clone().lerp(new THREE.Color(0xffffff),0.06));glowFace.material.opacity=diffOn?0.8:0.92;}
-  if(glowSpot){glowSpot.color.copy(fc);glowSpot.intensity=lightOn?8:0;}if(window.__bloom){var _bl=lightOn&&mode==="render";window.__bloom.strength=_bl?0.28:0.0;window.__bloom.radius=0.9;window.__bloom.threshold=_bl?0.85:1.0;}
+  if(glowSpot){glowSpot.color.copy(fc);glowSpot.intensity=lightOn?5:0;}if(window.__bloom){var _bl=lightOn&&mode==="render";window.__bloom.strength=_bl?0.32:0.0;window.__bloom.radius=0.82;window.__bloom.threshold=_bl?0.58:1.0;}
 }
 
 function handleUpload(inp){const files=inp.files;if(!files||!files.length)return;Array.from(files).forEach(file=>{const ext=(file.name.split(".").pop()||"").toLowerCase();if(ext==="stl"||ext==="3mf"){alert("Custom 3D uploads have been replaced by the Model catalog below — pick a model from there.");return;}loadImage(file);});inp.value="";}
@@ -918,7 +919,7 @@ function onTextSize(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.size
 function onTextBold(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.bold=Math.max(0,Math.min(2,(+val||0)));const lab=g("tlbd_"+id);if(lab)lab.textContent=(t.bold>0?"+":"")+tidy(t.bold)+" mm";scheduleBuild();}
 // Each text layer owns its colour. Update ONLY that layer's mesh material live (no rebuild, so the other
 // layers are untouched); if its mesh isn't in the scene yet, fall back to a rebuild.
-function onTextColor(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.color=val;let done=false;if(pivot){pivot.traverse(o=>{if(o.userData&&o.userData.textId===id){o.traverse(m=>{if(m.isMesh&&m.material&&m.material.color){m.material.color.set(val);if(m.material.emissive)m.material.emissive.copy((lightOn&&mode==="render")?new THREE.Color(val).multiplyScalar(0.65):new THREE.Color(0));m.material.needsUpdate=true;done=true;}});}});}if(!done)scheduleBuild();}
+function onTextColor(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.color=val;let done=false;if(pivot){pivot.traverse(o=>{if(o.userData&&o.userData.textId===id){o.traverse(m=>{if(m.isMesh&&m.material&&m.material.color){m.material.color.set(val);if(m.material.emissive)m.material.emissive.copy(new THREE.Color(0));m.material.needsUpdate=true;done=true;}});}});}if(!done)scheduleBuild();}
 function renderTextList(){const host=g("textList");if(!host)return;host.innerHTML="";
   texts.forEach((t,idx)=>{const d=document.createElement("div");d.className="tlayer"+(idx===selText?" sel":"");d.onclick=()=>{if(selText!==idx){selText=idx;renderTextList();drawTextPad();}};
     const sz=tidy(t.size*(UNIT==="cm"?0.1:1))+(UNIT==="cm"?" cm":" mm");
@@ -1393,15 +1394,15 @@ async function buildModel(){
     if(mode==="render"){
       // STL inlays can run to ~600k triangles each; casting their shadow would crush the shadow-map pass
       // and stutter dragging. Lid/body/name still cast; the dense models do not.
-      partList.forEach(p=>{const stl=!!p.modelId;p.group.traverse(o=>{if(o.isMesh&&o!==glowFace)o.castShadow=!stl;});pivot.add(p.group);});
+      partList.forEach(p=>{const stl=!!p.modelId;p.group.traverse(o=>{if(o.isMesh&&o!==glowFace){o.castShadow=!stl;if(p.isLid)o.layers.enable(1);}});pivot.add(p.group);});
       pivot.position.set(0,0,0);pivot.rotation.set(0,0,0);pivot.updateMatrixWorld(true);
       const box=new THREE.Box3().setFromObject(pivot);const ctr=box.getCenter(new THREE.Vector3());const sz=box.getSize(new THREE.Vector3());
-      floorPlane=new THREE.Mesh(new THREE.PlaneGeometry(8000,8000),new THREE.MeshStandardMaterial({color:0xeef1f7,roughness:0.96,metalness:0}));floorPlane.rotation.x=-Math.PI/2;floorPlane.position.y=box.min.y-0.5;floorPlane.receiveShadow=true;pivot.add(floorPlane);
+      floorPlane=new THREE.Mesh(new THREE.PlaneGeometry(8000,8000),new THREE.MeshStandardMaterial({color:0xeef1f7,roughness:0.96,metalness:0}));floorPlane.rotation.x=-Math.PI/2;floorPlane.position.y=box.min.y-0.5;floorPlane.receiveShadow=true;floorPlane.layers.enable(1);pivot.add(floorPlane);
       const dmax=Math.max(LW,LH);
       glowSpot=new THREE.SpotLight(new THREE.Color(COLORS.front),13,dmax*7,0.95,0.92,1.2);
       glowSpot.position.set(0,box.min.y+sz.y*0.55,box.max.z+sz.y*0.55);
       glowSpot.target.position.set(0,box.min.y-1,box.max.z+sz.y*0.45);
-      glowSpot.castShadow=false;
+      glowSpot.castShadow=false;glowSpot.layers.set(1);
       pivot.add(glowSpot);pivot.add(glowSpot.target);
       DIM={hx:sz.x/2,hy:sz.y/2,hz:sz.z/2,x:Math.round(sz.x),y:Math.round(sz.y),z:Math.round(sz.z)};
       g("dims").style.display="none";
