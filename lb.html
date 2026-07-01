@@ -296,12 +296,17 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 }
 
 /* ===== POPLAMP-MENU (dark theme) ===== */
-/* flatten accordion wells into one continuous POP LAMP menu */
-.controls .acc{background:transparent !important;border:none !important;border-radius:0 !important;box-shadow:none !important;overflow:visible !important}
-.controls .acc + .acc{border-top:1px solid var(--hair) !important;margin-top:2px}
-.controls .acc-h{padding:15px 4px !important}
-.controls .acc.open .acc-h{border-bottom:none !important}
-.controls .acc-b{padding:2px 4px 16px !important}
+/* tabbed menu: section headers become tabs, only the active section shows (less scrolling) */
+.controls .acc-h{display:none !important}
+.controls .acc{display:none !important;background:transparent !important;border:none !important;border-radius:0 !important;box-shadow:none !important;margin:0 !important;overflow:visible !important}
+.controls .acc.open{display:block !important}
+.controls .acc-b{padding:2px 4px 20px !important}
+.pl-tabs{display:flex;gap:2px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:12px;border-bottom:1px solid var(--hair)}
+.pl-tabs::-webkit-scrollbar{display:none}
+.pl-tab{flex:0 0 auto;background:none;border:none;color:var(--txt2);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:9px 11px;cursor:pointer;white-space:nowrap;position:relative;transition:color .15s}
+.pl-tab:hover{color:var(--txt)}
+.pl-tab.active{color:var(--acc)}
+.pl-tab.active::after{content:"";position:absolute;left:11px;right:11px;bottom:-1px;height:2px;background:var(--acc);border-radius:2px}
 /* light on/off button as a POP LAMP pill, bottom-right */
 #lightPill.lightbtn{position:fixed;right:20px;bottom:20px;width:auto;height:46px;padding:0 20px;gap:10px;border-radius:24px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;background:#141821;border:1px solid var(--line2);color:#fff;backdrop-filter:blur(8px);box-shadow:0 16px 32px -14px rgba(0,0,0,.75);z-index:41}
 #lightPill .lb-ic{font-size:15px;line-height:1}
@@ -320,6 +325,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:none;border-ra
 .pl-dice:hover{border-color:var(--acc)}
 .pl-dice:active{transform:scale(.94)}
 .controls.pl-collapsed .acc{display:none !important}
+.controls.pl-collapsed .pl-tabs{display:none !important}
 </style>
 </head>
 <body>
@@ -610,7 +616,8 @@ function applyColors(){refreshSwatches();if(MATS.front)MATS.front.color.set(COLO
 
 function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");R.style.background=r?"#eef0f2":"transparent";R.style.color=r?"#16181b":"#fff";P.style.background=!r?"#eef0f2":"transparent";P.style.color=!r?"#16181b":"#fff";}
 function setMode(m){mode=m;zoom=1;paintSeg();g("platelist").style.display=m==="plates"?"flex":"none";g("printerbox").style.display=m==="plates"?"flex":"none";g("zoomhint").style.display="block";clearTimeout(zhT);zhT=setTimeout(()=>g("zoomhint").style.display="none",1900);if(m==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}buildModel();buildSummary();}
-function toggleLight(){lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
+function toggleLight(){lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plTab(i){var wrap=document.querySelector(".controls");if(!wrap)return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));accs.forEach(function(a,j){a.classList.toggle("open",j===i);});var tabs=[].slice.call(wrap.querySelectorAll(".pl-tab"));tabs.forEach(function(t,j){t.classList.toggle("active",j===i);});var at=tabs[i];if(at&&at.scrollIntoView){try{at.scrollIntoView({inline:"center",block:"nearest"});}catch(e){}}try{wrap.scrollTop=0;}catch(e){}}
+function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));var t=document.createElement("button");t.className="pl-tab";t.textContent=name;t.setAttribute("data-i",i);t.onclick=function(){plTab(i);};bar.appendChild(t);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
 function applyLight(){{var _lbl=g("lightLbl");if(_lbl)_lbl.textContent=lightOn?"Turn off lamp":"Turn on lamp";}
   g("lightPill").classList.toggle("on",lightOn);
@@ -1279,7 +1286,7 @@ async function buildModel(){
       });
 
       // ---- Stacked-slab lid: solid floor + carved top layers (true inset pockets, never through-holes) ----
-      const lidMat=(topMat&&topMat.clone)?topMat.clone():topMat;if(lidMat)lidMat.side=THREE.DoubleSide;   // recessed pocket/counter walls render correctly from any angle
+      const lidMat=topMat;if(lidMat)lidMat.side=THREE.DoubleSide;   // recessed pocket/counter walls render correctly from any angle
       buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=new THREE.Mesh(s.geo,lidMat);m.position.z=s.z;capGroup.add(m);});
 
       // ---- Drop the name/image inlay solids into their pockets (they stand proud by nameExt) ----
@@ -1547,7 +1554,7 @@ async function exportPlates(){
   finally{if(btn)btn.disabled=false;}
 }
 
-paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();
+paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();try{plBuildTabs();}catch(e){}
 // Warm the whole model catalog in the background a few seconds after first paint, so cold-cache machines
 // have the geometry ready before the user opens the catalog. Delayed so it never competes with the splash
 // image / library load on the initial paint.
