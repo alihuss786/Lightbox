@@ -977,7 +977,7 @@ function buildFlatModelGroup(mo,TT){
 // into the TOP; inner = the lid's inner (box-opening) region and skirtD its depth, which form the downward
 // skirt flange as a symmetric BOTTOM recess. Built as explicit caps + walls sharing exact vertices, so every
 // edge is used by exactly two triangles — no stacked slabs, no coincident faces, no perimeter print seam.
-function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD,edgeReach){
+function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
   // Build the lid as ONE watertight, manifold solid (no stacked slabs, no separate skirt mesh). Stacking or
   // overlapping separate extrusions made walls/caps coincide, which the slicer flagged as thousands of
   // non-manifold edges and printed as the perimeter seam at pocket depth. Here the whole lid+skirt is a
@@ -1237,7 +1237,7 @@ async function buildModel(){
 
       // ---- Stacked-slab lid: solid floor + carved top layers (true inset pockets, never through-holes) ----
       const lidMat=(topMat&&topMat.clone)?topMat.clone():topMat;if(lidMat)lidMat.side=THREE.DoubleSide;   // recessed pocket/counter walls render correctly from any angle
-      buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD,clearance+capW).forEach(s=>{const m=new THREE.Mesh(s.geo,lidMat);m.position.z=s.z;capGroup.add(m);});
+      buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=new THREE.Mesh(s.geo,lidMat);m.position.z=s.z;capGroup.add(m);});
 
       // ---- Drop the name/image inlay solids into their pockets (they stand proud by nameExt) ----
       // Build the inlay solids via the PolyTree converter so internal letter counters (the 'A' triangle,
