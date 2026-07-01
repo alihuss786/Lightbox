@@ -313,7 +313,7 @@ body{background:var(--bg);color:var(--txt)}
 .fbtn,.nbtn,.cat-item,.tlayer,.mchip{background:#f5f7fb!important;border-color:#e2e7ef!important}
 .fbtn:hover,.nbtn:hover,.cat-item:hover{background:#eef2f8!important;border-color:#cdd5e2!important}
 .fbtn.sel,.nbtn.sel{border-color:var(--acc)!important;background:var(--accdim)!important;box-shadow:0 0 0 1px rgba(47,107,255,.22)!important}
-.fbtn .fs,.nbtn .fs{color:var(--txt)!important}
+.fbtn .fs,.nbtn .fs,.nbtn .ns,.ns{color:var(--txt)!important}
 .pcard{background:#ffffff!important;border-color:var(--line)!important}
 .pcard .pth,.ithumb{background:#eef1f7!important;border-color:var(--line)!important}
 .psel{background:#f5f7fb!important;border-color:#d7dde7!important;color:var(--txt)!important}
@@ -659,6 +659,7 @@ function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle
 function applyLight(){
   g("lightPill").classList.toggle("on",lightOn);
   {var _ll=g("lightLbl");if(_ll)_ll.textContent=lightOn?"Turn off lamp":"Turn on lamp";}
+  {var _dim=lightOn&&mode==="render";try{if(scene)scene.background=new THREE.Color(_dim?0x0a0c11:0xeef1f7);if(typeof floorPlane!=="undefined"&&floorPlane&&floorPlane.material)floorPlane.material.color.setHex(_dim?0x0d0f14:0xeef1f7);if(window.__amb)window.__amb.intensity=_dim?0.05:0.32;if(window.__key)window.__key.intensity=_dim?0.18:0.6;if(window.__fill)window.__fill.intensity=_dim?0.05:0.12;}catch(e){}}
   if(mode!=="render"){[MATS.front,MATS.name,MATS.image,MATS.body].forEach(m=>{if(m)m.emissive.setHex(0);});if(glowSpot)glowSpot.intensity=0;return;}
   const fc=new THREE.Color(COLORS.front);
   function em(mat,hex,frac){if(!mat)return;mat.emissive.copy(lightOn?new THREE.Color(hex).multiplyScalar(frac):new THREE.Color(0));}
@@ -921,9 +922,9 @@ function applyZoom(){if(!camera)return;camera.position.set(0,baseY,baseDist*zoom
 function resetView(){zoom=1;if(mode==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}applyZoom();}
 function initThree(){const cv=g("cv");if(renderer){resize();return;}const W=cv.parentElement.clientWidth,H=cv.parentElement.clientHeight||330;renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(devicePixelRatio);renderer.setSize(W,H);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;
   scene=new THREE.Scene();scene.background=new THREE.Color(0xeef1f7);camera=new THREE.PerspectiveCamera(40,W/H,0.1,16000);camera.position.set(0,0,560);camera.lookAt(0,0,0);
-  scene.add(new THREE.AmbientLight(0xffffff,0.32));
-  const key=new THREE.DirectionalLight(0xffffff,0.6);key.position.set(300,440,260);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.near=10;key.shadow.camera.far=2600;key.shadow.camera.left=-800;key.shadow.camera.right=800;key.shadow.camera.top=800;key.shadow.camera.bottom=-800;key.shadow.bias=-0.0004;key.shadow.radius=4;scene.add(key);
-  const fill=new THREE.DirectionalLight(0xbfd0ff,0.12);fill.position.set(-180,80,260);scene.add(fill);
+  window.__amb=new THREE.AmbientLight(0xffffff,0.32);scene.add(window.__amb);
+  const key=new THREE.DirectionalLight(0xffffff,0.6);window.__key=key;key.position.set(300,440,260);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.near=10;key.shadow.camera.far=2600;key.shadow.camera.left=-800;key.shadow.camera.right=800;key.shadow.camera.top=800;key.shadow.camera.bottom=-800;key.shadow.bias=-0.0004;key.shadow.radius=4;scene.add(key);
+  const fill=new THREE.DirectionalLight(0xbfd0ff,0.12);window.__fill=fill;fill.position.set(-180,80,260);scene.add(fill);
   pivot=new THREE.Group();scene.add(pivot);
   const xy=e=>e.touches?[e.touches[0].clientX,e.touches[0].clientY]:[e.clientX,e.clientY];
   let drag=false,px=0,py=0,pinch=false,pStart=0,pZoom=1;
