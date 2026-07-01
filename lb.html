@@ -368,7 +368,7 @@ input[type=text],input[type=number],.numbox{background:#f5f7fb!important;border-
 /* ===== POPLAMP-PLATES ===== */
 body.plates-mode .controls{display:none !important}
 /* in plates mode the plate list gets the full left area */
-body.plates-mode .platelist{left:18px !important;top:70px !important;width:300px !important}
+body.plates-mode .platelist{position:fixed !important;left:18px !important;top:70px !important;width:300px !important;z-index:40 !important}
 
 </style>
 </head>
@@ -665,14 +665,14 @@ function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle
 function applyLight(){
   g("lightPill").classList.toggle("on",lightOn);
   {var _ll=g("lightLbl");if(_ll)_ll.textContent=lightOn?"Turn off lamp":"Turn on lamp";}
-  {var _dim=lightOn&&mode==="render";try{if(scene)scene.background=new THREE.Color(_dim?0x191b21:0xeef1f7);if(typeof floorPlane!=="undefined"&&floorPlane&&floorPlane.material)floorPlane.material.color.setHex(_dim?0x20222a:0xeef1f7);if(window.__amb)window.__amb.intensity=_dim?0.16:0.4;if(window.__key)window.__key.intensity=_dim?0.34:0.55;if(window.__fill)window.__fill.intensity=_dim?0.08:0.14;if(window.__key)window.__key.castShadow=!_dim;}catch(e){}}
+  {var _dim=lightOn&&mode==="render";try{if(scene)scene.background=new THREE.Color(_dim?0x191b21:0xeef1f7);if(typeof floorPlane!=="undefined"&&floorPlane&&floorPlane.material)floorPlane.material.color.setHex(_dim?0x20222a:0xeef1f7);if(window.__amb)window.__amb.intensity=_dim?0.24:0.4;if(window.__key)window.__key.intensity=_dim?0.1:0.55;if(window.__fill)window.__fill.intensity=_dim?0.08:0.14;if(window.__key)window.__key.castShadow=!_dim;}catch(e){}}
   if(mode!=="render"){[MATS.front,MATS.name,MATS.image,MATS.body].forEach(m=>{if(m)m.emissive.setHex(0);});if(glowSpot)glowSpot.intensity=0;return;}
   const fc=new THREE.Color(COLORS.front);
   function em(mat,hex,frac){if(!mat)return;mat.emissive.copy(lightOn?new THREE.Color(hex).multiplyScalar(frac):new THREE.Color(0));}
-  em(MATS.front,COLORS.front,0.55);em(MATS.name,COLORS.name,0.65);em(MATS.image,COLORS.image,0.65);
+  em(MATS.front,COLORS.front,0.9);em(MATS.name,COLORS.name,0.92);em(MATS.image,COLORS.image,0.92);
   if(MATS.body)MATS.body.emissive.setHex(lightOn?0x080808:0);
   // each text layer keeps its own colour, so give each its own matching emissive glow when lit
-  if(pivot)pivot.traverse(o=>{if(o.userData&&o.userData.textId!=null)o.traverse(m=>{if(m.isMesh&&m.material&&m.material.emissive)m.material.emissive.copy(lightOn?new THREE.Color(m.material.color.getHex()).multiplyScalar(0.65):new THREE.Color(0));});});
+  if(pivot)pivot.traverse(o=>{if(o.userData&&o.userData.textId!=null)o.traverse(m=>{if(m.isMesh&&m.material&&m.material.emissive)m.material.emissive.copy(lightOn?new THREE.Color(m.material.color.getHex()).multiplyScalar(0.92):new THREE.Color(0));});});
   if(glowFace){glowFace.visible=lightOn;glowFace.material.color.copy(fc.clone().lerp(new THREE.Color(0xffffff),0.06));glowFace.material.opacity=diffOn?0.8:0.92;}
   if(glowSpot){glowSpot.color.copy(fc);glowSpot.intensity=lightOn?7.5:0;}
 }
