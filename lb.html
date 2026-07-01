@@ -978,31 +978,19 @@ function buildFlatModelGroup(mo,TT){
 // skirt flange as a symmetric BOTTOM recess. Built as explicit caps + walls sharing exact vertices, so every
 // edge is used by exactly two triangles — no stacked slabs, no coincident faces, no perimeter print seam.
 function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
-  // Build the lid as ONE watertight, manifold solid (no stacked slabs, no separate skirt mesh). Stacking or
-  // overlapping separate extrusions made walls/caps coincide, which the slicer flagged as thousands of
-  // non-manifold edges and printed as the perimeter seam at pocket depth. Here the whole lid+skirt is a
-  // single closed shell: the letter counters stay as through-holes, the name/image pockets are interior top
-  // recesses, and the skirt is just a symmetric interior BOTTOM recess. Every edge is shared by two faces.
+  // The name/image are cut CLEAN THROUGH the lid (a cutout, not a recess): no floor, no side-wall lip, so the
+  // separately-printed name/image drops straight in, fits the opening exactly, and can overhang the edges of
+  // the letter freely. One watertight, manifold shell (the letter's own counter also stays a through-hole).
   const eps=0.01;
-  const POCKET_MARGIN=0;    // pocket = exact projected name/image outline (so the printed name drops in)
-  const Bclip=(POCKET_MARGIN>0)?(off(B,-POCKET_MARGIN)||B):B;
-  const fs2=(features||[]).filter(f=>f&&f.p&&f.depth>eps)
-    .map(f=>({p:f.p,depth:Math.max(0,Math.min(f.depth,TT-floorMin))}))
-    .filter(f=>f.depth>eps);
-  const byDepth={};fs2.forEach(f=>{const k=(+f.depth.toFixed(3));(byDepth[k]=byDepth[k]||[]).push(f.p);});
-  const groups=[];let pocketUnion=null;
-  Object.keys(byDepth).forEach(k=>{const d=+k;if(d<=eps||(TT-d)<=eps)return;
-    let reg=null;byDepth[k].forEach(p=>{reg=reg?union2(reg,p):p;});
-    // Clip each pocket to B eroded by POCKET_MARGIN so it never reaches the outer wall or a letter counter.
-    // A pocket flush against those boundaries would share walls with them and tear the shell (holes / non-
-    // manifold edges); the sub-nozzle margin keeps every pocket a clean interior hole.
-    if(reg&&reg.length)reg=cleanPaths(intersect(reg,Bclip));
-    if(reg&&reg.length){groups.push({depth:d,reg:reg});pocketUnion=pocketUnion?union2(pocketUnion,reg):reg;}});
-  // Skirt = an interior bottom recess. rec = the lifted core (over the box opening), band = the flange rim.
-  const hasSkirt=!!(inner&&inner.length&&skirtD>eps);
-  const rec=hasSkirt?cleanPaths(intersect(B,inner)):null;
+  const fillHoles=(paths)=>{if(!paths||!paths.length)return paths;const o=paths.filter(p=>ClipperLib.Clipper.Area(p)>0);if(!o.length)return paths;const c=new ClipperLib.Clipper();c.AddPaths(o,ClipperLib.PolyType.ptSubject,true);const r=new ClipperLib.Paths();c.Execute(ClipperLib.ClipType.ctUnion,r,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return (r&&r.length)?r:paths;};
+  let pu=null;(features||[]).forEach(f=>{if(f&&f.p&&f.p.length)pu=pu?union2(pu,f.p):f.p;});
+  if(pu&&pu.length)pu=cleanPaths(intersect(pu,fillHoles(B)));   // clip cutouts to the letter silhouette (may cross counters)
+  let Blid=B, innerLid=inner;
+  if(pu&&pu.length){Blid=diff(B,pu);if(inner&&inner.length)innerLid=diff(inner,pu);}
+  const hasSkirt=!!(innerLid&&innerLid.length&&skirtD>eps);
+  const rec=hasSkirt?cleanPaths(intersect(Blid,innerLid)):null;
   const useSkirt=hasSkirt&&rec&&rec.length;
-  const band=useSkirt?diff(B,rec):null;
+  const band=useSkirt?diff(Blid,rec):null;
   const BOT=useSkirt?-skirtD:0;
   const pos=[];
   const addTri=(a,b,c)=>{pos.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]);};
@@ -1017,24 +1005,14 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
     const n=pts.length;if(n<2)return;for(let i=0;i<n;i++){const a=pts[i],b=pts[(i+1)%n];
       const ax=a.x-cx,ay=a.y-cy,bx=b.x-cx,by=b.y-cy;
       addTri([ax,ay,z0],[bx,by,z0],[bx,by,z1]);addTri([ax,ay,z0],[bx,by,z1],[ax,ay,z1]);}});});};
-  // ---- Top: carve the recesses as horizontal bands. Where a pocket runs to the lid EDGE, only the wall
-  // BELOW its floor remains, so the top opens out to the side and the printed name/image can seat and
-  // overhang the edge (instead of being sealed in by a full-height wall). Where there is no pocket the
-  // bands share B's outline exactly, so the outer wall is ONE coplanar face -> no print seam. ----
-  const floorZ=g=>TT-g.depth;
-  const voidUpTo=(z)=>{let v=null;groups.forEach(g=>{if(floorZ(g)<=z+eps)v=v?union2(v,g.reg):g.reg;});return v;};
-  const crossFrom=(z)=>{const v=voidUpTo(z);return (v&&v.length)?diff(B,v):B;};   // no clean: keep B's outline exact
-  const cuts=[...new Set(groups.map(g=>+floorZ(g).toFixed(3)))].filter(z=>z>BOT+eps&&z<TT-eps).sort((a,b)=>a-b);
-  const bounds=[BOT].concat(cuts,[TT]);
-  for(let k=0;k<bounds.length-1;k++)addWalls(crossFrom(bounds[k]),bounds[k],bounds[k+1]);  // banded outer + recess walls
-  addCap(crossFrom(bounds[bounds.length-2]),TT,true);   // top face = B minus every pocket
-  groups.forEach(g=>addCap(g.reg,floorZ(g),true));       // pocket floors (face up)
+  addWalls(Blid,BOT,TT);       // outer + counter + cutout walls, full depth (one continuous perimeter)
+  addCap(Blid,TT,true);        // top face (the name/image are holes in it)
   if(useSkirt){
     addCap(band,BOT,false);    // skirt flange underside
-    addCap(rec,0,false);       // lid underside over the box opening (facing down)
+    addCap(rec,0,false);       // lid underside over the box opening
     addWalls(rec,BOT,0);       // step walls joining the flange bottom to the lid underside
   }else{
-    addCap(B,0,false);         // flat lid underside (no skirt)
+    addCap(Blid,0,false);      // flat lid underside (no skirt)
   }
   const geo=new THREE.BufferGeometry();
   geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
