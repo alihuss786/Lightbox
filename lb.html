@@ -1063,10 +1063,13 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
     faces.forEach(f=>{const p0=verts[f[0]],p1=verts[f[1]],p2=verts[f[2]];
       const A=[p0.x-cx,p0.y-cy,z],Bv=[p1.x-cx,p1.y-cy,z],C=[p2.x-cx,p2.y-cy,z];
       if(up)addTri(A,Bv,C);else addTri(A,C,Bv);});});};
-  const addWalls=(paths,z0,z1)=>{if(!paths||!paths.length)return;contoursOf(paths).forEach(({outer,holes})=>{[outer].concat(holes).forEach(pts=>{
+  const addWalls=(paths,z0,z1,flip)=>{if(!paths||!paths.length)return;contoursOf(paths).forEach(({outer,holes})=>{[outer].concat(holes).forEach(pts=>{
     const n=pts.length;if(n<2)return;for(let i=0;i<n;i++){const a=pts[i],b=pts[(i+1)%n];
       const ax=a.x-cx,ay=a.y-cy,bx=b.x-cx,by=b.y-cy;
-      addTri([ax,ay,z0],[bx,by,z0],[bx,by,z1]);addTri([ax,ay,z0],[bx,by,z1],[ax,ay,z1]);}});});};
+      // flip=true reverses the wall normal (used for the skirt cavity, where the solid is OUTSIDE the rec
+      // contour, so its walls must face inward toward the cavity or the slicer fills the recess solid).
+      if(flip){addTri([ax,ay,z0],[bx,by,z1],[bx,by,z0]);addTri([ax,ay,z0],[ax,ay,z1],[bx,by,z1]);}
+      else{addTri([ax,ay,z0],[bx,by,z0],[bx,by,z1]);addTri([ax,ay,z0],[bx,by,z1],[ax,ay,z1]);}}});});};
   // ---- Top: carve the recesses as horizontal bands. Where a pocket runs to the lid EDGE, only the wall
   // BELOW its floor remains, so the top opens out to the side and the printed name/image can seat and
   // overhang the edge (instead of being sealed in by a full-height wall). Where there is no pocket the
@@ -1082,7 +1085,7 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
   if(useSkirt){
     addCap(band,BOT,false);    // skirt flange underside
     addCap(rec,0,false);       // lid underside over the box opening (facing down)
-    addWalls(rec,BOT,0);       // step walls joining the flange bottom to the lid underside
+    addWalls(rec,BOT,0,true);  // step walls joining the flange bottom to the lid underside (flip: solid is outside rec)
   }else{
     addCap(B,0,false);         // flat lid underside (no skirt)
   }
