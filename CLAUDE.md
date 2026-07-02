@@ -45,7 +45,16 @@ but is unused.
 `none`, `subway`, `basketweave`, `herringbone`, `fishscale`, `scallop`,
 `isocube` (Isometric Diamonds/harlequin), `isostar` (Isometric Cubes),
 `puzzle` (Jigsaw, bezier filled pieces), `crackle` (Cracked Stone, Voronoi),
-`crackleinv` (Cracked Stone Raised), `leopard` (jittered rosette blob clusters).
+`crackleinv` (Cracked Stone Raised), `filigree` (Debossed Filigree Scrolls).
+
+**Debossing convention**: the cap hook always *raises* the tiles
+(`_grout` at TT, `_tiles` at TT+relief). To get recessed grooves (as
+`filigree` does), `gen` returns the *background* — `diff(fieldRect, off(strokes,δ))`
+— so the raised field leaves the scroll strokes low. `filigree` builds
+symmetric heart-scroll motifs from bezier `ribbon()` strokes + `spiral()`
+curls + `leaf()` accents, orientation-normalized (CCW) before `_sc`.
+
+**Leopard was added then removed** — user didn't like the print.
 
 **Knit was attempted many times and abandoned** — the tile engine can't make
 continuous rounded ribs and the height-field V-loop read as chevrons/pillows.
