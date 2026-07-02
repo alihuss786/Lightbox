@@ -639,7 +639,7 @@ var TEXTURES=[
  {id:"scallop",name:"Scallop",relief:0.9,gen:function(a,b,c,d){var bw=13,bh=9,g=1.4,cells=[];var r0=Math.floor(b/bh)-2,r1=Math.ceil(d/bh)+2,c0=Math.floor(a/bw)-2,c1=Math.ceil(c/bw)+2;for(var row=r0;row<=r1;row++){var off=((((row%2)+2)%2))?bw/2:0;for(var col=c0;col<=c1;col++){var cx=col*bw-off,cy=row*bh,rx=bw/2-g/2,ry=bh/2-g/2,N=26,pts=[],i,an;for(i=0;i<N;i++){an=i/N*2*Math.PI;pts.push([cx+rx*Math.cos(an),cy+ry*Math.sin(an)]);}cells.push(_sc(pts));}}return cells;}},
  {id:"isocube",name:"Isometric Diamonds",relief:0.9,gen:function(a,b,c,d){var hx=6.5,hy=8,g=1.5,cells=[],sx=1-g/(2*hx),sy=1-g/(2*hy),c0=Math.floor(a/hx)-2,c1=Math.ceil(c/hx)+2,r0=Math.floor(b/hy)-2,r1=Math.ceil(d/hy)+2;for(var col=c0;col<=c1;col++)for(var row=r0;row<=r1;row++){var cx=col*hx,cy=row*hy;if(((col+row)%2+2)%2!==0)continue;var q=[[cx+hx*sx,cy],[cx,cy+hy*sy],[cx-hx*sx,cy],[cx,cy-hy*sy]];cells.push(_sc(q));}return cells;}},
  {id:"isostar",name:"Isometric Cubes",relief:0.72,gen:function(a,b,c,d){var R=7,w=1.3,cells=[],dx=R*1.5,dy=R*1.7320508;function seg(x0,y0,x1,y1){var p=_segp(x0,y0,x1,y1,w);if(p)cells.push(_sc(p));}var r0=Math.floor(b/dy)-2,r1=Math.ceil(d/dy)+2,c0=Math.floor(a/dx)-2,c1=Math.ceil(c/dx)+2,k;for(var col=c0;col<=c1;col++)for(var row=r0;row<=r1;row++){var cx=col*dx,cy=row*dy+((((col%2)+2)%2)?dy/2:0),V=[];for(k=0;k<6;k++){var an=Math.PI/3*k;V.push([cx+R*Math.cos(an),cy+R*Math.sin(an)]);}for(k=0;k<6;k++)seg(V[k][0],V[k][1],V[(k+1)%6][0],V[(k+1)%6][1]);seg(cx,cy,V[0][0],V[0][1]);seg(cx,cy,V[2][0],V[2][1]);seg(cx,cy,V[4][0],V[4][1]);}return cells;}},
- {id:"puzzle",name:"Jigsaw Puzzle",relief:0.8,gen:function(a,b,c,d){var cs=13,w=1.4,cells=[];function seg(x0,y0,x1,y1){var p=_segp(x0,y0,x1,y1,w);if(p)cells.push(_sc(p));}function edge(x0,y0,x1,y1,dir){var L=Math.hypot(x1-x0,y1-y0),ux=(x1-x0)/L,uy=(y1-y0)/L,nx=-uy*dir,ny=ux*dir;function P(t,s){return [x0+ux*t*L+nx*s*L,y0+uy*t*L+ny*s*L];}var rb=0.15,cyc=0.24,el=0.404,er=0.596,pr=[P(0,0),P(el,0),P(el,0.125)],a0=230*Math.PI/180,a1=-50*Math.PI/180,k,an;for(k=0;k<=16;k++){an=a0+(a1-a0)*k/16;pr.push(P(0.5+rb*Math.cos(an),cyc+rb*Math.sin(an)));}pr.push(P(er,0.125));pr.push(P(er,0));pr.push(P(1,0));for(var q=0;q<pr.length-1;q++)seg(pr[q][0],pr[q][1],pr[q+1][0],pr[q+1][1]);}var i0=Math.floor(a/cs)-1,i1=Math.ceil(c/cs)+1,j0=Math.floor(b/cs)-1,j1=Math.ceil(d/cs)+1;for(var i=i0;i<=i1;i++)for(var j=j0;j<=j1;j++){var x=i*cs,y=j*cs;edge(x,y,x+cs,y,((i+j)&1)?1:-1);edge(x,y,x,y+cs,((i+j)&1)?-1:1);}return cells;}}
+ {id:"puzzle",name:"Jigsaw Puzzle",relief:1.0,gen:function(a,b,c,d){var cs=18,g=1.5,cells=[];function rnd(i,j,s){var v=Math.sin(i*127.1+j*311.7+s*74.7)*43758.5453;return (v-Math.floor(v))>0.5?1:-1;}function knob(poly,x0,y0,x1,y1,bnx,bny){var L=Math.hypot(x1-x0,y1-y0),ux=(x1-x0)/L,uy=(y1-y0)/L;function P(t,s){return [x0+ux*t*L+bnx*s*L,y0+uy*t*L+bny*s*L];}var r=0.17,cyc=0.26,el=0.39,er=0.61,a0=230*Math.PI/180,a1=-50*Math.PI/180,k,an;poly.push(P(0,0));poly.push(P(el,0));poly.push(P(el,0.13));for(k=0;k<=16;k++){an=a0+(a1-a0)*k/16;poly.push(P(0.5+r*Math.cos(an),cyc+r*Math.sin(an)));}poly.push(P(er,0.13));poly.push(P(er,0));}var i0=Math.floor(a/cs)-1,i1=Math.ceil(c/cs)+1,j0=Math.floor(b/cs)-1,j1=Math.ceil(d/cs)+1;for(var i=i0;i<=i1;i++)for(var j=j0;j<=j1;j++){var x0=i*cs,y0=j*cs,x1=x0+cs,y1=y0+cs,poly=[];knob(poly,x0,y0,x1,y0,0,rnd(i,j,0.5));knob(poly,x1,y0,x1,y1,rnd(i+1,j,1.5),0);knob(poly,x1,y1,x0,y1,0,rnd(i,j+1,0.5));knob(poly,x0,y1,x0,y0,rnd(i,j,1.5),0);var _e=off([_sc(poly)],-g/2);if(_e&&_e.length)_e.forEach(function(p){cells.push(p);});}return cells;}}
 ];
 var TEXFN={};TEXTURES.forEach(function(t){TEXFN[t.id]=t;});
 var LIDTEX=null;
@@ -1255,6 +1255,40 @@ let thumbR=null,thumbScene=null,thumbCam=null;
 function thumbSetup(){if(thumbR)return;const c=document.createElement("canvas");thumbR=new THREE.WebGLRenderer({canvas:c,antialias:true,alpha:true,preserveDrawingBuffer:true});thumbR.setSize(120,120);thumbR.setClearColor(0x000000,0);thumbScene=new THREE.Scene();thumbScene.add(new THREE.AmbientLight(0xffffff,0.85));const dl=new THREE.DirectionalLight(0xffffff,0.7);dl.position.set(1.5,2.5,2);thumbScene.add(dl);thumbCam=new THREE.PerspectiveCamera(33,1,0.1,100000);}
 function makeThumb(part){try{thumbSetup();const obj=part.group.clone(true);obj.rotation.x=part.flip?Math.PI/2:-Math.PI/2;const holder=new THREE.Group();holder.add(obj);thumbScene.add(holder);holder.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(holder);if(!isFinite(box.min.x)){thumbScene.remove(holder);return null;}const ctr=box.getCenter(new THREE.Vector3());const sz=box.getSize(new THREE.Vector3());holder.position.sub(ctr);const r=Math.max(sz.x,sz.y,sz.z)||1;const d=r*1.65;thumbCam.position.set(d*0.42,d*0.62,d);thumbCam.lookAt(0,0,0);thumbR.render(thumbScene,thumbCam);const url=thumbR.domElement.toDataURL("image/png");thumbScene.remove(holder);return url;}catch(e){return null;}}
 
+// Build the hollow letter-shaped box body as ONE watertight, manifold shell (no overlapping extrusions).
+// The old build stacked a full-depth wall-ring extrusion and a separate back-plate extrusion; where the
+// back plate's sides met the ring's inner walls the faces coincided, so every such edge was shared by 4
+// triangles -> the "non-manifold edges" Bambu flagged. Here the whole shell is one closed surface: outer
+// walls (full depth), a solid back cap, a front rim (open cavity), inner cavity walls, and the cavity floor.
+function buildBodyShell(filled,inner,depth,wall,cx,cy){
+  const pos=[];
+  const addTri=(a,b,c)=>{pos.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]);};
+  // triangulate region shapes at height z; FORCE the face normal to +z (wantUp) or -z, per face, so caps
+  // are always oriented correctly regardless of the source contour winding.
+  function cap(shapes,z,wantUp){shapes.forEach(sh=>{const ep=sh.extractPoints();const o=ep.shape,hs=ep.holes;
+    const faces=THREE.ShapeUtils.triangulateShape(o,hs);const verts=o.concat.apply(o,hs);
+    faces.forEach(f=>{const p0=verts[f[0]],p1=verts[f[1]],p2=verts[f[2]];
+      const cr=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);const up=cr>0;
+      const A=[p0.x-cx,p0.y-cy,z],B=[p1.x-cx,p1.y-cy,z],C=[p2.x-cx,p2.y-cy,z];
+      if(up===wantUp)addTri(A,B,C);else addTri(A,C,B);});});}
+  // vertical walls along clipper loops from z0 to z1. flip reverses the normal. Clipper's convention (outer
+  // CCW, holes CW) makes flip=false point away from the enclosed solid for `filled`; the cavity is the
+  // opposite side, so `inner` walls use flip=true.
+  function walls(paths,z0,z1,flip){paths.forEach(p=>{const n=p.length;if(n<2)return;
+    for(let i=0;i<n;i++){const A=p[i],B=p[(i+1)%n];const ax=A.X/S-cx,ay=A.Y/S-cy,bx=B.X/S-cx,by=B.Y/S-cy;
+      const a0=[ax,ay,z0],b0=[bx,by,z0],a1=[ax,ay,z1],b1=[bx,by,z1];
+      if(!flip){addTri(a0,b0,b1);addTri(a0,b1,a1);}else{addTri(a0,b1,b0);addTri(a0,a1,b1);}}});}
+  const zBack=-depth,zFloor=-depth+wall,zFront=0;
+  cap(shapesFromPaths(filled),zBack,false);          // solid back (full footprint), facing -z
+  cap(shapesFromPaths(filled.concat(inner)),zFront,true); // front rim = ring (filled with inner hole), facing +z
+  cap(shapesFromPaths(inner),zFloor,true);           // cavity floor (inner region), facing +z
+  walls(filled,zBack,zFront,false);                  // outer walls, full depth
+  walls(inner,zFloor,zFront,true);                   // inner cavity walls (floor up to open front)
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
+  geo.computeVertexNormals();geo.computeBoundingBox();
+  return geo;
+}
 let PLATES=[],PLATE_THUMBS=[];
 async function buildModel(){
   if(!renderer||!pivot)return;clearPivot();glowFace=null;glowSpot=null;floorPlane=null;DIM=null;
@@ -1297,12 +1331,10 @@ async function buildModel(){
 
     const bodyGroup=new THREE.Group();let builtHollow=false;
     if(hasClip&&filled){try{
-      const inner=off(filled,-wall);const ring=(inner&&inner.length)?diff(filled,inner):filled;
-      const ringShapes=shapesFromPaths(ring),backShapes=shapesFromPaths((inner&&inner.length)?inner:filled);  // back fills only the cavity floor so the outer wall is one continuous (seamless) extrusion
-      if(ringShapes.length&&backShapes.length){
-        const wG=new THREE.ExtrudeGeometry(ringShapes,{depth,bevelEnabled:false,curveSegments:6});const bG=new THREE.ExtrudeGeometry(backShapes,{depth:wall,bevelEnabled:false,curveSegments:6});wG.translate(-cx,-cy,0);bG.translate(-cx,-cy,0);
-        const walls=new THREE.Mesh(wG,MATS.body);walls.position.z=-depth;bodyGroup.add(walls);
-        const back=new THREE.Mesh(bG,backMat);back.position.z=-depth;bodyGroup.add(back);builtHollow=true;}
+      const inner=off(filled,-wall);
+      if(inner&&inner.length){
+        const shellGeo=buildBodyShell(filled,inner,depth,wall,cx,cy);
+        bodyGroup.add(new THREE.Mesh(shellGeo,MATS.body));builtHollow=true;}
     }catch(e){}}
     if(!builtHollow){const geo=new THREE.TextGeometry(letter,{font,size:glyphSize,height:depth,curveSegments:8,bevelEnabled:false});geo.computeBoundingBox();const bb=geo.boundingBox;geo.translate(-(bb.max.x+bb.min.x)/2,-(bb.max.y+bb.min.y)/2,0);const body=new THREE.Mesh(geo,MATS.body);body.position.z=-depth;bodyGroup.add(body);}
 
