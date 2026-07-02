@@ -334,10 +334,14 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
 .controls.pl-collapsed .pl-tabs{display:none !important}
 
 /* ===== lid textures menu ===== */
-.texgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.texcard{padding:11px 10px;border:1px solid var(--line);border-radius:11px;background:var(--panel2);color:var(--txt);font-size:11.5px;font-weight:600;text-align:left;cursor:pointer;line-height:1.25;transition:border-color .15s,background .15s}
-.texcard:hover{border-color:var(--line2)}
-.texcard.sel{border-color:var(--acc);background:var(--accdim);color:var(--acc2)}
+.texgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.texcard{position:relative;border:1px solid var(--line);border-radius:13px;background:#141519;color:var(--txt);cursor:pointer;padding:7px 6px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;transition:border-color .15s,background .15s,transform .3s}
+.texcard:hover{border-color:#3a3e47;transform:translateY(-1px)}
+.texcard.sel{border-color:var(--acc);background:var(--accdim)}
+.texprev{width:100%;aspect-ratio:1/1;border-radius:8px;overflow:hidden;background:#20242b;display:flex}
+.texprev canvas{width:100%;height:100%;display:block}
+.texname{font-size:10px;font-weight:600;color:var(--txt2);letter-spacing:.01em;text-align:center;line-height:1.2}
+.texcard.sel .texname{color:var(--acc2)}
 </style>
 </head>
 <body>
@@ -652,7 +656,16 @@ var TEXTURES=[
 var TEXFN={};TEXTURES.forEach(function(t){TEXFN[t.id]=t;});
 var LIDTEX=null;
 function selectTexture(id){var t=(id&&id!=="none")?TEXFN[id]:null;LIDTEX=(t&&(t.gen||t.fn))?{gen:t.gen,fn:t.fn,grid:t.grid,amp:t.amp,relief:t.relief||0.9,dome:t.dome,domeMin:t.domeMin}:null;window.__lidTexId=id||"none";try{renderTexList();}catch(e){}if(typeof scheduleBuild==="function")scheduleBuild();}
-function renderTexList(){var el=document.getElementById("texgrid");if(!el)return;var cur=window.__lidTexId||"none";el.innerHTML=TEXTURES.map(function(t){return '<button class="texcard'+(t.id===cur?' sel':'')+'" onclick="selectTexture(\''+t.id+'\')">'+t.name+'</button>';}).join("");}
+function drawTexPreview(cv,t){var ctx=cv.getContext("2d");var W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+  var grout="#20242b",tile="#cdc6b8";
+  ctx.fillStyle=grout;ctx.fillRect(0,0,W,H);
+  if(!t||!t.gen){ctx.fillStyle="#3a3f48";ctx.fillRect(0,0,W,H);ctx.strokeStyle="#575d68";ctx.lineWidth=Math.max(1,W/60);for(var k=-H;k<W;k+=W/6){ctx.beginPath();ctx.moveTo(k,0);ctx.lineTo(k+H,H);ctx.stroke();}return;}
+  var span=30,cells;try{cells=t.gen(-span/2,-span/2,span/2,span/2);}catch(e){return;}
+  if(!cells||!cells.length)return;var sc=W/span;ctx.fillStyle=tile;
+  cells.forEach(function(cell){if(!cell||cell.length<3)return;ctx.beginPath();for(var i=0;i<cell.length;i++){var x=(cell[i].X/S+span/2)*sc,y=H-(cell[i].Y/S+span/2)*sc;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.closePath();ctx.fill();});}
+function renderTexList(){var el=document.getElementById("texgrid");if(!el)return;var cur=window.__lidTexId||"none";
+  el.innerHTML=TEXTURES.map(function(t){return '<button class="texcard'+(t.id===cur?' sel':'')+'" onclick="selectTexture(\''+t.id+'\')" title="'+t.name+'"><span class="texprev"><canvas id="texcv_'+t.id+'" width="120" height="120"></canvas></span><span class="texname">'+t.name+'</span></button>';}).join("");
+  TEXTURES.forEach(function(t){var cv=document.getElementById("texcv_"+t.id);if(cv){try{drawTexPreview(cv,t);}catch(e){}}});}
 
 
 
