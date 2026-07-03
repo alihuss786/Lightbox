@@ -673,8 +673,8 @@ function renderTexList(){var el=document.getElementById("texgrid");if(!el)return
 
 
 const MATS={};let glowFace=null,glowSpot=null,floorPlane=null;
-function scheduleBuild(){clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},100);}
-function rebuild(){updatePad();clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},150);}
+function scheduleBuild(){clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},100);if(typeof autosave==="function")autosave();}
+function rebuild(){updatePad();clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},150);if(typeof autosave==="function")autosave();}
 
 const PRESETS=["#FFFFFF","#F4E9D8","#E8C99B","#C9A36A","#B0B5BB","#7E848B","#3A3F44","#15171A","#E23B3B","#E2663B","#E2A93B","#7FB23B","#2FB273","#3B9AE2","#3B57E2","#7A3BE2","#E23B86","#10100F","#F7C0D1","#9FE1CB","#FAC775","#B5D4F4","#CECBF6","#888780"];
 let palTarget=null;
@@ -1767,7 +1767,35 @@ function bootGeometry(font){
 }
 loadFont(selFont.url).then(bootGeometry,()=>bootGeometry(null));
 // Belt-and-suspenders: once the window + any web fonts are fully ready, queue one more clean pass.
-window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise.resolve()).then(()=>updateTextGeometry()).catch(()=>{});};if(document.fonts&&document.fonts.ready)document.fonts.ready.then(run,run);else run();});
+/* ===== Design persistence: snapshot the whole design + auto-restore on reload (never lose work) ===== */
+function serializeDesign(){var d={v:1};try{
+  d.letter=(v("letter")||"A");d.printer=selPrinter;d.unit=UNIT;d.font=(selNameFont&&selNameFont.url)||"";d.texture=window.__lidTexId||"none";
+  d.colors={};["front","name","image","model","body"].forEach(function(k){d.colors[k]=COLORS[k];});
+  d.dims={};MEAS.forEach(function(m){if(m[0]!=="imgSize")d.dims[m[0]]=mmOf(m[0]);});
+  d.texts=texts.map(function(t){return {str:t.str,size:t.size,x:t.x,y:t.y,color:t.color,bold:t.bold||0,font:t.font||d.font};});
+  d.images=images.map(function(im){return {src:im.src,size:im.size,x:im.x,y:im.y,rot:im.rot||0};});
+}catch(e){}return d;}
+var _asT=null;
+function autosave(){clearTimeout(_asT);_asT=setTimeout(function(){try{localStorage.setItem("sl_design_v1",JSON.stringify(serializeDesign()));}catch(e){}},700);}
+function applyDesign(d){if(!d||d.v!==1)return false;try{
+  if(g("letter"))g("letter").value=(d.letter||"A");
+  if(typeof d.printer==="number")selPrinter=d.printer;
+  if(d.unit==="mm"||d.unit==="cm"){UNIT=d.unit;try{paintUnitSeg();}catch(e){}}
+  if(d.dims){Object.keys(d.dims).forEach(function(id){var el=g(id);if(el){var mm=+d.dims[id]||0;el.value=(UNIT==="cm"?(Math.round(mm/10*100)/100):Math.round(mm));}});}
+  if(d.colors){Object.keys(d.colors).forEach(function(k){if(d.colors[k])COLORS[k]=d.colors[k];});try{refreshSwatches();}catch(e){}}
+  if(d.font){var f=NAME_FONTS.find(function(x){return x.url===d.font;});if(f){selNameFont=f;try{renderNameGrid();}catch(e){}}}
+  if(Array.isArray(d.texts)){texts=d.texts.map(function(t){return {id:uid++,str:t.str||"",size:t.size||22,x:t.x||0,y:t.y||0,color:t.color||"#FFFFFF",bold:t.bold||0,font:t.font};});selText=texts.length?0:-1;try{renderTextList();}catch(e){}}
+  if(d.texture){try{selectTexture(d.texture);}catch(e){}}
+  images=[];selImg=-1;
+  var imgs=Array.isArray(d.images)?d.images:[];
+  var done=function(){if(images.length)selImg=0;try{renderImgList();}catch(e){}try{drawPad();}catch(e){}try{drawTextPad();}catch(e){}try{rebuild();}catch(e){}};
+  if(imgs.length){var pending=imgs.length;imgs.forEach(function(si){var obj={id:uid++,src:si.src,img:null,size:si.size||60,x:si.x||0,y:si.y||0,rot:si.rot||0,contours:null,key:""};images.push(obj);var im=new Image();im.onload=function(){obj.img=im;if(--pending===0)done();};im.onerror=function(){if(--pending===0)done();};im.src=si.src;});}
+  else{done();}
+  return true;
+}catch(e){console.error("restore failed",e);return false;}}
+function maybeRestore(){try{var raw=localStorage.getItem("sl_design_v1");if(!raw)return;applyDesign(JSON.parse(raw));}catch(e){}}
+window.__serializeDesign=serializeDesign;window.__applyDesign=applyDesign;   // reused by account "My Designs"
+window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise.resolve()).then(()=>updateTextGeometry()).then(()=>{try{maybeRestore();}catch(e){}}).catch(()=>{});};if(document.fonts&&document.fonts.ready)document.fonts.ready.then(run,run);else run();});
 
 /* ============================================================================================
    FUTURE UPDATE ARCHIVE: SIGNATURE HOLLOW LETTER LIGHTBOX LOGIC
