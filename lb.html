@@ -1670,6 +1670,15 @@ async function exportPlates(){
     if(!geomReady)await updateTextGeometry();
     await new Promise(r=>requestAnimationFrame(()=>r()));   // let the rebuilt scene graph settle
     if(!PLATES||!PLATES.length){alert("Nothing to export yet — design a lightbox first.");return;}
+    // ===== CONFIRM before spending an export (guards against an accidental click) =====
+    if(btn){btn.disabled=false;btn.textContent=orig;}
+    var __cmsg="Export this design as a Bambu Studio .3mf file?";
+    try{var _l=window.__license;
+      if(_l&&_l.quota_type==="total"){var _r=Math.max(0,(_l.quota_limit||0)-(_l.exports_total||0));__cmsg="Export this design?\n\nThis uses 1 export — you have "+_r+" of "+_l.quota_limit+" left.";}
+      else if(_l&&_l.quota_type==="monthly"){var _cur=new Date().toISOString().slice(0,7),_u=(_l.period_key===_cur)?(_l.exports_period||0):0,_r2=Math.max(0,(_l.quota_limit||0)-_u);__cmsg="Export this design?\n\nThis uses 1 of this month's exports — you have "+_r2+" of "+_l.quota_limit+" left this month.";}
+    }catch(e){}
+    if(!window.confirm(__cmsg)){return;}
+    if(btn){btn.disabled=true;btn.textContent="⏳ Preparing…";}
     // ===== LICENCE GATE: sign-in + an available export required before producing a file =====
     if(typeof window.__consumeExport==="function"){var __lic=await window.__consumeExport();if(!__lic||!__lic.allowed){if(btn)btn.textContent=orig;return;}}
     // Categorise every printable part, then enforce the STRICT 4-plate split:
