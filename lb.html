@@ -1533,6 +1533,11 @@ function uuid(){try{if(window.crypto&&crypto.randomUUID)return crypto.randomUUID
 function xmlEsc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function f3(n){return Math.round(n*1000)/1000;}
 // Bake one plate's meshes into print-oriented triangles: Z up, part centred in XY, bottom resting on Z=0.
+/* Export machinery in a PRIVATE closure: the low-level file-builders
+   (partTriangles, build3MFModelXML, zipStore, the CRC table, …) are NOT
+   reachable from the dev-tools console, so the only way to produce a .3mf
+   is the gated window.exportPlates(), which asks the licence server first. */
+(function(){
 function partTriangles(part){
   const clone=part.group.clone(true);
   if(part.textPlate)layoutTextPlate(clone);
@@ -1710,6 +1715,8 @@ async function exportPlates(){
   }catch(e){console.error(e);alert("Export failed: "+(e&&e.message||e));if(btn)btn.textContent=orig;}
   finally{if(btn)btn.disabled=false;}
 }
+window.exportPlates=exportPlates;   // the ONLY export entry point exposed globally (gated inside)
+})();
 
 paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();try{plBuildTabs();}catch(e){}try{renderTexList();}catch(e){}
 // Warm the whole model catalog in the background a few seconds after first paint, so cold-cache machines
