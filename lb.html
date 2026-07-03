@@ -343,6 +343,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
 .texname{font-size:10px;font-weight:600;color:var(--txt2);letter-spacing:.01em;text-align:center;line-height:1.2}
 .texcard.sel .texname{color:var(--acc2)}
 </style>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="splash" id="splash">
@@ -1785,6 +1786,48 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
       // Keep cx,cy,LW,LH and window.__GB from the FULL `filled` letter so text/images/models still center
       // and clamp across the whole silhouette, spanning the open interior of the outline.
    ============================================================================================ */
+</script>
+<script>
+/* ===== Account / licence widget (self-contained, guarded — never blocks the designer) ===== */
+(function(){
+  var SUPA_URL="https://bigjmkudlyeynyncomih.supabase.co";
+  var SUPA_KEY="sb_publishable_SkNid7asieZZ0uDumRHDbg_44mgSGGj";
+  var sb=null;
+  function ready(fn){if(document.readyState!=="loading")fn();else document.addEventListener("DOMContentLoaded",fn);}
+  function esc(s){return (s||"").replace(/[<>&]/g,function(c){return {"<":"&lt;",">":"&gt;","&":"&amp;"}[c];});}
+  var css=document.createElement("style");
+  css.textContent="#acct{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:99999;font:13px system-ui,-apple-system,'Segoe UI',sans-serif}"
+   +"#acct .pill{display:flex;align-items:center;gap:8px;background:rgba(18,21,27,.94);backdrop-filter:blur(8px);border:1px solid #2b2f37;border-radius:12px;padding:8px 12px;color:#eaecef;box-shadow:0 8px 24px -10px rgba(0,0,0,.7);max-width:92vw}"
+   +"#acct button{cursor:pointer;border-radius:8px;border:1px solid #33373f;background:#1b1e24;color:#eaecef;font-weight:600;font-size:12px;padding:7px 11px}"
+   +"#acct button.primary{background:#c9a36a;color:#11140f;border-color:#c9a36a}"
+   +"#acct input{border:1px solid #33373f;border-radius:8px;background:#0f1115;color:#eaecef;padding:8px 10px;font-size:13px;width:190px;max-width:44vw;outline:none}"
+   +"#acct .muted{color:#9aa0aa;font-size:12px}#acct .quota{color:#c9a36a;font-weight:700}";
+  var box=document.createElement("div");box.id="acct";
+  function mount(){document.head.appendChild(css);document.body.appendChild(box);}
+  function signedOut(){box.innerHTML='<div class="pill"><button class="primary" id="acIn">Sign in</button></div>';box.querySelector("#acIn").onclick=askEmail;}
+  function askEmail(){box.innerHTML='<div class="pill"><input id="acEm" type="email" placeholder="your@email.com" autocomplete="email"><button class="primary" id="acGo">Send link</button></div>';var i=box.querySelector("#acEm");i.focus();box.querySelector("#acGo").onclick=send;i.onkeydown=function(e){if(e.key==="Enter")send();};}
+  function send(){var em=((box.querySelector("#acEm")||{}).value||"").trim();if(!/.+@.+\..+/.test(em)){alert("Please enter a valid email.");return;}box.innerHTML='<div class="pill"><span class="muted">Sending…</span></div>';sb.auth.signInWithOtp({email:em,options:{emailRedirectTo:location.origin}}).then(function(r){if(r.error){box.innerHTML='<div class="pill"><span class="muted">'+esc(r.error.message)+'</span></div>';setTimeout(signedOut,3500);}else{box.innerHTML='<div class="pill"><span class="muted">📧 Check your email &mdash; click the link to sign in.</span></div>';}});}
+  function quotaText(lic){
+    if(!lic)return '<span class="muted">No licence yet</span>';
+    if(lic.quota_type==="unlimited")return '<span class="quota">Unlimited exports</span>';
+    if(lic.quota_type==="total"){var left=Math.max(0,(lic.quota_limit||0)-(lic.exports_total||0));return '<span class="quota">'+left+' of '+lic.quota_limit+' exports left</span>';}
+    if(lic.quota_type==="monthly"){var cur=(new Date()).toISOString().slice(0,7);var used=(lic.period_key===cur)?(lic.exports_period||0):0;var left2=Math.max(0,(lic.quota_limit||0)-used);return '<span class="quota">'+left2+' of '+lic.quota_limit+' this month</span>';}
+    return '<span class="muted">Licensed</span>';
+  }
+  function signedIn(user,lic){box.innerHTML='<div class="pill"><span class="muted">'+esc(user.email)+'</span> · '+quotaText(lic)+' <button id="acOut">Sign out</button></div>';box.querySelector("#acOut").onclick=function(){sb.auth.signOut();};}
+  function loadLicence(user){sb.from("licenses").select("*").eq("user_id",user.id).maybeSingle().then(function(r){window.__license=(r&&r.data)||null;signedIn(user,window.__license);}).catch(function(){window.__license=null;signedIn(user,null);});}
+  function onSession(session){window.__user=(session&&session.user)||null;if(window.__user){loadLicence(window.__user);}else{window.__license=null;signedOut();}}
+  ready(function(){
+    mount();
+    if(!window.supabase||!window.supabase.createClient){box.innerHTML='<div class="pill"><span class="muted">Sign-in offline</span></div>';return;}
+    try{
+      sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,detectSessionInUrl:true,autoRefreshToken:true}});
+      window.__sb=sb;signedOut();
+      sb.auth.getSession().then(function(r){onSession(r.data&&r.data.session);});
+      sb.auth.onAuthStateChange(function(_e,session){onSession(session);});
+    }catch(e){box.innerHTML='<div class="pill"><span class="muted">Sign-in error</span></div>';}
+  });
+})();
 </script>
 </body>
 </html>
