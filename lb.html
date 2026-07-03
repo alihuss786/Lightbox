@@ -1816,7 +1816,38 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
     if(lic.quota_type==="monthly"){var cur=(new Date()).toISOString().slice(0,7);var used=(lic.period_key===cur)?(lic.exports_period||0):0;var left2=Math.max(0,(lic.quota_limit||0)-used);return '<span class="quota">'+left2+' of '+lic.quota_limit+' this month</span>';}
     return '<span class="muted">Licensed</span>';
   }
-  function signedIn(user,lic){box.innerHTML='<div class="pill"><span class="muted">'+esc(user.email)+'</span> · '+quotaText(lic)+' <button id="acOut">Sign out</button></div>';box.querySelector("#acOut").onclick=function(){sb.auth.signOut();};}
+  function signedIn(user,lic){
+    var right = lic ? (quotaText(lic)+' <button id="acOut">Sign out</button>')
+                    : ('<span class="muted">No licence yet</span> <button class="primary" id="acRedeem">Enter code</button> <button id="acOut">Sign out</button>');
+    box.innerHTML='<div class="pill"><span class="muted">'+esc(user.email)+'</span> · '+right+'</div>';
+    box.querySelector("#acOut").onclick=function(){sb.auth.signOut();};
+    var rb=box.querySelector("#acRedeem"); if(rb) rb.onclick=showRedeem;
+  }
+  function showRedeem(){
+    box.innerHTML='<div class="pill"><input id="acCode" placeholder="Enter your code" style="text-transform:uppercase"><button class="primary" id="acDo">Redeem</button><button id="acX">✕</button></div>';
+    var i=box.querySelector("#acCode");i.focus();
+    box.querySelector("#acDo").onclick=doRedeem;
+    i.onkeydown=function(e){if(e.key==="Enter")doRedeem();};
+    box.querySelector("#acX").onclick=function(){if(window.__user)loadLicence(window.__user);};
+  }
+  function redeemMsg(d){var r=d&&d.reason;
+    if(r==="invalid_code")return "That code isn't valid — please double-check it and try again.";
+    if(r==="code_used")return "That code has already been used.";
+    if(r==="not_signed_in")return "Please sign in first, then enter your code.";
+    return "Couldn't redeem that code right now. Please try again in a moment.";}
+  function doRedeem(){
+    var code=((box.querySelector("#acCode")||{}).value||"").trim();
+    if(!code)return;
+    box.innerHTML='<div class="pill"><span class="muted">Redeeming…</span></div>';
+    sb.auth.getSession().then(function(r){
+      var session=r.data&&r.data.session;
+      if(!session){signedOut();return;}
+      fetch("/api/redeem",{method:"POST",headers:{Authorization:"Bearer "+session.access_token,"Content-Type":"application/json"},body:JSON.stringify({code:code})})
+        .then(function(res){return res.json().catch(function(){return {ok:false,reason:"bad_response"};});})
+        .then(function(d){if(!(d&&d.ok))alert(redeemMsg(d));if(window.__user)loadLicence(window.__user);})
+        .catch(function(){alert("Couldn't reach the server. Please try again.");if(window.__user)loadLicence(window.__user);});
+    });
+  }
   function loadLicence(user){sb.from("licenses").select("*").eq("user_id",user.id).maybeSingle().then(function(r){window.__license=(r&&r.data)||null;signedIn(user,window.__license);}).catch(function(){window.__license=null;signedIn(user,null);});}
   function onSession(session){window.__user=(session&&session.user)||null;if(window.__user){loadLicence(window.__user);}else{window.__license=null;signedOut();}}
   function msgFor(d){var r=d&&d.reason;
