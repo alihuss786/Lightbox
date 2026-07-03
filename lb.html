@@ -1848,6 +1848,14 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
    +".acard .ck{color:#9aa0aa}.acard .cv{color:#eaecef;font-weight:600;text-align:right}"
    +".acard .cdim{color:#9aa0aa;font-weight:400;font-size:11px}"
    +"#acct .cbtn{padding:5px 9px;font-size:12px;line-height:1}"
+   +".acard .drowh{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;font-weight:700;color:#eaecef;padding:2px 0 9px}"
+   +".acard .dsave{font-size:11px;padding:6px 10px}"
+   +".acard .dlist{display:flex;flex-direction:column;gap:5px;max-height:200px;overflow:auto}"
+   +".acard .drow{display:flex;align-items:center;gap:6px}"
+   +".acard .dname{flex:1;min-width:0;text-align:left;background:#1b1e24;border:1px solid #33373f;border-radius:8px;color:#eaecef;font-size:12px;font-weight:600;padding:7px 10px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
+   +".acard .dname:hover{border-color:#c9a36a}"
+   +".acard .dx{flex:none;width:28px;height:28px;border:1px solid #33373f;border-radius:8px;background:#1b1e24;color:#9aa0aa;cursor:pointer;font-size:14px}"
+   +".acard .dmuted{color:#9aa0aa;font-size:12px;padding:4px 0}"
    +"#acct .pill{display:flex;align-items:center;gap:8px;background:rgba(18,21,27,.94);backdrop-filter:blur(8px);border:1px solid #2b2f37;border-radius:12px;padding:8px 12px;color:#eaecef;box-shadow:0 8px 24px -10px rgba(0,0,0,.7);max-width:92vw}"
    +"#acct button{cursor:pointer;border-radius:8px;border:1px solid #33373f;background:#1b1e24;color:#eaecef;font-weight:600;font-size:12px;padding:7px 11px}"
    +"#acct button.primary{background:#c9a36a;color:#11140f;border-color:#c9a36a}"
@@ -1881,14 +1889,52 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
     t+=crow('Exports',ex);
     return '<div class="acard">'+t+'</div>';
   }
-  function signedIn(user,lic){
-    var mid = lic ? (quotaText(lic)+' <button class="cbtn" id="acCaret" title="Account details">'+(detailsOpen?'▲':'▾')+'</button>')
+  var designsOpen=false,_designs=[],_designsLoading=false;
+  function signedIn(user,lic){window.__user=user;window.__license=lic;renderAccount();}
+  function renderAccount(){
+    var user=window.__user,lic=window.__license;
+    if(!user){signedOut();return;}
+    var mid = lic ? (quotaText(lic)+' <button class="cbtn" id="acCaret" title="Account details">'+(detailsOpen?'▲':'▾')+'</button> <button class="cbtn" id="acDesigns" title="My designs">Designs</button>')
                   : ('<span class="muted">No licence yet</span> <button class="primary" id="acRedeem">Enter code</button>');
-    box.innerHTML='<div class="pill"><span class="muted">'+esc(user.email)+'</span> · '+mid+' <button id="acOut">Sign out</button></div>'
-                  + ((lic&&detailsOpen)?renderCard(lic):'');
+    var html='<div class="pill"><span class="muted">'+esc(user.email)+'</span> · '+mid+' <button id="acOut">Sign out</button></div>';
+    if(lic&&detailsOpen)html+=renderCard(lic);
+    if(lic&&designsOpen)html+=renderDesignsPanel();
+    box.innerHTML=html;
     box.querySelector("#acOut").onclick=function(){sb.auth.signOut();};
     var rb=box.querySelector("#acRedeem"); if(rb) rb.onclick=showRedeem;
-    var cc=box.querySelector("#acCaret"); if(cc) cc.onclick=function(){detailsOpen=!detailsOpen;signedIn(window.__user,window.__license);};
+    var cc=box.querySelector("#acCaret"); if(cc) cc.onclick=function(){detailsOpen=!detailsOpen;renderAccount();};
+    var db=box.querySelector("#acDesigns"); if(db) db.onclick=function(){designsOpen=!designsOpen;if(designsOpen){detailsOpen=false;fetchDesigns();}renderAccount();};
+    wireDesigns();
+  }
+  function renderDesignsPanel(){
+    var rows;
+    if(_designsLoading)rows='<div class="dmuted">Loading…</div>';
+    else if(!_designs.length)rows='<div class="dmuted">No saved designs yet.</div>';
+    else rows=_designs.map(function(d){return '<div class="drow"><button class="dname" data-load="'+d.id+'">'+esc(d.name)+'</button><button class="dx" data-del="'+d.id+'" title="Delete">×</button></div>';}).join('');
+    return '<div class="acard"><div class="drowh"><span>My Designs</span><button class="primary dsave" id="acSaveD">＋ Save current</button></div><div class="dlist">'+rows+'</div></div>';
+  }
+  function wireDesigns(){
+    var s=box.querySelector("#acSaveD"); if(s)s.onclick=doSaveDesign;
+    box.querySelectorAll("[data-load]").forEach(function(bb){bb.onclick=function(){doLoadDesign(bb.getAttribute("data-load"));};});
+    box.querySelectorAll("[data-del]").forEach(function(bb){bb.onclick=function(){doDeleteDesign(bb.getAttribute("data-del"));};});
+  }
+  function fetchDesigns(){_designsLoading=true;sb.from("designs").select("id,name,created_at").order("created_at",{ascending:false}).then(function(r){_designsLoading=false;_designs=(r&&r.data)||[];renderAccount();});}
+  function doSaveDesign(){
+    var name=prompt("Name this design:","My design");
+    if(name===null)return;name=(name||"").trim()||"Untitled";
+    var data=(typeof window.__serializeDesign==="function")?window.__serializeDesign():null;
+    if(!data){alert("Couldn't read the current design.");return;}
+    sb.from("designs").insert({name:name,data:data}).then(function(r){if(r&&r.error){alert("Save failed: "+r.error.message);}else{fetchDesigns();}});
+  }
+  function doLoadDesign(id){
+    sb.from("designs").select("data").eq("id",id).maybeSingle().then(function(r){
+      if(r&&r.data&&r.data.data&&typeof window.__applyDesign==="function"){window.__applyDesign(r.data.data);designsOpen=false;renderAccount();}
+      else{alert("Couldn't load that design.");}
+    });
+  }
+  function doDeleteDesign(id){
+    if(!confirm("Delete this design?"))return;
+    sb.from("designs").delete().eq("id",id).then(function(r){if(r&&r.error){alert("Delete failed: "+r.error.message);}else{fetchDesigns();}});
   }
   function showRedeem(){
     box.innerHTML='<div class="pill"><input id="acCode" placeholder="Enter your code" style="text-transform:uppercase"><button class="primary" id="acDo">Redeem</button><button id="acX">✕</button></div>';
