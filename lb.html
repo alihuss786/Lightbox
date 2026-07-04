@@ -624,14 +624,14 @@ body.ar-open #acct{display:none!important}
     </div>
   </div>
   <div class="acc">
-    <div class="acc-h" onclick="accT(this)">Photo <i class="chev">⌄</i></div>
+    <div class="acc-h" onclick="accT(this)">Lithophane <i class="chev">⌄</i></div>
     <div class="acc-b">
       <div class="hint">Turn a photo into a lithophane relief on the lid front — it reveals the picture when the lamp is on, and prints as one solid piece.</div>
       <label class="upfont" style="cursor:pointer">⬆ Upload a photo (lithophane)<input type="file" id="photoFile" accept="image/*" hidden onchange="onPhotoUpload(this)"></label>
       <div id="photoControls" style="display:none;flex-direction:column;gap:13px">
         <div class="row"><span class="lbl">Preview</span><div id="photoThumb" style="width:96px;height:96px;border-radius:10px;border:1px solid var(--line);background:#0a0b0e center/cover no-repeat;align-self:flex-start"></div></div>
-        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth — <b id="photoDepthLbl">2.0</b> mm</span><div class="szc"><button type="button" class="stp" onclick="nudgePhoto('depth',-1)">−</button><input type="range" id="photoDepth" min="0.8" max="3.2" step="0.1" value="2" oninput="onPhotoParam()"><button type="button" class="stp" onclick="nudgePhoto('depth',1)">＋</button></div></div>
-        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Detail — <b id="photoDetailLbl">Medium</b></span><input type="range" id="photoDetail" min="0.45" max="1.4" step="0.05" value="0.8" oninput="onPhotoParam()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth — <b id="photoDepthLbl">2.0</b> mm</span><div class="szc"><button type="button" class="stp" onclick="nudgePhoto('depth',-1)">−</button><input type="range" id="photoDepth" min="0.8" max="3.2" step="0.1" value="2" oninput="onPhotoLabel()" onchange="onPhotoParam()"><button type="button" class="stp" onclick="nudgePhoto('depth',1)">＋</button></div></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Detail — <b id="photoDetailLbl">Fine</b></span><input type="range" id="photoDetail" min="0.35" max="1.1" step="0.05" value="0.55" oninput="onPhotoLabel()" onchange="onPhotoParam()"></div>
         <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_photoInv" onclick="togglePhotoInvert()"><div class="k"></div></div></div>
         <button class="addtext" onclick="clearPhoto()">Remove photo</button>
       </div>
@@ -906,12 +906,12 @@ function selectTexture(id){var t=(id&&id!=="none")?TEXFN[id]:null;LIDTEX=(t&&(t.
 
 /* ===== Photo -> lithophane relief on the lid front (uses the addCapTextured fn path) ===== */
 var PHOTO=null, photoInvert=false;
-function photoParams(){var d=document.getElementById("photoDepth"),g=document.getElementById("photoDetail");return {amp:d?parseFloat(d.value):2, grid:g?parseFloat(g.value):0.8};}
+function photoParams(){var d=document.getElementById("photoDepth"),g=document.getElementById("photoDetail");return {amp:d?parseFloat(d.value):2, grid:g?parseFloat(g.value):0.55};}
 function sampleH(u,v){if(!PHOTO)return 0;var c=PHOTO.cols,r=PHOTO.rows;u=u<0?0:u>1?1:u;v=v<0?0:v>1?1:v;var fx=u*(c-1),fy=v*(r-1);var x0=Math.floor(fx),y0=Math.floor(fy),x1=Math.min(c-1,x0+1),y1=Math.min(r-1,y0+1);var tx=fx-x0,ty=fy-y0,H=PHOTO.h;var a=H[y0*c+x0],b=H[y0*c+x1],cc=H[y1*c+x0],dd=H[y1*c+x1];var top=a+(b-a)*tx,bot=cc+(dd-cc)*tx;return top+(bot-top)*ty;}
 function makePhotoTex(){var pp=photoParams();var tex={photo:true,relief:1,deboss:false,bbox:null,grid:pp.grid,amp:pp.amp};tex.fn=function(px,py){try{var bb=tex.bbox;if(!bb||!PHOTO)return 0;var u=(px-bb.mnX)/((bb.mxX-bb.mnX)||1);var v=(py-bb.mnY)/((bb.mxY-bb.mnY)||1);var h=sampleH(u,1-v);return photoInvert?1-h:h;}catch(e){return 0;}};return tex;}
 function applyPhoto(){if(!PHOTO)return;LIDTEX=makePhotoTex();window.__lidTexId="none";try{renderTexList();}catch(e){}if(typeof scheduleBuild==="function")scheduleBuild();}
 function onPhotoUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;if(!window.Lithophane){alert("Photo module still loading — try again in a moment.");return;}var img=new Image();img.onload=function(){try{var hm=window.Lithophane.imageToHeightMap(img,{minThickness:0,maxThickness:1,maxSamples:240});PHOTO={h:hm.thickness,cols:hm.cols,rows:hm.rows};var t=document.getElementById("photoThumb");if(t)t.style.backgroundImage="url("+img.src+")";var pc=document.getElementById("photoControls");if(pc)pc.style.display="flex";applyPhoto();}catch(e){alert("Could not read that image.");}};img.src=URL.createObjectURL(f);}
-function onPhotoParam(){var d=document.getElementById("photoDepth"),g=document.getElementById("photoDetail");if(document.getElementById("photoDepthLbl")&&d)document.getElementById("photoDepthLbl").textContent=(+d.value).toFixed(1);if(document.getElementById("photoDetailLbl")&&g)document.getElementById("photoDetailLbl").textContent=(+g.value<=0.6?"Fine":(+g.value>=1.15?"Coarse":"Medium"));if(PHOTO)applyPhoto();}
+function onPhotoLabel(){var d=document.getElementById("photoDepth"),g=document.getElementById("photoDetail");if(document.getElementById("photoDepthLbl")&&d)document.getElementById("photoDepthLbl").textContent=(+d.value).toFixed(1);if(document.getElementById("photoDetailLbl")&&g)document.getElementById("photoDetailLbl").textContent=(+g.value<=0.5?"Fine":(+g.value>=0.9?"Coarse":"Medium"));}function onPhotoParam(){onPhotoLabel();if(PHOTO)applyPhoto();}
 function nudgePhoto(which,dir){var el=document.getElementById(which==="depth"?"photoDepth":"photoDetail");if(!el)return;el.value=(+el.value+dir*(+el.step)).toFixed(2);onPhotoParam();}
 function togglePhotoInvert(){photoInvert=!photoInvert;var tg=document.getElementById("tg_photoInv");if(tg)tg.classList.toggle("on",photoInvert);if(PHOTO)applyPhoto();}
 function clearPhoto(){PHOTO=null;LIDTEX=null;var pc=document.getElementById("photoControls");if(pc)pc.style.display="none";var t=document.getElementById("photoThumb");if(t)t.style.backgroundImage="";if(typeof scheduleBuild==="function")scheduleBuild();}
@@ -1417,13 +1417,13 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
     const erP=off(paths,-d*1.2)||[];const eroded=contoursOf(erP);
     const pip=(px,py,poly)=>{let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const xi=poly[i].x,yi=poly[i].y,xj=poly[j].x,yj=poly[j].y;if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))inside=!inside;}return inside;};
     const inR=(px,py,regs)=>{for(let r=0;r<regs.length;r++){const R=regs[r];if(pip(px,py,R.outer)){let hole=false;for(let q=0;q<R.holes.length;q++){if(pip(px,py,R.holes[q])){hole=true;break;}}if(!hole)return true;}}return false;};
-    const inFull=(px,py)=>inR(px,py,full);const inSafe=(px,py)=>inR(px,py,eroded);
-    const disp=(px,py)=>{const rx=px/d,ry=py/d;if(Math.abs(rx-Math.round(rx))>1e-4||Math.abs(ry-Math.round(ry))>1e-4)return 0;if(!inSafe(px,py))return 0;return sgn*amp*fn(px,py);};
+    const inFull=(px,py)=>inR(px,py,full);const inSafe=(px,py)=>inR(px,py,eroded);const _sc=new Map(),_dc=new Map();const gk=(px,py)=>Math.round(px/d)+","+Math.round(py/d);const inSafeM=(px,py)=>{const k=gk(px,py);let v=_sc.get(k);if(v===undefined){v=inSafe(px,py);_sc.set(k,v);}return v;};
+    const disp=(px,py)=>{const rx=px/d,ry=py/d;if(Math.abs(rx-Math.round(rx))>1e-4||Math.abs(ry-Math.round(ry))>1e-4)return 0;const k=Math.round(rx)+","+Math.round(ry);let v=_dc.get(k);if(v===undefined){v=inSafeM(px,py)?sgn*amp*fn(px,py):0;_dc.set(k,v);}return v;};
     const emit=(a,b,c)=>{addTri([a.x-cx,a.y-cy,z+disp(a.x,a.y)],[b.x-cx,b.y-cy,z+disp(b.x,b.y)],[c.x-cx,c.y-cy,z+disp(c.x,c.y)]);};
     let mnX=1e9,mnY=1e9,mxX=-1e9,mxY=-1e9;full.forEach(r=>r.outer.forEach(p=>{if(p.x<mnX)mnX=p.x;if(p.x>mxX)mxX=p.x;if(p.y<mnY)mnY=p.y;if(p.y>mxY)mxY=p.y;}));if(tex.photo)tex.bbox={mnX:mnX,mnY:mnY,mxX:mxX,mxY:mxY};
     const i0=Math.floor(mnX/d),i1=Math.ceil(mxX/d),j0=Math.floor(mnY/d),j1=Math.ceil(mxY/d);
     for(let i=i0;i<i1;i++)for(let j=j0;j<j1;j++){const x0=i*d,y0=j*d,x1=(i+1)*d,y1=(j+1)*d;
-      const s00=inSafe(x0,y0),s10=inSafe(x1,y0),s11=inSafe(x1,y1),s01=inSafe(x0,y1);
+      const s00=inSafeM(x0,y0),s10=inSafeM(x1,y0),s11=inSafeM(x1,y1),s01=inSafeM(x0,y1);
       if(s00&&s10&&s11&&s01){emit({x:x0,y:y0},{x:x1,y:y0},{x:x1,y:y1});emit({x:x0,y:y0},{x:x1,y:y1},{x:x0,y:y1});continue;}
       if(!inFull(x0,y0)&&!inFull(x1,y0)&&!inFull(x1,y1)&&!inFull(x0,y1)&&!inFull((x0+x1)/2,(y0+y1)/2))continue;
       const cell=[[{X:Math.round(x0*S),Y:Math.round(y0*S)},{X:Math.round(x1*S),Y:Math.round(y0*S)},{X:Math.round(x1*S),Y:Math.round(y1*S)},{X:Math.round(x0*S),Y:Math.round(y1*S)}]];
