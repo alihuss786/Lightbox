@@ -1867,7 +1867,8 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
    +"#acct button.primary{background:#c9a36a;color:#11140f;border-color:#c9a36a}"
    +"#acct input{border:1px solid #33373f;border-radius:8px;background:#0f1115;color:#eaecef;padding:8px 10px;font-size:13px;width:190px;max-width:44vw;outline:none}"
    +"#acct .muted{color:#9aa0aa;font-size:12px}#acct .quota{color:#c9a36a;font-weight:700}"
-   +"#acct .pill.acctchip{width:36px;height:36px;justify-content:center;padding:0;border-radius:50%;font-size:16px;cursor:pointer}"
+   +"#acct .pill.acctchip{width:34px;height:34px;justify-content:center;padding:0;border-radius:50%;font-size:13.5px;font-weight:600;letter-spacing:.02em;color:#f0f2f5;background:linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.18);box-shadow:0 2px 8px -4px rgba(0,0,0,.5);cursor:pointer}"
+   +"#acct .pill.acctchip:hover{border-color:rgba(255,255,255,.3)}"
    +"@media(min-width:980px){#acct{right:406px}}"
    +"@media(max-width:979px){#acct{max-width:calc(100vw - 24px)}#acct.acopen{top:62px}#acct .pill{flex-wrap:wrap;max-width:calc(100vw - 24px);row-gap:5px}}";
   var box=document.createElement("div");box.id="acct";
@@ -1908,7 +1909,7 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
     if(!user){signedOut();return;}
     // On mobile, keep it out of the way: a small tap-to-open chip until the user opens it.
     if(isMobile()&&!mobileOpen){
-      box.innerHTML='<button class="pill acctchip" id="acChip" title="Account">👤</button>';
+      box.innerHTML='<button class="pill acctchip" id="acChip" title="Account">'+esc((user.email||"?").charAt(0).toUpperCase())+'</button>';
       box.querySelector("#acChip").onclick=function(){mobileOpen=true;renderAccount();};
       return;
     }
