@@ -2977,6 +2977,7 @@ window.USDZExporter=USDZExporter;})();
     var ctr=box.getCenter(new THREE.Vector3());
     root.position.set(-ctr.x,-box.min.y,-ctr.z);
     var wrap=new THREE.Group();wrap.scale.setScalar(0.001);wrap.add(root);
+    wrap.updateMatrixWorld(true); // bake the mm->m scale into world matrices (USDZExporter reads matrixWorld as-is)
     return wrap;
   }
 
@@ -3020,7 +3021,7 @@ window.USDZExporter=USDZExporter;})();
     var ov=document.createElement("div");ov.id="arOverlay";ov.className="ar-overlay";ov.style.display="none";
     ov.innerHTML='<div class="ar-sheet">'
       +'<button class="ar-close" onclick="closeAR()" aria-label="Close">×</button>'
-      +'<model-viewer id="arMV" camera-controls auto-rotate touch-action="pan-y" ar ar-modes="webxr scene-viewer quick-look" ar-scale="fixed" shadow-intensity="1.1" exposure="1.05" environment-image="neutral" camera-orbit="0deg 78deg 105%" style="width:100%;height:100%;--poster-color:transparent"></model-viewer>'
+      +'<model-viewer id="arMV" camera-controls auto-rotate touch-action="pan-y" ar ar-modes="webxr scene-viewer quick-look" ar-scale="auto" shadow-intensity="1.1" exposure="1.05" environment-image="neutral" camera-orbit="0deg 78deg 105%" style="width:100%;height:100%;--poster-color:transparent"></model-viewer>'
       +'<div class="ar-hint">Tap <b>View in your space</b> to place it in your room</div>'
       +'<div class="ar-status" id="arStatus"></div>'
       +'</div>';
