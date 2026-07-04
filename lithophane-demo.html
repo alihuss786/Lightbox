@@ -1,0 +1,144 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lithophane Generator — demo / integration reference</title>
+<style>
+  body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif;background:#0e0e10;color:#eaeaec;display:flex;height:100vh;overflow:hidden}
+  #stage{flex:1;position:relative;background:radial-gradient(120% 100% at 60% 0%,#1b1b1f,#0b0b0d)}
+  #cv{display:block;width:100%;height:100%}
+  #panel{width:320px;flex:none;background:#161618;border-left:1px solid rgba(255,255,255,.08);padding:18px;overflow:auto;display:flex;flex-direction:column;gap:16px}
+  h1{font-size:15px;margin:0 0 4px}.sub{color:#98989d;font-size:11px;margin-top:-8px}
+  label{font-size:11px;color:#98989d;display:block;margin-bottom:6px;letter-spacing:.02em}
+  .row{display:flex;flex-direction:column;gap:6px}
+  input[type=file]{font-size:12px}
+  input[type=range]{width:100%}
+  .val{color:#eaeaec;font-weight:600;font-variant-numeric:tabular-nums}
+  button{width:100%;padding:11px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#eaeaec;font-weight:600;cursor:pointer}
+  button.primary{background:linear-gradient(180deg,#e0c08d,#cba765);border-color:#caa168;color:#231a0c}
+  button:disabled{opacity:.4;cursor:default}
+  .toggle{display:flex;align-items:center;justify-content:space-between}
+  .sw{width:44px;height:26px;border-radius:14px;background:#2a2a2e;position:relative;cursor:pointer;transition:background .15s}
+  .sw.on{background:#2fa84f}.sw .k{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}.sw.on .k{left:21px}
+</style>
+</head>
+<body>
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <div id="panel">
+    <div><h1>Lithophane Generator</h1><div class="sub">demo &amp; integration reference</div></div>
+
+    <div class="row">
+      <label>1 · Upload an image</label>
+      <input type="file" id="file" accept="image/*">
+    </div>
+
+    <div class="row">
+      <label>Panel width — <span class="val" id="wLbl">100</span> mm</label>
+      <input type="range" id="w" min="40" max="200" step="1" value="100">
+    </div>
+    <div class="row">
+      <label>Min thickness (bright) — <span class="val" id="minLbl">0.5</span> mm</label>
+      <input type="range" id="min" min="0.4" max="1.5" step="0.1" value="0.5">
+    </div>
+    <div class="row">
+      <label>Max thickness (dark) — <span class="val" id="maxLbl">3.5</span> mm</label>
+      <input type="range" id="max" min="2" max="6" step="0.1" value="3.5">
+    </div>
+
+    <div class="toggle">
+      <label style="margin:0">3 · Backlight preview</label>
+      <div class="sw" id="backlight"><div class="k"></div></div>
+    </div>
+
+    <div class="row">
+      <label>2 · Pre-print status</label>
+      <div id="statusHost"></div>
+    </div>
+
+    <button class="primary" id="export" disabled>4 · Export STL (5 dp, solid)</button>
+    <div class="sub" id="stats"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="lithophane.js"></script>
+  <script>
+  // ---- minimal Three.js viewer ----
+  var cv = document.getElementById("cv");
+  var renderer = new THREE.WebGLRenderer({canvas:cv, antialias:true});
+  renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  var scene = new THREE.Scene(); scene.background = new THREE.Color(0x141417);
+  var camera = new THREE.PerspectiveCamera(38, 1, 0.1, 5000); camera.position.set(0, 0, 220);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  var key = new THREE.DirectionalLight(0xffffff, 0.9); key.position.set(120, 160, 200); scene.add(key);
+  var mesh = null, printMat = new THREE.MeshStandardMaterial({color:0xf0e9dd, roughness:0.6, metalness:0});
+  var backMat = null, backlightOn = false, rotY = 0.5, rotX = -0.2, drag = false, px = 0, py = 0;
+
+  function resize(){ var w = cv.clientWidth, h = cv.clientHeight; renderer.setSize(w,h,false); camera.aspect = w/h; camera.updateProjectionMatrix(); }
+  window.addEventListener("resize", resize); resize();
+  cv.addEventListener("mousedown", function(e){ drag=true; px=e.clientX; py=e.clientY; });
+  window.addEventListener("mouseup", function(){ drag=false; });
+  window.addEventListener("mousemove", function(e){ if(!drag)return; rotY+=(e.clientX-px)*0.01; rotX+=(e.clientY-py)*0.01; px=e.clientX; py=e.clientY; });
+  cv.addEventListener("wheel", function(e){ e.preventDefault(); camera.position.z = Math.max(60, Math.min(600, camera.position.z*(1+(e.deltaY>0?0.1:-0.1)))); }, {passive:false});
+  (function loop(){ requestAnimationFrame(loop); if(mesh) mesh.rotation.set(rotX, rotY, 0); renderer.render(scene, camera); })();
+
+  // ---- Lithophane wiring (this is the bit you port into the main app) ----
+  var L = window.Lithophane;
+  var statusBox = L.createStatusBox(document.getElementById("statusHost"));
+  var heightMap = null, sourceImg = null;
+
+  function opts(){ return {
+    widthMm: +document.getElementById("w").value,
+    minThickness: +document.getElementById("min").value,
+    maxThickness: +document.getElementById("max").value
+  }; }
+
+  function rebuild(){
+    if(!sourceImg) return;
+    var o = opts();
+    heightMap = L.imageToHeightMap(sourceImg, o);          // 1a
+    var geo = L.buildGeometry(heightMap, o);               // 1b
+    if(mesh){ scene.remove(mesh); mesh.geometry.dispose(); }
+    backMat = L.makeBacklightMaterial(o);                  // 3
+    mesh = new THREE.Mesh(geo, backlightOn ? backMat : printMat);
+    // frame the panel
+    var s = Math.max(o.widthMm, o.widthMm * geo.userData.lithophane.heightMm / geo.userData.lithophane.widthMm);
+    camera.position.z = s * 2.1;
+    scene.add(mesh);
+
+    var result = L.validate(geo, o);                        // 2
+    statusBox.fromResult(result);
+    document.getElementById("export").disabled = !result.ok;
+    document.getElementById("stats").textContent =
+      geo.index.count/3 + " triangles · " + geo.userData.lithophane.cols + "×" + geo.userData.lithophane.rows +
+      " · " + result.min.toFixed(2) + "–" + result.max.toFixed(2) + " mm";
+  }
+
+  document.getElementById("file").addEventListener("change", function(e){
+    var f = e.target.files[0]; if(!f) return;
+    var img = new Image();
+    img.onload = function(){ sourceImg = img; rebuild(); };
+    img.src = URL.createObjectURL(f);
+  });
+  ["w","min","max"].forEach(function(id){
+    document.getElementById(id).addEventListener("input", function(){
+      document.getElementById(id+"Lbl").textContent = document.getElementById(id).value;
+      rebuild();
+    });
+  });
+  document.getElementById("backlight").addEventListener("click", function(){
+    backlightOn = !backlightOn;
+    this.classList.toggle("on", backlightOn);
+    if(mesh) mesh.material = backlightOn ? backMat : printMat;
+    scene.background = new THREE.Color(backlightOn ? 0x050506 : 0x141417);
+  });
+  document.getElementById("export").addEventListener("click", function(){
+    if(!mesh) return;
+    var blob = L.exportSTL(mesh.geometry, {precision:5, solid:true, name:"lithophane"});  // 4
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "lithophane.stl"; a.click();
+  });
+  </script>
+</body>
+</html>
