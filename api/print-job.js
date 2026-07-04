@@ -11,7 +11,7 @@
 //   SUPABASE_URL          e.g. https://xxxx.supabase.co
 //   SUPABASE_ANON_KEY     the sb_publishable_... key (public)
 //   SUPABASE_SECRET_KEY   the sb_secret_... key (SECRET — server only)
-//   OWNER_EMAIL           where job notifications go (default ali.hussain755@outlook.com)
+//   OWNER_EMAIL           where job notifications go (comma-separate for several; default alihus007@gmail.com)
 //   RESEND_API_KEY        optional — enables the email notification
 //   FROM_EMAIL            optional — verified Resend sender (default onboarding@resend.dev)
 //   PRINT_BUCKET          optional — Storage bucket name (default "print-jobs")
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
   const SUPA_URL = process.env.SUPABASE_URL;
   const ANON = process.env.SUPABASE_ANON_KEY;
   const SECRET = process.env.SUPABASE_SECRET_KEY;
-  const OWNER_EMAIL = process.env.OWNER_EMAIL || "ali.hussain755@outlook.com";
+  const OWNER_EMAIL = process.env.OWNER_EMAIL || "alihus007@gmail.com";
   const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
   const FROM_EMAIL = process.env.FROM_EMAIL || "onboarding@resend.dev";
   const BUCKET = process.env.PRINT_BUCKET || "print-jobs";
@@ -144,7 +144,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           from: "Lightbox Studio <" + FROM_EMAIL + ">",
-          to: [OWNER_EMAIL],
+          to: OWNER_EMAIL.split(",").map((e) => e.trim()).filter(Boolean),
           subject: "🖨 New Lightbox print job — " + (user.email || "customer"),
           html:
             `<div style="font-family:system-ui,sans-serif;max-width:520px">` +

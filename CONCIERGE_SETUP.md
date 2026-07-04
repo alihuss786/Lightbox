@@ -52,11 +52,11 @@ policy. Only **you** may read/manage jobs. Replace the email with yours everywhe
 ```sql
 -- Owner can see every job (in-app queue)
 create policy "owner reads jobs" on public.print_jobs
-  for select using ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
+  for select using ( (auth.jwt() ->> 'email') = 'alihus007@gmail.com' );
 
 -- Owner can update status (Mark done)
 create policy "owner updates jobs" on public.print_jobs
-  for update using ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
+  for update using ( (auth.jwt() ->> 'email') = 'alihus007@gmail.com' );
 ```
 
 Storage: let a signed-in user upload into **their own folder**, and let **you** read
@@ -75,13 +75,22 @@ create policy "user uploads own folder" on storage.objects
 create policy "owner reads files" on storage.objects
   for select using (
     bucket_id = 'print-jobs'
-    and (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com'
+    and (auth.jwt() ->> 'email') = 'alihus007@gmail.com'
   );
 ```
 
 > The `/api/print-job` server route uses the **service key**, which bypasses RLS —
 > so job records + the emailed signed link work regardless of these policies. The
 > policies above are what power the **in-app owner queue** and block everyone else.
+
+> **Which email is this?** The RLS + client `OWNER_EMAIL` must be the email you
+> **sign into signaturelightboxes.com with** (your Supabase *Auth* user) —
+> `alihus007@gmail.com`. That is **not** the same as your Supabase *dashboard*
+> team membership, nor your Vercel login (`ali.hussain755@outlook.com`). Three
+> separate things:
+> - **Vercel login** `ali.hussain755@outlook.com` — deploys only. Irrelevant here.
+> - **Supabase dashboard team** — who can edit the project. Irrelevant to the queue.
+> - **App sign-in (Supabase Auth)** `alihus007@gmail.com` — **this** gates the queue.
 
 ## 4. Grant a customer the Concierge tier
 
@@ -117,13 +126,13 @@ Settings → Environment Variables (Production + Preview). You already have the 
 
 | Var | Value | Needed for |
 |-----|-------|-----------|
-| `OWNER_EMAIL` | `ali.hussain755@outlook.com` | who gets the job email |
+| `OWNER_EMAIL` | `alihus007@gmail.com` | inbox for job emails (comma-separate for several, e.g. `alihus007@gmail.com,ali.hussain755@outlook.com`) |
 | `RESEND_API_KEY` | `re_...` | the email notification |
 | `FROM_EMAIL` | `orders@yourdomain.com` | verified Resend sender |
 | `PRINT_BUCKET` | `print-jobs` | (optional; this is the default) |
 
 **Also update the owner email in the client:** in `lb.html`, the concierge script
-sets `var OWNER_EMAIL="ali.hussain755@outlook.com";` — this controls who sees the in-app
+sets `var OWNER_EMAIL="alihus007@gmail.com";` — this controls who sees the in-app
 **Print jobs** button. Change it if your owner login differs.
 
 ## 6. Email — Resend (for the notification half)
