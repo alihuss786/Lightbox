@@ -422,8 +422,10 @@ input[type=text]:focus,input[type=number]:focus{border-color:var(--acc)}
 #themeBtn:hover{border-color:var(--acc)}
 #themeBtn:active{transform:scale(.93)}
 .pl-tab .ptic{display:none!important}
-/* Plates mode shows only the plate preview — hide the design controls panel */
+/* Plates mode shows only the plate preview — hide the design controls panel
+   and pull the mode/export bar to the top-left so it isn't stranded mid-screen */
 body.plates-mode .controls{display:none!important}
+@media(min-width:980px){body.plates-mode .topbar{left:20px!important}}
 .exportbtn{background:var(--acc)!important;border:1px solid var(--acc)!important;color:#fff!important;box-shadow:0 8px 18px -10px var(--acc)!important;font-weight:700}
 .exportbtn:hover{filter:brightness(1.05)}
 
