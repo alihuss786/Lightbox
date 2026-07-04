@@ -1869,6 +1869,29 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
    +"#acct .muted{color:#9aa0aa;font-size:12px}#acct .quota{color:#c9a36a;font-weight:700}"
    +"#acct .pill.acctchip{width:34px;height:34px;justify-content:center;padding:0;border-radius:50%;font-size:13.5px;font-weight:600;letter-spacing:.02em;color:#f0f2f5;background:linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.18);box-shadow:0 2px 8px -4px rgba(0,0,0,.5);cursor:pointer}"
    +"#acct .pill.acctchip:hover{border-color:rgba(255,255,255,.3)}"
+   +"#acct .acav{position:relative;width:36px;height:36px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#3a3f4a,#22252c);border:1px solid rgba(255,255,255,.16);color:#f0f2f5;font-weight:600;font-size:14px;cursor:pointer;box-shadow:0 2px 10px -4px rgba(0,0,0,.6)}"
+   +"#acct .acav:hover{border-color:rgba(255,255,255,.34)}"
+   +"#acct .acav .acdot{position:absolute;right:-1px;top:-1px;width:10px;height:10px;border-radius:50%;background:#39d98a;border:2px solid #0e1014}"
+   +"#acct .acmenu{margin-top:9px;width:252px;max-width:86vw;background:rgba(22,24,30,.97);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:14px;box-shadow:0 20px 44px -18px rgba(0,0,0,.8);display:flex;flex-direction:column}"
+   +"#acct .acbadge{align-self:flex-start;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#e8c98a;background:rgba(201,163,106,.13);border:1px solid rgba(201,163,106,.3);border-radius:999px;padding:3px 9px;margin-bottom:9px}"
+   +"#acct .acemail{font-size:12.5px;color:#c7ccd4;word-break:break-all}"
+   +"#acct .acstats{margin-top:9px;display:flex;flex-direction:column;gap:6px}"
+   +"#acct .acstat{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:#9aa0aa}"
+   +"#acct .acstat span:last-child{color:#eaecef;font-weight:600;text-align:right}"
+   +"#acct .acdiv{height:1px;background:rgba(255,255,255,.08);margin:11px 0 5px}"
+   +"#acct .acitem{width:100%;text-align:left;background:transparent;border:none;color:#eaecef;font-size:13px;font-weight:500;padding:9px 8px;border-radius:8px;cursor:pointer}"
+   +"#acct .acitem:hover{background:rgba(255,255,255,.06)}"
+   +"#acct .acsignout{width:100%;margin-top:7px;background:linear-gradient(180deg,#e0c08d,#cba765);border:none;color:#231a0c;font-weight:700;font-size:12.5px;padding:10px;border-radius:10px;cursor:pointer}"
+   +"#acct .acmenuhead{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#eaecef;margin-bottom:9px}"
+   +"#acct .acmenuhead span{flex:1}"
+   +"#acct .acback{background:transparent;border:none;color:#c7ccd4;font-size:22px;line-height:1;padding:0 4px;cursor:pointer}"
+   +"#acct .acsave{background:rgba(201,163,106,.15);border:1px solid rgba(201,163,106,.3);color:#e8c98a;font-size:11px;font-weight:700;padding:5px 9px;border-radius:8px;cursor:pointer}"
+   +"#acct .dlist{display:flex;flex-direction:column;gap:5px;max-height:230px;overflow:auto}"
+   +"#acct .drow{display:flex;align-items:center;gap:6px}"
+   +"#acct .dname{flex:1;min-width:0;text-align:left;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:8px;color:#eaecef;font-size:12px;font-weight:600;padding:8px 10px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
+   +"#acct .dname:hover{border-color:#c9a36a}"
+   +"#acct .dx{flex:none;width:30px;height:30px;border:1px solid rgba(255,255,255,.09);border-radius:8px;background:rgba(255,255,255,.04);color:#9aa0aa;cursor:pointer;font-size:14px}"
+   +"#acct .dmuted{color:#9aa0aa;font-size:12px;padding:6px 2px}"
    +"@media(min-width:980px){#acct{right:406px}}"
    +"@media(max-width:979px){#acct{max-width:calc(100vw - 24px)}#acct.acopen{top:62px}#acct .pill{flex-wrap:wrap;max-width:calc(100vw - 24px);row-gap:5px}}";
   var box=document.createElement("div");box.id="acct";
@@ -1899,43 +1922,48 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
     t+=crow('Exports',ex);
     return '<div class="acard">'+t+'</div>';
   }
-  var designsOpen=false,_designs=[],_designsLoading=false;
+  var menuOpen=false,designsView=false,_designs=[],_designsLoading=false;
   function signedIn(user,lic){window.__user=user;window.__license=lic;renderAccount();}
-  var mobileOpen=false;
-  function isMobile(){return !!(window.matchMedia&&window.matchMedia("(max-width:979px)").matches);}
+  function badgeText(lic){if(!lic)return 'No licence';var t=lic.tier;return (t==='lifetime'?'Lifetime':t==='one_year'?'1-Year':t==='six_month'?'6-Month':'Member')+' Member';}
+  function usageText(lic){if(!lic)return '';if(lic.quota_type==='unlimited')return 'Unlimited';var e=exportsLeft(lic);return lic.quota_type==='monthly'?(e+' this month'):(e+' left');}
+  function statRow(k,v){return '<div class="acstat"><span>'+k+'</span><span>'+v+'</span></div>';}
   function renderAccount(){
     var user=window.__user,lic=window.__license;
-    if(box){if(isMobile()&&mobileOpen)box.classList.add('acopen');else box.classList.remove('acopen');}
     if(!user){signedOut();return;}
-    // On mobile, keep it out of the way: a small tap-to-open chip until the user opens it.
-    if(isMobile()&&!mobileOpen){
-      box.innerHTML='<button class="pill acctchip" id="acChip" title="Account">'+esc((user.email||"?").charAt(0).toUpperCase())+'</button>';
-      box.querySelector("#acChip").onclick=function(){mobileOpen=true;renderAccount();};
-      return;
-    }
-    var mid = lic ? (quotaText(lic)+' <button class="cbtn" id="acCaret" title="Account details">'+(detailsOpen?'▲':'▾')+'</button> <button class="cbtn" id="acDesigns" title="My designs">Designs</button>')
-                  : ('<span class="muted">No licence yet</span> <button class="primary" id="acRedeem">Enter code</button>');
-    var closeB = isMobile()?' <button class="cbtn" id="acClose" title="Close">✕</button>':'';
-    var html='<div class="pill"><span class="muted">'+esc(user.email)+'</span> · '+mid+' <button id="acOut">Sign out</button>'+closeB+'</div>';
-    if(lic&&detailsOpen)html+=renderCard(lic);
-    if(lic&&designsOpen)html+=renderDesignsPanel();
+    var initial=esc((user.email||"?").charAt(0).toUpperCase());
+    var html='<button class="acav" id="acAv" title="Account"><span class="aci">'+initial+'</span><span class="acdot"></span></button>';
+    if(menuOpen)html+=(designsView?renderDesignsView():renderMenu(user,lic));
     box.innerHTML=html;
-    box.querySelector("#acOut").onclick=function(){sb.auth.signOut();};
-    var rb=box.querySelector("#acRedeem"); if(rb) rb.onclick=showRedeem;
-    var cc=box.querySelector("#acCaret"); if(cc) cc.onclick=function(){detailsOpen=!detailsOpen;renderAccount();};
-    var db=box.querySelector("#acDesigns"); if(db) db.onclick=function(){designsOpen=!designsOpen;if(designsOpen){detailsOpen=false;fetchDesigns();}renderAccount();};
-    var xc=box.querySelector("#acClose"); if(xc) xc.onclick=function(){mobileOpen=false;detailsOpen=false;designsOpen=false;renderAccount();};
-    wireDesigns();
+    var av=box.querySelector("#acAv");if(av)av.onclick=function(){menuOpen=!menuOpen;designsView=false;renderAccount();};
+    wireMenu();
   }
-  function renderDesignsPanel(){
+  function renderMenu(user,lic){
+    var stats='';
+    if(lic){stats+=statRow('Exports',usageText(lic));if(lic.expires_at)stats+=statRow('Renews',timeLeft(lic));}
+    return '<div class="acmenu">'
+      +'<div class="acbadge">'+esc(badgeText(lic))+'</div>'
+      +'<div class="acemail">'+esc(user.email)+'</div>'
+      +(stats?('<div class="acstats">'+stats+'</div>'):'')
+      +'<div class="acdiv"></div>'
+      +(lic?'<button class="acitem" data-act="designs">My Designs</button>':'<button class="acitem" data-act="redeem">Enter a code</button>')
+      +'<button class="acsignout" data-act="signout">Sign out</button>'
+      +'</div>';
+  }
+  function renderDesignsView(){
     var rows;
     if(_designsLoading)rows='<div class="dmuted">Loading…</div>';
     else if(!_designs.length)rows='<div class="dmuted">No saved designs yet.</div>';
     else rows=_designs.map(function(d){return '<div class="drow"><button class="dname" data-load="'+d.id+'">'+esc(d.name)+'</button><button class="dx" data-del="'+d.id+'" title="Delete">×</button></div>';}).join('');
-    return '<div class="acard"><div class="drowh"><span>My Designs</span><button class="primary dsave" id="acSaveD">＋ Save current</button></div><div class="dlist">'+rows+'</div></div>';
+    return '<div class="acmenu"><div class="acmenuhead"><button class="acback" data-act="back">‹</button><span>My Designs</span><button class="acsave" data-act="save">＋ Save</button></div><div class="dlist">'+rows+'</div></div>';
   }
-  function wireDesigns(){
-    var s=box.querySelector("#acSaveD"); if(s)s.onclick=doSaveDesign;
+  function wireMenu(){
+    box.querySelectorAll("[data-act]").forEach(function(b){b.onclick=function(){var a=b.getAttribute("data-act");
+      if(a==="designs"){designsView=true;fetchDesigns();renderAccount();}
+      else if(a==="back"){designsView=false;renderAccount();}
+      else if(a==="save"){doSaveDesign();}
+      else if(a==="signout"){sb.auth.signOut();}
+      else if(a==="redeem"){menuOpen=false;renderAccount();showRedeem();}
+    };});
     box.querySelectorAll("[data-load]").forEach(function(bb){bb.onclick=function(){doLoadDesign(bb.getAttribute("data-load"));};});
     box.querySelectorAll("[data-del]").forEach(function(bb){bb.onclick=function(){doDeleteDesign(bb.getAttribute("data-del"));};});
   }
@@ -1949,7 +1977,7 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
   }
   function doLoadDesign(id){
     sb.from("designs").select("data").eq("id",id).maybeSingle().then(function(r){
-      if(r&&r.data&&r.data.data&&typeof window.__applyDesign==="function"){window.__applyDesign(r.data.data);designsOpen=false;renderAccount();}
+      if(r&&r.data&&r.data.data&&typeof window.__applyDesign==="function"){window.__applyDesign(r.data.data);menuOpen=false;designsView=false;renderAccount();}
       else{alert("Couldn't load that design.");}
     });
   }
