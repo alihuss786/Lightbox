@@ -324,6 +324,10 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
   .topbar{gap:7px}
   .seg-b{padding:6px 11px;font-size:11px}
   .exportbtn{padding:0 11px;font-size:11px;height:32px}
+  /* Plates mode: horizontal strip at the top + printer above the lamp, so the plate preview stays visible */
+  .platelist{top:52px;left:12px;right:12px;width:auto;flex-direction:row;max-height:none;gap:8px;overflow-x:auto;overflow-y:visible;padding-bottom:4px}
+  .platelist .pcard{flex:0 0 auto}
+  .printerbox{top:auto;bottom:70px;right:12px;left:auto;width:180px}
 }
 
 /* POP LAMP collapsible header bar */
@@ -1882,6 +1886,10 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
    +"#acct .acitem{width:100%;text-align:left;background:transparent;border:none;color:#eaecef;font-size:13px;font-weight:500;padding:9px 8px;border-radius:8px;cursor:pointer}"
    +"#acct .acitem:hover{background:rgba(255,255,255,.06)}"
    +"#acct .acsignout{width:100%;margin-top:7px;background:linear-gradient(180deg,#e0c08d,#cba765);border:none;color:#231a0c;font-weight:700;font-size:12.5px;padding:10px;border-radius:10px;cursor:pointer}"
+   +"#acct .acsignin{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#eaecef;font-weight:600;font-size:12px;padding:8px 14px;border-radius:9px;cursor:pointer}"
+   +"#acct .acsignin:hover{background:rgba(255,255,255,.1)}"
+   +"#acct .acinput{width:100%;box-sizing:border-box;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.12);border-radius:9px;color:#eaecef;font-size:13px;padding:10px 12px;outline:none}"
+   +"#acct .acmsg{font-size:12.5px;color:#c7ccd4;line-height:1.55}"
    +"#acct .acmenuhead{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#eaecef;margin-bottom:9px}"
    +"#acct .acmenuhead span{flex:1}"
    +"#acct .acback{background:transparent;border:none;color:#c7ccd4;font-size:22px;line-height:1;padding:0 4px;cursor:pointer}"
@@ -1896,9 +1904,18 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
    +"@media(max-width:979px){#acct{max-width:calc(100vw - 24px)}#acct.acopen{top:62px}#acct .pill{flex-wrap:wrap;max-width:calc(100vw - 24px);row-gap:5px}}";
   var box=document.createElement("div");box.id="acct";
   function mount(){document.head.appendChild(css);document.body.appendChild(box);}
-  function signedOut(){box.innerHTML='<div class="pill"><button class="primary" id="acIn">Sign in</button></div>';box.querySelector("#acIn").onclick=askEmail;}
-  function askEmail(){box.innerHTML='<div class="pill"><input id="acEm" type="email" placeholder="your@email.com" autocomplete="email"><button class="primary" id="acGo">Send link</button></div>';var i=box.querySelector("#acEm");i.focus();box.querySelector("#acGo").onclick=send;i.onkeydown=function(e){if(e.key==="Enter")send();};}
-  function send(){var em=((box.querySelector("#acEm")||{}).value||"").trim();if(!/.+@.+\..+/.test(em)){alert("Please enter a valid email.");return;}box.innerHTML='<div class="pill"><span class="muted">Sending…</span></div>';sb.auth.signInWithOtp({email:em,options:{emailRedirectTo:location.origin}}).then(function(r){if(r.error){box.innerHTML='<div class="pill"><span class="muted">'+esc(r.error.message)+'</span></div>';setTimeout(signedOut,3500);}else{box.innerHTML='<div class="pill"><span class="muted">📧 Check your email &mdash; click the link to sign in.</span></div>';}});}
+  var signinStep=0,signinMsg='';
+  function signedOut(){
+    var html='<button class="acsignin" id="acIn">Sign in</button>';
+    if(signinStep===1)html+='<div class="acmenu"><div class="acmenuhead"><span>Sign in</span></div><input class="acinput" id="acEm" type="email" placeholder="you@email.com" autocomplete="email"><button class="acsignout" id="acGo">Email me a link</button></div>';
+    else if(signinStep===2)html+='<div class="acmenu"><div class="acmsg">'+signinMsg+'</div></div>';
+    box.innerHTML=html;
+    var i=box.querySelector("#acIn");if(i)i.onclick=function(){signinStep=(signinStep===1?0:1);signedOut();};
+    var go=box.querySelector("#acGo");if(go)go.onclick=send;
+    var em=box.querySelector("#acEm");if(em){em.focus();em.onkeydown=function(e){if(e.key==="Enter")send();};}
+  }
+  function askEmail(){signinStep=1;signedOut();}
+  function send(){var em=((box.querySelector("#acEm")||{}).value||"").trim();if(!/.+@.+\..+/.test(em)){alert("Please enter a valid email.");return;}signinStep=2;signinMsg="Sending…";signedOut();sb.auth.signInWithOtp({email:em,options:{emailRedirectTo:location.origin}}).then(function(r){if(r.error){signinMsg=esc(r.error.message);signedOut();setTimeout(function(){signinStep=0;signedOut();},3500);}else{signinMsg="📧 Check your email — click the link in it to sign in.";signedOut();}});}
   function quotaText(lic){
     if(!lic)return '<span class="muted">No licence yet</span>';
     if(lic.quota_type==="unlimited")return '<span class="quota">Unlimited exports</span>';
