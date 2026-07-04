@@ -52,11 +52,11 @@ policy. Only **you** may read/manage jobs. Replace the email with yours everywhe
 ```sql
 -- Owner can see every job (in-app queue)
 create policy "owner reads jobs" on public.print_jobs
-  for select using ( (auth.jwt() ->> 'email') = 'alihus007@gmail.com' );
+  for select using ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
 
 -- Owner can update status (Mark done)
 create policy "owner updates jobs" on public.print_jobs
-  for update using ( (auth.jwt() ->> 'email') = 'alihus007@gmail.com' );
+  for update using ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
 ```
 
 Storage: let a signed-in user upload into **their own folder**, and let **you** read
@@ -75,7 +75,7 @@ create policy "user uploads own folder" on storage.objects
 create policy "owner reads files" on storage.objects
   for select using (
     bucket_id = 'print-jobs'
-    and (auth.jwt() ->> 'email') = 'alihus007@gmail.com'
+    and (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com'
   );
 ```
 
@@ -117,13 +117,13 @@ Settings → Environment Variables (Production + Preview). You already have the 
 
 | Var | Value | Needed for |
 |-----|-------|-----------|
-| `OWNER_EMAIL` | `alihus007@gmail.com` | who gets the job email |
+| `OWNER_EMAIL` | `ali.hussain755@outlook.com` | who gets the job email |
 | `RESEND_API_KEY` | `re_...` | the email notification |
 | `FROM_EMAIL` | `orders@yourdomain.com` | verified Resend sender |
 | `PRINT_BUCKET` | `print-jobs` | (optional; this is the default) |
 
 **Also update the owner email in the client:** in `lb.html`, the concierge script
-sets `var OWNER_EMAIL="alihus007@gmail.com";` — this controls who sees the in-app
+sets `var OWNER_EMAIL="ali.hussain755@outlook.com";` — this controls who sees the in-app
 **Print jobs** button. Change it if your owner login differs.
 
 ## 6. Email — Resend (for the notification half)
