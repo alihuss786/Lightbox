@@ -438,7 +438,12 @@ body.plates-mode .controls{display:none!important}
 .envchip:hover{color:var(--txt);background:var(--surface2)}
 .envchip.sel{background:var(--accdim);color:var(--acc)}
 body.plates-mode .envbar{display:none}
-@media(max-width:979px){.envbar{top:60px;bottom:auto;gap:2px;padding:3px}.envchip{padding:7px 10px;font-size:11px}.envchip .ecl{display:none}}
+#aboveTag{display:none!important}
+@media(max-width:979px){
+  .envbar{top:auto;bottom:46px;left:12px;right:auto;transform:none;gap:2px;padding:3px}
+  .envchip{padding:7px 9px;font-size:11px}.envchip .ecl{display:none}
+  #lightPill.lightbtn{bottom:46px!important}
+}
 /* View-in-AR button + fullscreen model-viewer modal */
 .arbtn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--cardline);background:var(--soft);color:var(--txt);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s}
 .arbtn:hover{border-color:var(--acc);color:var(--acc)}
@@ -3037,7 +3042,7 @@ window.USDZExporter=USDZExporter;})();
       +'<button class="ar-close" onclick="closeAR()" aria-label="Close">×</button>'
       +'<model-viewer id="arMV" camera-controls auto-rotate touch-action="pan-y" ar ar-modes="webxr scene-viewer quick-look" ar-scale="auto" shadow-intensity="1.1" exposure="1.05" environment-image="neutral" camera-orbit="0deg 78deg 105%" style="width:100%;height:100%;--poster-color:transparent"></model-viewer>'
       +'<button class="ar-light" id="arLightBtn" onclick="toggleARLight()">\uD83D\uDCA1 Light off</button>'
-      +'<div class="ar-hint">Tap <b>View in your space</b> to place it in your room</div>'
+      +'<div class="ar-hint">Set the <b>light</b>, then tap <b>View in your space</b></div>'
       +'<div class="ar-status" id="arStatus"></div>'
       +'</div>';
     document.body.appendChild(ov);
