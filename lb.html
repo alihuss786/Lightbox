@@ -426,6 +426,19 @@ input[type=text]:focus,input[type=number]:focus{border-color:var(--acc)}
    and pull the mode/export bar to the top-left so it isn't stranded mid-screen */
 body.plates-mode .controls{display:none!important}
 @media(min-width:980px){body.plates-mode .topbar{left:20px!important}}
+/* Lighting Studio: environment preset bar, bottom-centre of the stage */
+.envbar{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);display:flex;gap:3px;z-index:7;
+  background:var(--glass2);-webkit-backdrop-filter:blur(20px) saturate(1.5);backdrop-filter:blur(20px) saturate(1.5);
+  border:1px solid var(--glassline);border-radius:15px;padding:4px;box-shadow:var(--glassshadow),0 1px 0 var(--glasshi) inset;
+  max-width:calc(100vw - 40px);overflow-x:auto;scrollbar-width:none}
+.envbar::-webkit-scrollbar{display:none}
+.envchip{display:flex;align-items:center;gap:7px;border:none;background:none;color:var(--txt2);font-size:11.5px;font-weight:600;
+  padding:8px 13px;border-radius:11px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;flex:0 0 auto}
+.envchip .eci{font-size:14px;line-height:1}
+.envchip:hover{color:var(--txt);background:var(--surface2)}
+.envchip.sel{background:var(--accdim);color:var(--acc)}
+body.plates-mode .envbar{display:none}
+@media(max-width:979px){.envbar{bottom:12px;gap:2px;padding:3px}.envchip{padding:7px 10px;font-size:11px}.envchip .ecl{display:none}}
 .exportbtn{background:var(--acc)!important;border:1px solid var(--acc)!important;color:#fff!important;box-shadow:0 8px 18px -10px var(--acc)!important;font-weight:700}
 .exportbtn:hover{filter:brightness(1.05)}
 
@@ -553,6 +566,7 @@ body.plates-mode .controls{display:none!important}
     </div>
     <button class="lightbtn on" id="lightPill" onclick="toggleLight()"><span class="lb-ic">🌙</span><span class="lb-tx" id="lightLbl">Turn off lamp</span></button>
     <div class="zoomhint" id="zoomhint">drag to orbit · pinch to zoom</div>
+    <div class="envbar" id="envbar"></div>
     <div class="dimlbl" id="dimX">—</div><div class="dimlbl" id="dimY">—</div><div class="dimlbl" id="dimZ">—</div>
     <div class="tag" id="aboveTag">—</div>
     <div class="dims" id="dims">—</div>
@@ -860,7 +874,11 @@ function renderTexList(){var el=document.getElementById("texgrid");if(!el)return
 
 
 
-const MATS={};let glowFace=null,glowSpot=null,floorPlane=null;
+const MATS={};let glowFace=null,glowSpot=null,floorPlane=null,keyLight=null,fillLight=null,ambLight=null,currentEnv="studio";
+const ENVS={studio:{name:"Studio",icon:"\uD83D\uDCA1",amb:[0xffffff,0.32],key:[0xffffff,0.6,[300,440,260]],fill:[0xbfd0ff,0.12],bg:0x14161b,floor:0x24282f},gallery:{name:"Gallery Spotlight",icon:"\uD83D\uDD26",amb:[0xe8ecf5,0.1],key:[0xffffff,1.35,[70,600,170]],fill:[0x8fa4c4,0.04],bg:0x080809,floor:0x101116},morning:{name:"Soft Morning",icon:"\uD83C\uDF05",amb:[0xfff1e0,0.52],key:[0xfff0d6,0.55,[430,340,340]],fill:[0xcadcff,0.3,],bg:0x242832,floor:0x363c47},warm:{name:"Workshop Warm",icon:"\uD83D\uDD25",amb:[0xffd8a6,0.44],key:[0xffb26b,0.78,[300,360,300]],fill:[0xff8a4a,0.16],bg:0x18120c,floor:0x2a2014}};
+function applyEnv(k){if(!ENVS[k])k="studio";currentEnv=k;var e=ENVS[k];try{localStorage.setItem("sl_env",k);}catch(_){}if(ambLight){ambLight.color.setHex(e.amb[0]);ambLight.intensity=e.amb[1];}if(keyLight){keyLight.color.setHex(e.key[0]);keyLight.intensity=e.key[1];keyLight.position.set(e.key[2][0],e.key[2][1],e.key[2][2]);}if(fillLight){fillLight.color.setHex(e.fill[0]);fillLight.intensity=e.fill[1];}try{if(typeof scene!=="undefined"&&scene)scene.background=new THREE.Color(e.bg);}catch(_){}if(floorPlane&&floorPlane.material)floorPlane.material.color.setHex(e.floor);var el=document.getElementById("envbar");if(el)el.querySelectorAll(".envchip").forEach(function(c){c.classList.toggle("sel",c.getAttribute("data-env")===k);});try{if(typeof renderNow==="function")renderNow();}catch(_){}}
+function renderEnvBar(){var el=document.getElementById("envbar");if(!el)return;el.innerHTML=Object.keys(ENVS).map(function(k){var e=ENVS[k];return "<button class=\"envchip"+(k===currentEnv?" sel":"")+"\" data-env=\""+k+"\" title=\""+e.name+"\"><span class=\"eci\">"+e.icon+"</span><span class=\"ecl\">"+e.name+"</span></button>";}).join("");el.querySelectorAll(".envchip").forEach(function(c){c.onclick=function(){applyEnv(c.getAttribute("data-env"));};});}
+function initEnv(){try{var s=localStorage.getItem("sl_env");if(s&&ENVS[s])currentEnv=s;}catch(_){}renderEnvBar();applyEnv(currentEnv);}
 function scheduleBuild(){clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},100);if(typeof autosave==="function")autosave();}
 function rebuild(){updatePad();clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},150);if(typeof autosave==="function")autosave();}
 
@@ -1150,12 +1168,12 @@ function drawStlPad(){const pad=g("pad_stl"),layer=g("stlLayer");if(!pad||!layer
 const DRX=0.33,DRY=0.5;let renderer,scene,camera,pivot,started=false,rotX=DRX,rotY=DRY,zoom=1,baseDist=600,baseY=0,zhT=null;
 function applyZoom(){if(!camera)return;camera.position.set(0,baseY,baseDist*zoom);camera.lookAt(0,0,0);}
 function resetView(){zoom=1;if(mode==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}applyZoom();}
-function sceneBgHex(){return (document.documentElement.getAttribute("data-theme")==="light")?0xedeef0:0x14161b;}function floorHex(){return (document.documentElement.getAttribute("data-theme")==="light")?0xe9eaec:0x24282f;}function applySceneTheme(){try{if(typeof scene!=="undefined"&&scene)scene.background=new THREE.Color(sceneBgHex());if(typeof floorPlane!=="undefined"&&floorPlane&&floorPlane.material)floorPlane.material.color.setHex(floorHex());if(typeof paintSeg==="function")paintSeg();}catch(e){}}(function(){var o=window.__setTheme;window.__setTheme=function(t){if(o)o(t);applySceneTheme();};})();
+function sceneBgHex(){return (ENVS[currentEnv]||ENVS.studio).bg;}function floorHex(){return (ENVS[currentEnv]||ENVS.studio).floor;}function applySceneTheme(){try{if(typeof scene!=="undefined"&&scene)scene.background=new THREE.Color(sceneBgHex());if(typeof floorPlane!=="undefined"&&floorPlane&&floorPlane.material)floorPlane.material.color.setHex(floorHex());if(typeof paintSeg==="function")paintSeg();}catch(e){}}(function(){var o=window.__setTheme;window.__setTheme=function(t){if(o)o(t);applySceneTheme();};})();
 function initThree(){const cv=g("cv");if(renderer){resize();return;}const W=cv.parentElement.clientWidth,H=cv.parentElement.clientHeight||330;renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(devicePixelRatio);renderer.setSize(W,H);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;
   scene=new THREE.Scene();scene.background=new THREE.Color(sceneBgHex());camera=new THREE.PerspectiveCamera(40,W/H,0.1,16000);camera.position.set(0,0,560);camera.lookAt(0,0,0);
-  scene.add(new THREE.AmbientLight(0xffffff,0.32));
-  const key=new THREE.DirectionalLight(0xffffff,0.6);key.position.set(300,440,260);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.near=10;key.shadow.camera.far=2600;key.shadow.camera.left=-800;key.shadow.camera.right=800;key.shadow.camera.top=800;key.shadow.camera.bottom=-800;key.shadow.bias=-0.0004;key.shadow.radius=4;scene.add(key);
-  const fill=new THREE.DirectionalLight(0xbfd0ff,0.12);fill.position.set(-180,80,260);scene.add(fill);
+  ambLight=new THREE.AmbientLight(0xffffff,0.32);scene.add(ambLight);
+  keyLight=new THREE.DirectionalLight(0xffffff,0.6);keyLight.position.set(300,440,260);keyLight.castShadow=true;keyLight.shadow.mapSize.set(1024,1024);keyLight.shadow.camera.near=10;keyLight.shadow.camera.far=2600;keyLight.shadow.camera.left=-800;keyLight.shadow.camera.right=800;keyLight.shadow.camera.top=800;keyLight.shadow.camera.bottom=-800;keyLight.shadow.bias=-0.0004;keyLight.shadow.radius=4;scene.add(keyLight);
+  fillLight=new THREE.DirectionalLight(0xbfd0ff,0.12);fillLight.position.set(-180,80,260);scene.add(fillLight);
   pivot=new THREE.Group();scene.add(pivot);
   const xy=e=>e.touches?[e.touches[0].clientX,e.touches[0].clientY]:[e.clientX,e.clientY];
   let drag=false,px=0,py=0,pinch=false,pStart=0,pZoom=1;
@@ -1917,7 +1935,7 @@ async function exportPlates(){
 window.exportPlates=exportPlates;   // the ONLY export entry point exposed globally (gated inside)
 })();
 
-paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();try{plBuildTabs();}catch(e){}try{renderTexList();}catch(e){}try{immersiveInit();}catch(e){}
+paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();try{plBuildTabs();}catch(e){}try{renderTexList();}catch(e){}try{immersiveInit();}catch(e){}try{initEnv();}catch(e){}
 // Warm the whole model catalog in the background a few seconds after first paint, so cold-cache machines
 // have the geometry ready before the user opens the catalog. Delayed so it never competes with the splash
 // image / library load on the initial paint.
