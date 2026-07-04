@@ -1869,6 +1869,7 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
    +"#acct button.primary{background:#c9a36a;color:#11140f;border-color:#c9a36a}"
    +"#acct input{border:1px solid #33373f;border-radius:8px;background:#0f1115;color:#eaecef;padding:8px 10px;font-size:13px;width:190px;max-width:44vw;outline:none}"
    +"#acct .muted{color:#9aa0aa;font-size:12px}#acct .quota{color:#c9a36a;font-weight:700}"
+   +"#acct .pill.acctchip{width:46px;height:46px;justify-content:center;padding:0;border-radius:50%;font-size:20px;cursor:pointer}"
    +"@media(max-width:979px){#acct{top:56px;left:12px;transform:none;align-items:flex-start;max-width:calc(100vw - 24px)}#acct .pill{flex-wrap:wrap;max-width:calc(100vw - 24px);row-gap:5px}}";
   var box=document.createElement("div");box.id="acct";
   function mount(){document.head.appendChild(css);document.body.appendChild(box);}
@@ -1900,12 +1901,21 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
   }
   var designsOpen=false,_designs=[],_designsLoading=false;
   function signedIn(user,lic){window.__user=user;window.__license=lic;renderAccount();}
+  var mobileOpen=false;
+  function isMobile(){return !!(window.matchMedia&&window.matchMedia("(max-width:979px)").matches);}
   function renderAccount(){
     var user=window.__user,lic=window.__license;
     if(!user){signedOut();return;}
+    // On mobile, keep it out of the way: a small tap-to-open chip until the user opens it.
+    if(isMobile()&&!mobileOpen){
+      box.innerHTML='<button class="pill acctchip" id="acChip" title="Account">👤</button>';
+      box.querySelector("#acChip").onclick=function(){mobileOpen=true;renderAccount();};
+      return;
+    }
     var mid = lic ? (quotaText(lic)+' <button class="cbtn" id="acCaret" title="Account details">'+(detailsOpen?'▲':'▾')+'</button> <button class="cbtn" id="acDesigns" title="My designs">Designs</button>')
                   : ('<span class="muted">No licence yet</span> <button class="primary" id="acRedeem">Enter code</button>');
-    var html='<div class="pill"><span class="muted">'+esc(user.email)+'</span> · '+mid+' <button id="acOut">Sign out</button></div>';
+    var closeB = isMobile()?' <button class="cbtn" id="acClose" title="Close">✕</button>':'';
+    var html='<div class="pill"><span class="muted">'+esc(user.email)+'</span> · '+mid+' <button id="acOut">Sign out</button>'+closeB+'</div>';
     if(lic&&detailsOpen)html+=renderCard(lic);
     if(lic&&designsOpen)html+=renderDesignsPanel();
     box.innerHTML=html;
@@ -1913,6 +1923,7 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
     var rb=box.querySelector("#acRedeem"); if(rb) rb.onclick=showRedeem;
     var cc=box.querySelector("#acCaret"); if(cc) cc.onclick=function(){detailsOpen=!detailsOpen;renderAccount();};
     var db=box.querySelector("#acDesigns"); if(db) db.onclick=function(){designsOpen=!designsOpen;if(designsOpen){detailsOpen=false;fetchDesigns();}renderAccount();};
+    var xc=box.querySelector("#acClose"); if(xc) xc.onclick=function(){mobileOpen=false;detailsOpen=false;designsOpen=false;renderAccount();};
     wireDesigns();
   }
   function renderDesignsPanel(){
