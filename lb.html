@@ -1204,7 +1204,7 @@ function initThree(){const cv=g("cv");if(renderer){resize();return;}const W=cv.p
   cv.addEventListener("mousemove",mv);
   cv.addEventListener("touchmove",e=>{if(pinch&&e.touches.length===2){e.preventDefault();const d=tdist(e.touches);if(pStart>0){zoom=Math.max(0.4,Math.min(3.2,pZoom*pStart/d));applyZoom();}}else if(drag){e.preventDefault();mv(e);}},{passive:false});
   cv.addEventListener("wheel",e=>{e.preventDefault();zoom=Math.max(0.4,Math.min(3.2,zoom*(1+(e.deltaY>0?0.1:-0.1))));applyZoom();},{passive:false});
-  if(!started){started=true;(function loop(){requestAnimationFrame(loop);if(pivot)pivot.rotation.set(rotX,rotY,0);renderer.render(scene,camera);updateDimLabels();})();}window.addEventListener("resize",()=>{resize();drawPad();});}
+  if(!started){started=true;(function loop(){requestAnimationFrame(loop);if(window.__arPaused)return;if(pivot)pivot.rotation.set(rotX,rotY,0);renderer.render(scene,camera);updateDimLabels();})();}window.addEventListener("resize",()=>{resize();drawPad();});}
 function resize(){const cv=g("cv");const W=cv.parentElement.clientWidth,H=cv.parentElement.clientHeight||330;renderer.setSize(W,H);camera.aspect=W/H;camera.updateProjectionMatrix();applyZoom();}
 
 function clearPivot(){while(pivot&&pivot.children.length)pivot.remove(pivot.children[0]);}
@@ -2998,7 +2998,7 @@ window.USDZExporter=USDZExporter;})();
   function openAR(){
     ensureUI();
     var ov=document.getElementById("arOverlay");if(ov)ov.style.display="flex";
-    document.body.classList.add("ar-open");
+    document.body.classList.add("ar-open");window.__arPaused=true;
     var root=collectExportRoot();
     if(!root){status("Add a letter or design first.");return;}
     status("Preparing your model…");
@@ -3012,7 +3012,7 @@ window.USDZExporter=USDZExporter;})();
       status(haveModelViewer()?"":"3D viewer still loading — try again in a moment.");
     }).catch(function(e){status("Sorry — couldn't build the AR model.");});
   }
-  function closeAR(){var ov=document.getElementById("arOverlay");if(ov)ov.style.display="none";document.body.classList.remove("ar-open");}
+  function closeAR(){var ov=document.getElementById("arOverlay");if(ov)ov.style.display="none";document.body.classList.remove("ar-open");window.__arPaused=false;}
   window.openAR=openAR;window.closeAR=closeAR;
 
   function ensureUI(){
