@@ -438,7 +438,7 @@ body.plates-mode .controls{display:none!important}
 .envchip:hover{color:var(--txt);background:var(--surface2)}
 .envchip.sel{background:var(--accdim);color:var(--acc)}
 body.plates-mode .envbar{display:none}
-@media(max-width:979px){.envbar{bottom:12px;gap:2px;padding:3px}.envchip{padding:7px 10px;font-size:11px}.envchip .ecl{display:none}}
+@media(max-width:979px){.envbar{top:60px;bottom:auto;gap:2px;padding:3px}.envchip{padding:7px 10px;font-size:11px}.envchip .ecl{display:none}}
 /* View-in-AR button + fullscreen model-viewer modal */
 .arbtn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--cardline);background:var(--soft);color:var(--txt);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s}
 .arbtn:hover{border-color:var(--acc);color:var(--acc)}
@@ -452,6 +452,11 @@ body.plates-mode .arbtn{display:none}
 .ar-hint b{color:#fff}
 .ar-status{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:13px;color:#c7ccd4;padding:0 24px;z-index:1;display:none}
 #arMV{width:100%;height:100%;background:radial-gradient(120% 100% at 60% 0%,#1b1b1f,#0b0b0d)}
+.ar-light{position:absolute;left:14px;bottom:16px;z-index:3;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 15px;border-radius:20px;border:1px solid rgba(255,255,255,.16);background:rgba(20,20,24,.82);color:#e9e9ee;font-size:12.5px;font-weight:700;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.ar-light.on{background:linear-gradient(180deg,#e0c08d,#cba765);border-color:#caa168;color:#231a0c}
+.ar-light:active{transform:scale(.96)}
+/* account avatar must not sit over the AR modal's close button */
+body.ar-open #acct{display:none!important}
 @media(max-width:979px){.arbtn span:not(.ari){display:none}.arbtn{padding:0 10px}}
 .exportbtn{background:var(--acc)!important;border:1px solid var(--acc)!important;color:#fff!important;box-shadow:0 8px 18px -10px var(--acc)!important;font-weight:700}
 .exportbtn:hover{filter:brightness(1.05)}
@@ -2955,12 +2960,12 @@ window.USDZExporter=USDZExporter;})();
 <script>
 /* ============ AR viewer: GLB (Android/WebXR) + USDZ (iOS Quick Look) via <model-viewer> ============ */
 (function(){
-  var curGLB=null,curUSDZ=null,built=false;
+  var curGLB=null,curUSDZ=null,built=false,arLit=false;
 
   function haveModelViewer(){return !!(window.customElements&&customElements.get("model-viewer"));}
 
   // Build a clean export root: real model parts only, mm->metres, sat on the ground plane.
-  function collectExportRoot(){
+  function collectExportRoot(lit){
     if(typeof pivot==="undefined"||!pivot)return null;
     var root=new THREE.Group();
     pivot.children.forEach(function(ch){
@@ -2968,6 +2973,7 @@ window.USDZExporter=USDZExporter;})();
       var c=ch.clone(true);
       var rm=[];c.traverse(function(o){if(o.isLight||o.name==="arSkip"||(o.material&&o.material.isMeshBasicMaterial))rm.push(o);});
       rm.forEach(function(o){if(o.parent)o.parent.remove(o);});
+      c.traverse(function(o){if(!o.isMesh||!o.material)return;var mats=Array.isArray(o.material)?o.material:[o.material];var out=mats.map(function(mm){if(!mm||!mm.emissive)return mm;var m=mm.clone();if(lit){m.emissive=(m.color?m.color.clone():new THREE.Color(0xffffff));if("emissiveIntensity" in m)m.emissiveIntensity=1.4;}else{m.emissive=new THREE.Color(0x000000);if("emissiveIntensity" in m)m.emissiveIntensity=1;}return m;});o.material=Array.isArray(o.material)?out:out[0];});
       root.add(c);
     });
     if(!root.children.length)return null;
@@ -2995,11 +3001,8 @@ window.USDZExporter=USDZExporter;})();
 
   function status(msg){var s=document.getElementById("arStatus");if(s){s.textContent=msg||"";s.style.display=msg?"block":"none";}}
 
-  function openAR(){
-    ensureUI();
-    var ov=document.getElementById("arOverlay");if(ov)ov.style.display="flex";
-    document.body.classList.add("ar-open");window.__arPaused=true;
-    var root=collectExportRoot();
+  function buildAndLoad(){
+    var root=collectExportRoot(arLit);
     if(!root){status("Add a letter or design first.");return;}
     status("Preparing your model…");
     Promise.all([toGLB(root),toUSDZ(root)]).then(function(r){
@@ -3009,8 +3012,19 @@ window.USDZExporter=USDZExporter;})();
       curGLB=URL.createObjectURL(glb);el.setAttribute("src",curGLB);
       if(usdz){if(curUSDZ)URL.revokeObjectURL(curUSDZ);curUSDZ=URL.createObjectURL(usdz);el.setAttribute("ios-src",curUSDZ);}
       else{el.removeAttribute("ios-src");}
-      status(haveModelViewer()?"":"3D viewer still loading — try again in a moment.");
+      if(haveModelViewer()){status("");}
+      else{status("Loading 3D viewer…");if(window.customElements&&customElements.whenDefined){customElements.whenDefined("model-viewer").then(function(){status("");});}}
     }).catch(function(e){status("Sorry — couldn't build the AR model.");});
+  }
+  function syncLightBtn(){var b=document.getElementById("arLightBtn");if(b){b.classList.toggle("on",arLit);b.innerHTML="💡 "+(arLit?"Light on":"Light off");}}
+  function toggleARLight(){arLit=!arLit;syncLightBtn();buildAndLoad();}
+  window.toggleARLight=toggleARLight;
+  function openAR(){
+    ensureUI();
+    arLit=(typeof lightOn!=="undefined")?!!lightOn:false;syncLightBtn();
+    var ov=document.getElementById("arOverlay");if(ov)ov.style.display="flex";
+    document.body.classList.add("ar-open");window.__arPaused=true;
+    buildAndLoad();
   }
   function closeAR(){var ov=document.getElementById("arOverlay");if(ov)ov.style.display="none";document.body.classList.remove("ar-open");window.__arPaused=false;}
   window.openAR=openAR;window.closeAR=closeAR;
@@ -3022,6 +3036,7 @@ window.USDZExporter=USDZExporter;})();
     ov.innerHTML='<div class="ar-sheet">'
       +'<button class="ar-close" onclick="closeAR()" aria-label="Close">×</button>'
       +'<model-viewer id="arMV" camera-controls auto-rotate touch-action="pan-y" ar ar-modes="webxr scene-viewer quick-look" ar-scale="auto" shadow-intensity="1.1" exposure="1.05" environment-image="neutral" camera-orbit="0deg 78deg 105%" style="width:100%;height:100%;--poster-color:transparent"></model-viewer>'
+      +'<button class="ar-light" id="arLightBtn" onclick="toggleARLight()">\uD83D\uDCA1 Light off</button>'
       +'<div class="ar-hint">Tap <b>View in your space</b> to place it in your room</div>'
       +'<div class="ar-status" id="arStatus"></div>'
       +'</div>';
