@@ -637,6 +637,7 @@ body.ar-open #acct{display:none!important}
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth — <b id="photoDepthLbl">2.0</b> mm</span><div class="szc"><button type="button" class="stp" onclick="nudgePhoto('depth',-1)">−</button><input type="range" id="photoDepth" min="0.8" max="3.2" step="0.1" value="2" oninput="onPhotoLabel()" onchange="onPhotoParam()"><button type="button" class="stp" onclick="nudgePhoto('depth',1)">＋</button></div></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Detail — <b id="photoDetailLbl">Fine</b></span><input type="range" id="photoDetail" min="0.35" max="1.1" step="0.05" value="0.55" oninput="onPhotoLabel()" onchange="onPhotoParam()"></div>
         <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_photoInv" onclick="togglePhotoInvert()"><div class="k"></div></div></div>
+        <div class="toggle-row"><span class="lbl">💡 Light preview (see it lit)</span><div class="tg" id="tg_photoLit" onclick="togglePhotoLit()"><div class="k"></div></div></div>
         <button class="addtext" onclick="clearPhoto()">Remove photo</button>
       </div>
     </div>
@@ -906,7 +907,7 @@ var TEXTURES=[
 ];
 var TEXFN={};TEXTURES.forEach(function(t){TEXFN[t.id]=t;});
 var LIDTEX=null;
-function selectTexture(id){var t=(id&&id!=="none")?TEXFN[id]:null;LIDTEX=(t&&(t.gen||t.fn))?{gen:t.gen,fn:t.fn,grid:t.grid,amp:t.amp,relief:t.relief||0.9,dome:t.dome,domeMin:t.domeMin}:null;window.__lidTexId=id||"none";if(id&&id!=="none"&&typeof PHOTO!=="undefined"&&PHOTO){PHOTO=null;var _pc=document.getElementById("photoControls");if(_pc)_pc.style.display="none";}try{renderTexList();}catch(e){}if(typeof scheduleBuild==="function")scheduleBuild();}
+function selectTexture(id){var t=(id&&id!=="none")?TEXFN[id]:null;LIDTEX=(t&&(t.gen||t.fn))?{gen:t.gen,fn:t.fn,grid:t.grid,amp:t.amp,relief:t.relief||0.9,dome:t.dome,domeMin:t.domeMin}:null;window.__lidTexId=id||"none";if(id&&id!=="none"&&typeof PHOTO!=="undefined"&&PHOTO){PHOTO=null;photoLitPreview=false;window.__photoCap=null;var _lt=document.getElementById("tg_photoLit");if(_lt)_lt.classList.remove("on");var _pc=document.getElementById("photoControls");if(_pc)_pc.style.display="none";}try{renderTexList();}catch(e){}if(typeof scheduleBuild==="function")scheduleBuild();}
 
 /* ===== Photo -> lithophane relief on the lid front (uses the addCapTextured fn path) ===== */
 var PHOTO=null, photoInvert=false, photoOffset={x:0,y:0};
@@ -916,6 +917,21 @@ function photoParams(){var d=document.getElementById("photoDepth"),g=document.ge
 function sampleH(u,v){if(!PHOTO)return 0;var c=PHOTO.cols,r=PHOTO.rows;var fx=u*(c-1),fy=v*(r-1);var x0=Math.floor(fx),y0=Math.floor(fy),x1=Math.min(c-1,x0+1),y1=Math.min(r-1,y0+1);var tx=fx-x0,ty=fy-y0,H=PHOTO.h;var a=H[y0*c+x0],b=H[y0*c+x1],cc=H[y1*c+x0],dd=H[y1*c+x1];var top=a+(b-a)*tx,bot=cc+(dd-cc)*tx;return top+(bot-top)*ty;}
 function makePhotoTex(){var pp=photoParams(),z=photoZoomVal();var tex={photo:true,relief:1,deboss:false,bbox:null,grid:pp.grid,amp:pp.amp};tex.fn=function(px,py){try{var bb=tex.bbox;if(!bb||!PHOTO)return 0;var u0=(px-bb.mnX)/((bb.mxX-bb.mnX)||1)-0.5,v0=(py-bb.mnY)/((bb.mxY-bb.mnY)||1)-0.5;var u=u0/z+0.5-photoOffset.x,v=v0/z+0.5+photoOffset.y;if(u<0||u>1||v<0||v>1)return 0;var h=sampleH(u,1-v);return photoInvert?1-h:h;}catch(e){return 0;}};return tex;}
 function applyPhoto(){if(!PHOTO)return;LIDTEX=makePhotoTex();window.__lidTexId="none";try{renderTexList();}catch(e){}if(typeof scheduleBuild==="function")scheduleBuild();}
+/* Tonal lit-preview: shade the relief by thickness so the lid shows the photo as it looks backlit (thin=bright, thick=dark). Uses vertex colours captured during the relief build (window.__photoCap) on a MeshBasic overlay so it needs no rebuild to toggle and is excluded from every export. */
+var photoLitPreview=false,_photoPrevMesh=null;
+function updatePhotoPreview(){
+  if(_photoPrevMesh){if(_photoPrevMesh.parent)_photoPrevMesh.parent.remove(_photoPrevMesh);if(_photoPrevMesh.geometry)_photoPrevMesh.geometry.dispose();if(_photoPrevMesh.material)_photoPrevMesh.material.dispose();_photoPrevMesh=null;}
+  var cg=window.__capGroup,P=window.__photoCap;
+  if(!photoLitPreview||!PHOTO||!cg||!P||!P.p.length)return;
+  var g=new THREE.BufferGeometry();
+  g.setAttribute("position",new THREE.Float32BufferAttribute(P.p,3));
+  g.setAttribute("color",new THREE.Float32BufferAttribute(P.c,3));
+  var mat=new THREE.MeshBasicMaterial({vertexColors:true,toneMapped:false,side:THREE.DoubleSide});
+  _photoPrevMesh=new THREE.Mesh(g,mat);_photoPrevMesh.name="__photoPreview";
+  _photoPrevMesh.position.z=0.06;_photoPrevMesh.userData.arSkip=true;_photoPrevMesh.userData.isPreview=true;
+  cg.add(_photoPrevMesh);
+}
+function togglePhotoLit(){photoLitPreview=!photoLitPreview;var t=document.getElementById("tg_photoLit");if(t)t.classList.toggle("on",photoLitPreview);updatePhotoPreview();}
 function onPhotoUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;if(!window.Lithophane){alert("Lithophane module still loading — try again in a moment.");return;}var img=new Image();img.onload=function(){try{var hm=window.Lithophane.imageToHeightMap(img,{minThickness:0,maxThickness:1,maxSamples:240});PHOTO={h:hm.thickness,cols:hm.cols,rows:hm.rows};photoOffset={x:0,y:0};var zz=document.getElementById("photoZoom");if(zz)zz.value="1";var t=document.getElementById("photoThumb");if(t)t.style.backgroundImage="url("+img.src+")";var pc=document.getElementById("photoControls");if(pc)pc.style.display="flex";onPhotoLabel();initPhotoPad();renderPhotoMarker();applyPhoto();}catch(e){alert("Could not read that image.");}};img.src=URL.createObjectURL(f);}
 function onPhotoLabel(){var d=document.getElementById("photoDepth"),g=document.getElementById("photoDetail"),z=document.getElementById("photoZoom");if(document.getElementById("photoDepthLbl")&&d)document.getElementById("photoDepthLbl").textContent=(+d.value).toFixed(1);if(document.getElementById("photoDetailLbl")&&g)document.getElementById("photoDetailLbl").textContent=(+g.value<=0.5?"Fine":(+g.value>=0.9?"Coarse":"Medium"));if(document.getElementById("photoZoomLbl")&&z)document.getElementById("photoZoomLbl").textContent=(+z.value).toFixed(1);}
 function onPhotoParam(){onPhotoLabel();if(PHOTO)applyPhoto();}
@@ -924,7 +940,7 @@ function nudgePhotoZoom(dir){var el=document.getElementById("photoZoom");if(!el)
 function togglePhotoInvert(){photoInvert=!photoInvert;var tg=document.getElementById("tg_photoInv");if(tg)tg.classList.toggle("on",photoInvert);if(PHOTO)applyPhoto();}
 function renderPhotoMarker(){var pad=document.getElementById("pad_photo"),layer=document.getElementById("photoLayer");if(!pad||!layer)return;if(typeof PHOTO==="undefined"||!PHOTO){layer.innerHTML="";return;}var r=pad.getBoundingClientRect();if(!r.width)return;var sc=(typeof PAD!=="undefined"&&PAD["scale_photo"])||0;var cx=r.width/2+(sc?photoOffset.x*PAD.w*sc:photoOffset.x*r.width);var cy=r.height/2-(sc?photoOffset.y*PAD.h*sc:photoOffset.y*r.height);layer.innerHTML="";var dot=document.createElement("div");dot.style.cssText="position:absolute;width:22px;height:22px;border-radius:50%;background:var(--acc);border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);transform:translate(-50%,-50%);pointer-events:none";dot.style.left=cx+"px";dot.style.top=cy+"px";layer.appendChild(dot);}
 function initPhotoPad(){var pad=document.getElementById("pad_photo");if(!pad||pad._wired)return;pad._wired=true;var dragging=false;function upd(e){var r=pad.getBoundingClientRect();var sc=(typeof PAD!=="undefined"&&PAD["scale_photo"])||0;var mx=(e.touches?e.touches[0].clientX:e.clientX)-r.left-r.width/2;var my=(e.touches?e.touches[0].clientY:e.clientY)-r.top-r.height/2;if(sc){photoOffset.x=Math.max(-0.6,Math.min(0.6,mx/(PAD.w*sc)));photoOffset.y=Math.max(-0.6,Math.min(0.6,-my/(PAD.h*sc)));}else{photoOffset.x=Math.max(-0.5,Math.min(0.5,mx/r.width));photoOffset.y=Math.max(-0.5,Math.min(0.5,-my/r.height));}renderPhotoMarker();}pad.addEventListener("pointerdown",function(e){dragging=true;try{pad.setPointerCapture(e.pointerId);}catch(_){}upd(e);});pad.addEventListener("pointermove",function(e){if(dragging)upd(e);});pad.addEventListener("pointerup",function(e){if(dragging){dragging=false;if(PHOTO)applyPhoto();}});pad.addEventListener("pointercancel",function(){dragging=false;});}
-function clearPhoto(){PHOTO=null;LIDTEX=null;photoOffset={x:0,y:0};var pc=document.getElementById("photoControls");if(pc)pc.style.display="none";var t=document.getElementById("photoThumb");if(t)t.style.backgroundImage="";if(typeof scheduleBuild==="function")scheduleBuild();}
+function clearPhoto(){PHOTO=null;LIDTEX=null;photoOffset={x:0,y:0};photoLitPreview=false;window.__photoCap=null;var lt=document.getElementById("tg_photoLit");if(lt)lt.classList.remove("on");if(typeof updatePhotoPreview==="function")updatePhotoPreview();var pc=document.getElementById("photoControls");if(pc)pc.style.display="none";var t=document.getElementById("photoThumb");if(t)t.style.backgroundImage="";if(typeof scheduleBuild==="function")scheduleBuild();}
 function drawTexPreview(cv,t){var ctx=cv.getContext("2d");var W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
   var grout="#20242b",tile="#cdc6b8";
   ctx.fillStyle=grout;ctx.fillRect(0,0,W,H);
@@ -1423,13 +1439,14 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
   const addCapTextured=(paths,z,tex)=>{
     if(!paths||!paths.length){return;}
     const amp=tex.amp||0.7,sgn=tex.deboss?-1:1,fn=tex.fn,d=tex.grid||1.3;
+    if(tex.photo)window.__photoCap={p:[],c:[]};
     const full=contoursOf(paths);if(!full.length){addCap(paths,z,true);return;}
     const erP=off(paths,-d*1.2)||[];const eroded=contoursOf(erP);
     const pip=(px,py,poly)=>{let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const xi=poly[i].x,yi=poly[i].y,xj=poly[j].x,yj=poly[j].y;if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))inside=!inside;}return inside;};
     const inR=(px,py,regs)=>{for(let r=0;r<regs.length;r++){const R=regs[r];if(pip(px,py,R.outer)){let hole=false;for(let q=0;q<R.holes.length;q++){if(pip(px,py,R.holes[q])){hole=true;break;}}if(!hole)return true;}}return false;};
     const inFull=(px,py)=>inR(px,py,full);const inSafe=(px,py)=>inR(px,py,eroded);const _sc=new Map(),_dc=new Map();const gk=(px,py)=>Math.round(px/d)+","+Math.round(py/d);const inSafeM=(px,py)=>{const k=gk(px,py);let v=_sc.get(k);if(v===undefined){v=inSafe(px,py);_sc.set(k,v);}return v;};
     const disp=(px,py)=>{const rx=px/d,ry=py/d;if(Math.abs(rx-Math.round(rx))>1e-4||Math.abs(ry-Math.round(ry))>1e-4)return 0;const k=Math.round(rx)+","+Math.round(ry);let v=_dc.get(k);if(v===undefined){v=inSafeM(px,py)?sgn*amp*fn(px,py):0;_dc.set(k,v);}return v;};
-    const emit=(a,b,c)=>{addTri([a.x-cx,a.y-cy,z+disp(a.x,a.y)],[b.x-cx,b.y-cy,z+disp(b.x,b.y)],[c.x-cx,c.y-cy,z+disp(c.x,c.y)]);};
+    const emit=(a,b,c)=>{const za=z+disp(a.x,a.y),zb=z+disp(b.x,b.y),zc=z+disp(c.x,c.y);addTri([a.x-cx,a.y-cy,za],[b.x-cx,b.y-cy,zb],[c.x-cx,c.y-cy,zc]);if(tex.photo&&window.__photoCap){const P=window.__photoCap,ai=amp||1;const pu=(x,y,zz)=>{P.p.push(x-cx,y-cy,zz);const br=Math.max(0,Math.min(1,1-(zz-z)/ai));P.c.push(br,br,br);};pu(a.x,a.y,za);pu(b.x,b.y,zb);pu(c.x,c.y,zc);}};
     let mnX=1e9,mnY=1e9,mxX=-1e9,mxY=-1e9;full.forEach(r=>r.outer.forEach(p=>{if(p.x<mnX)mnX=p.x;if(p.x>mxX)mxX=p.x;if(p.y<mnY)mnY=p.y;if(p.y>mxY)mxY=p.y;}));if(tex.photo)tex.bbox={mnX:mnX,mnY:mnY,mxX:mxX,mxY:mxY};
     const i0=Math.floor(mnX/d),i1=Math.ceil(mxX/d),j0=Math.floor(mnY/d),j1=Math.ceil(mxY/d);
     for(let i=i0;i<i1;i++)for(let j=j0;j<j1;j++){const x0=i*d,y0=j*d,x1=(i+1)*d,y1=(j+1)*d;
@@ -1665,7 +1682,7 @@ async function buildModel(){
       if(!fGeo){const tg=new THREE.TextGeometry(letter,{font,size:glyphSize*0.96,height:0.6,curveSegments:6,bevelEnabled:false});tg.computeBoundingBox();const fb=tg.boundingBox;tg.translate(-(fb.max.x+fb.min.x)/2,-(fb.max.y+fb.min.y)/2,0);fGeo=tg;}
       glowFace=new THREE.Mesh(fGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.92}));glowFace.name="arSkip";glowFace.position.z=-1.2;glowFace.castShadow=false;glowFace.userData.isGlow=true;bodyGroup.add(glowFace);}
 
-    const capGroup=new THREE.Group();const nameGroups=[];const imgGroups=[];let stlParts=[];
+    const capGroup=new THREE.Group();window.__capGroup=capGroup;const nameGroups=[];const imgGroups=[];let stlParts=[];
     if(hasClip&&filled){try{
       const A=off(filled,clearance),B=off(filled,clearance+capW);   // skirt is now folded into the single manifold lid mesh (buildLidSlabs), so no separate skirt extrude here.
       // ---- Gather pocket features. Name + images share the name pocket depth; each STL gets its own. ----
@@ -1777,6 +1794,7 @@ async function buildModel(){
     renderPlateList();renderPrinter();
   }catch(e){}
   applyColors();applyLight();
+  try{if(typeof updatePhotoPreview==="function")updatePhotoPreview();}catch(e){}
 }
 function renderPlateList(){const el=g("platelist");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";
   el.innerHTML=`<div class="plbl">Plates</div>`+PLATES.map((p,i)=>{const extra=p.flip?" · face-down":"";const th=PLATE_THUMBS[i]?`<img src="${PLATE_THUMBS[i]}">`:"";return `<div class="pcard${i===selPlate?' sel':''}" data-i="${i}"><div class="pth">${th}</div><div><div class="pnm">Plate ${i+1}</div><div class="psub">${p.name}${extra}</div></div></div>`;}).join("");
@@ -1818,7 +1836,7 @@ function partTriangles(part){
   if(part.textPlate)layoutTextPlate(clone);
   clone.rotation.x=part.flip?Math.PI/2:-Math.PI/2;clone.position.set(0,0,0);clone.updateMatrixWorld(true);
   const v=new THREE.Vector3(),tris=[];
-  clone.traverse(o=>{if(!o.isMesh||!o.geometry||(o.userData&&o.userData.isGlow))return;const ge=o.geometry,pos=ge.attributes&&ge.attributes.position;if(!pos)return;const mw=o.matrixWorld,idx=ge.index;
+  clone.traverse(o=>{if(!o.isMesh||!o.geometry||(o.userData&&(o.userData.isGlow||o.userData.isPreview)))return;const ge=o.geometry,pos=ge.attributes&&ge.attributes.position;if(!pos)return;const mw=o.matrixWorld,idx=ge.index;
     const gv=i=>{v.fromBufferAttribute(pos,i).applyMatrix4(mw);return{x:v.x,y:v.y,z:v.z};};
     // Drop any triangle with a non-finite vertex BEFORE it can poison the bounding-box centre below (a single
     // NaN there turns every exported coordinate into NaN -> Bambu "error serializing NaN").
