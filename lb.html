@@ -17,6 +17,9 @@
   --panelbg:linear-gradient(180deg,#161618,#111113 62%);
   --r:14px;--vh:48vh;
   --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 16px 44px -24px rgba(0,0,0,.88);
+  --glass:rgba(26,26,30,.74);--glass2:rgba(34,34,39,.86);--glassline:rgba(255,255,255,.13);
+  --glasshi:rgba(255,255,255,.06);--glassshadow:0 30px 80px -34px rgba(0,0,0,.88);
+  --stagebg:radial-gradient(120% 100% at 72% -10%,#26262b 0%,#141417 46%,#0a0a0c 100%);
 }
 :root[data-theme="light"]{
   --bg:#e6e6e9;--bg2:#ffffff;--panel:#f2f2f4;--panel2:#ffffff;--panel3:#e9e9ec;
@@ -24,9 +27,11 @@
   --surface:rgba(0,0,0,.035);--surface2:rgba(0,0,0,.07);
   --txt:#1d1d1f;--txt2:#6e6e73;--txt3:#a1a1a6;
   --acc:#b8935a;--acc2:#7a6034;--accdim:rgba(184,147,90,.16);--mint:#2fae86;
-  --stagebg:radial-gradient(130% 90% at 50% -6%,#ededee 0%,#d6d6d9 100%);
   --panelbg:linear-gradient(180deg,#f4f4f6,#ececee 62%);
   --shadow:0 1px 0 rgba(255,255,255,.6) inset,0 16px 44px -24px rgba(0,0,0,.16);
+  --glass:rgba(255,255,255,.6);--glass2:rgba(255,255,255,.78);--glassline:rgba(0,0,0,.08);
+  --glasshi:rgba(255,255,255,.5);--glassshadow:0 30px 80px -34px rgba(0,0,0,.22);
+  --stagebg:radial-gradient(120% 100% at 72% -10%,#fbfbfc 0%,#e9e9ed 46%,#d3d3d9 100%);
 }
 html{-webkit-text-size-adjust:100%}
 body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--txt);font-size:14px;line-height:1.45}
@@ -406,6 +411,121 @@ input[type=text]:focus,input[type=number]:focus{border-color:var(--acc)}
 .acc-h{color:var(--txt2)}
 .numbox input,.numbox .u,.numbox .u2{color:var(--txt)}
 </style>
+<style id="immersive">
+/* ===================== IMMERSIVE STUDIO SHELL ===================== */
+/* shared: brand mark, theme toggle, icon-rail tab internals (all widths) */
+.brandmark{display:flex;align-items:center;gap:9px}
+.brandmark .bmk{width:27px;height:27px;border-radius:8px;background:linear-gradient(140deg,var(--acc),var(--acc2));display:flex;align-items:center;justify-content:center;color:#1a1408;font-weight:800;font-size:14px;flex:none;box-shadow:0 2px 8px -3px rgba(0,0,0,.5)}
+.brandmark .bmw{display:flex;flex-direction:column;line-height:1.05}
+.brandmark .bmw b{font-size:12.5px;font-weight:700;letter-spacing:-.01em;color:var(--txt)}
+.brandmark .bmw i{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--txt2);font-style:normal}
+#themeBtn{position:fixed;z-index:60;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;background:var(--glass);-webkit-backdrop-filter:blur(30px) saturate(1.5);backdrop-filter:blur(30px) saturate(1.5);border:1px solid var(--glassline);color:var(--txt);box-shadow:var(--glassshadow),0 1px 0 var(--glasshi) inset;transition:border-color .15s,transform .12s}
+#themeBtn:hover{border-color:var(--acc)}
+#themeBtn:active{transform:scale(.93)}
+.pl-tab .ptic{display:none}
+.pl-tab .ptlbl{display:inline}
+
+@media(min-width:980px){
+  /* full-bleed 3D stage behind everything */
+  .app{display:block}
+  .stage{position:fixed;inset:0;width:100vw;height:100vh;border:none;z-index:1}
+  .canvas-wrap{height:100vh}
+
+  /* floating frosted control panel on the right */
+  .controls{
+    position:fixed;top:78px;right:22px;bottom:22px;width:378px;
+    padding:0;gap:0;overflow-y:auto;overflow-x:hidden;z-index:40;
+    background:var(--glass);-webkit-backdrop-filter:blur(34px) saturate(1.7);backdrop-filter:blur(34px) saturate(1.7);
+    border:1px solid var(--glassline);border-radius:24px;
+    box-shadow:var(--glassshadow),0 1px 0 var(--glasshi) inset;
+    scrollbar-width:none;
+  }
+  .controls::-webkit-scrollbar{display:none}
+  .controls::before{display:none!important}
+
+  /* sticky panel header: section title + randomise */
+  .controls .pl-head{
+    position:sticky;top:0;z-index:5;margin:0;padding:15px 17px 13px;gap:11px;align-items:center;
+    border-bottom:1px solid var(--glassline);background:var(--glass2);
+    -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  }
+  .controls .pl-title{
+    flex:1;padding:0;border:none!important;background:none!important;box-shadow:none!important;
+    font-size:15px;font-weight:700;font-style:normal;letter-spacing:-.01em;color:var(--txt);
+    pointer-events:none;gap:10px;
+  }
+  .controls .pl-title .pl-ic{width:26px;height:26px;border-radius:8px;font-size:13px}
+  .controls .pl-title .pl-chev{display:none}
+  .controls .pl-dice{width:38px;height:38px;border-radius:11px;font-size:17px;flex:none;background:var(--surface)!important;border:1px solid var(--glassline)!important;color:var(--acc)}
+
+  /* content padding */
+  .controls .acc{margin:0;background:transparent!important;border:none!important;box-shadow:none!important}
+  .controls .acc-b{padding:16px 18px 26px!important}
+
+  /* vertical icon rail floating just left of the panel (moved to <body> so the
+     panel's backdrop-filter can't trap/clip a fixed child) */
+  .pl-rail{
+    position:fixed;top:50%;right:414px;transform:translateY(-50%);
+    display:flex!important;flex-direction:column;gap:6px;margin:0;overflow:visible;
+    background:var(--glass2);-webkit-backdrop-filter:blur(30px) saturate(1.7);backdrop-filter:blur(30px) saturate(1.7);
+    border:1px solid var(--glassline);border-radius:20px;padding:8px;
+    box-shadow:var(--glassshadow),0 1px 0 var(--glasshi) inset,0 0 0 1px rgba(0,0,0,.28);z-index:41;
+  }
+  .pl-rail .pl-tab{
+    width:54px;height:54px;padding:0;border-radius:15px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:3px;color:var(--txt2);letter-spacing:0;text-transform:none;
+    transition:background .15s,color .15s;border:none;background:none;cursor:pointer;
+  }
+  .pl-rail .pl-tab .ptic{display:block;font-size:20px;line-height:1}
+  .pl-rail .pl-tab .ptlbl{display:block;font-size:8px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;opacity:.9}
+  .pl-rail .pl-tab:hover{background:var(--surface2);color:var(--txt)}
+  .pl-rail .pl-tab.active{background:var(--accdim);color:var(--acc)}
+  .pl-rail .pl-tab.active::after{display:none}
+
+  /* floating top-left toolbar: brand + mode segment + export */
+  .topbar{
+    top:20px;left:22px;gap:11px;align-items:center;padding:7px 9px 7px 13px;
+    background:var(--glass);-webkit-backdrop-filter:blur(30px) saturate(1.6);backdrop-filter:blur(30px) saturate(1.6);
+    border:1px solid var(--glassline);border-radius:16px;box-shadow:var(--glassshadow),0 1px 0 var(--glasshi) inset;
+  }
+  .brandmark{padding-right:12px;border-right:1px solid var(--glassline)}
+  .topbar .seg{background:var(--surface)!important;border:1px solid var(--glassline)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+
+  /* top-right cluster: theme toggle + account */
+  #themeBtn{top:20px;right:76px}
+  #acct{top:20px!important;right:22px!important;left:auto!important}
+
+  /* lamp floats bottom-left, clear of the panel */
+  #lightPill.lightbtn{left:22px!important;right:auto!important;bottom:22px!important}
+}
+
+@media(max-width:979px){
+  .brandmark{display:none}
+  #themeBtn{display:none}
+  /* controls become a rounded sheet that rises over the 3D, with a grab handle */
+  .controls{
+    position:relative;z-index:22;margin-top:-24px;border-radius:24px 24px 0 0;
+    padding-top:8px;background:var(--panelbg);border-top:1px solid var(--glassline);
+    box-shadow:0 -22px 46px -30px rgba(0,0,0,.6);
+  }
+  .controls::before{
+    content:""!important;display:block!important;width:40px;height:5px;border-radius:3px;
+    background:var(--line2);margin:2px auto 12px!important;padding:0!important;opacity:.9;
+  }
+  /* tabs become pill chips with inline icon + label */
+  .controls .pl-tabs{gap:7px;border-bottom:none;margin-bottom:14px;padding:0 0 2px}
+  .controls .pl-tab{
+    flex:0 0 auto;display:flex;flex-direction:row;align-items:center;gap:7px;
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:9px 13px;color:var(--txt2);text-transform:none;letter-spacing:.02em;
+  }
+  .controls .pl-tab .ptic{display:inline;font-size:14px;line-height:1}
+  .controls .pl-tab .ptlbl{display:inline;font-size:11.5px;font-weight:700}
+  .controls .pl-tab:hover{color:var(--txt)}
+  .controls .pl-tab.active{background:var(--accdim);color:var(--acc);border-color:rgba(201,163,106,.45)}
+  .controls .pl-tab.active::after{display:none}
+}
+</style>
 </head>
 <body>
 <div class="splash" id="splash">
@@ -752,6 +872,7 @@ function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");R.st
 function setMode(m){mode=m;zoom=1;paintSeg();g("platelist").style.display=m==="plates"?"flex":"none";g("printerbox").style.display=m==="plates"?"flex":"none";g("zoomhint").style.display="block";clearTimeout(zhT);zhT=setTimeout(()=>g("zoomhint").style.display="none",1900);if(m==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}buildModel();buildSummary();}
 function toggleLight(){lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plTab(i){var wrap=document.querySelector(".controls");if(!wrap)return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));accs.forEach(function(a,j){a.classList.toggle("open",j===i);});var tabs=[].slice.call(wrap.querySelectorAll(".pl-tab"));tabs.forEach(function(t,j){t.classList.toggle("active",j===i);});var at=tabs[i];if(at&&at.scrollIntoView){try{at.scrollIntoView({inline:"center",block:"nearest"});}catch(e){}}try{wrap.scrollTop=0;}catch(e){}}
 function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export)$/i.test(name))return;var t=document.createElement("button");t.className="pl-tab";t.textContent=name;t.setAttribute("data-i",i);t.onclick=function(){plTab(i);};bar.appendChild(t);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
+function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Text"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}var rail=document.querySelector(".controls .pl-tabs");if(rail&&window.matchMedia("(min-width:980px)").matches){rail.classList.add("pl-rail");document.body.appendChild(rail);}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}if(!document.getElementById("themeBtn")){var tbtn=document.createElement("button");tbtn.id="themeBtn";tbtn.type="button";var ico=function(){return (document.documentElement.getAttribute("data-theme")==="light")?"\u2600":"\u1f319";};tbtn.textContent=(document.documentElement.getAttribute("data-theme")==="light")?"\u2600\ufe0f":"\ud83c\udf19";tbtn.title="Toggle light / dark";tbtn.onclick=function(){var t=window.__toggleTheme?window.__toggleTheme():null;tbtn.textContent=(document.documentElement.getAttribute("data-theme")==="light")?"\u2600\ufe0f":"\ud83c\udf19";};document.body.appendChild(tbtn);}}catch(e){}}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
 function applyLight(){{var _lbl=g("lightLbl");if(_lbl)_lbl.textContent=lightOn?"Turn off lamp":"Turn on lamp";}
   g("lightPill").classList.toggle("on",lightOn);
@@ -1788,7 +1909,7 @@ async function exportPlates(){
 window.exportPlates=exportPlates;   // the ONLY export entry point exposed globally (gated inside)
 })();
 
-paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();try{plBuildTabs();}catch(e){}try{renderTexList();}catch(e){}
+paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();try{plBuildTabs();}catch(e){}try{renderTexList();}catch(e){}try{immersiveInit();}catch(e){}
 // Warm the whole model catalog in the background a few seconds after first paint, so cold-cache machines
 // have the geometry ready before the user opens the catalog. Delayed so it never competes with the splash
 // image / library load on the initial paint.
