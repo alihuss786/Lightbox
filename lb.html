@@ -916,12 +916,12 @@ function photoZoomVal(){var el=document.getElementById("photoZoom");return el?pa
 function photoParams(){var d=document.getElementById("photoDepth"),g=document.getElementById("photoDetail");var fine=g?parseFloat(g.value):0.55;var grid=window.__photoFine?fine:Math.max(fine,1.6);return {amp:d?parseFloat(d.value):2, grid:grid};}
 function sampleH(u,v){if(!PHOTO)return 0;var c=PHOTO.cols,r=PHOTO.rows;var fx=u*(c-1),fy=v*(r-1);var x0=Math.floor(fx),y0=Math.floor(fy),x1=Math.min(c-1,x0+1),y1=Math.min(r-1,y0+1);var tx=fx-x0,ty=fy-y0,H=PHOTO.h;var a=H[y0*c+x0],b=H[y0*c+x1],cc=H[y1*c+x0],dd=H[y1*c+x1];var top=a+(b-a)*tx,bot=cc+(dd-cc)*tx;return top+(bot-top)*ty;}
 function makePhotoTex(){var pp=photoParams(),z=photoZoomVal();var tex={photo:true,relief:1,deboss:false,bbox:null,grid:pp.grid,amp:pp.amp};tex.fn=function(px,py){try{var bb=tex.bbox;if(!bb||!PHOTO)return 0;var u0=(px-bb.mnX)/((bb.mxX-bb.mnX)||1)-0.5,v0=(py-bb.mnY)/((bb.mxY-bb.mnY)||1)-0.5;var u=u0/z+0.5-photoOffset.x,v=v0/z+0.5+photoOffset.y;if(u<0||u>1||v<0||v>1)return 0;var h=sampleH(u,1-v);return photoInvert?1-h:h;}catch(e){return 0;}};return tex;}
-function applyPhoto(){if(!PHOTO)return;LIDTEX=makePhotoTex();window.__lidTexId="none";try{renderTexList();}catch(e){}if(typeof scheduleBuild==="function")scheduleBuild();}
+function applyPhoto(){if(!PHOTO)return;LIDTEX=null;window.__lidTexId="none";try{renderTexList();}catch(e){}if(typeof scheduleBuild==="function")scheduleBuild();}
 /* Tonal lit-preview: shade the relief by thickness so the lid shows the photo as it looks backlit (thin=bright, thick=dark). Uses vertex colours captured during the relief build (window.__photoCap) on a MeshBasic overlay so it needs no rebuild to toggle and is excluded from every export. */
 var photoLitPreview=false,_photoPrevMesh=null;
 function updatePhotoPreview(){
   if(_photoPrevMesh){if(_photoPrevMesh.parent)_photoPrevMesh.parent.remove(_photoPrevMesh);if(_photoPrevMesh.geometry)_photoPrevMesh.geometry.dispose();if(_photoPrevMesh.material)_photoPrevMesh.material.dispose();_photoPrevMesh=null;}
-  var cg=window.__capGroup,P=window.__photoCap;
+  var cg=window.__photoPanelGroup,P=window.__photoCap;
   if(!photoLitPreview||!PHOTO||!cg||!P||!P.p.length)return;
   var g=new THREE.BufferGeometry();
   g.setAttribute("position",new THREE.Float32BufferAttribute(P.p,3));
@@ -1734,7 +1734,22 @@ async function buildModel(){
 
       // ---- Stacked-slab lid: solid floor + carved top layers (true inset pockets, never through-holes) ----
       const lidMat=topMat;if(lidMat)lidMat.side=THREE.DoubleSide;   // recessed pocket/counter walls render correctly from any angle
-      buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=new THREE.Mesh(s.geo,lidMat);m.position.z=s.z;capGroup.add(m);});
+      // ---- Photo lithophane: carve a recessed window inside the letter so a flat photo panel can seat in it ----
+      var _panelPaths=null,_panelZ=0;
+      if(typeof PHOTO!=="undefined"&&PHOTO){try{_panelPaths=off(B,-3.5);}catch(e){_panelPaths=null;}
+        if(_panelPaths&&_panelPaths.length){var _wd=Math.max(0,TT-FLOOR_MIN);slabFeatures.push({p:_panelPaths,depth:_wd});_panelZ=TT-_wd;}else{_panelPaths=null;}}
+buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=new THREE.Mesh(s.geo,lidMat);m.position.z=s.z;capGroup.add(m);});
+      // ---- Flat photo panel: its own watertight, printable part (true flat lithophane; the geometry colour needs) ----
+      var photoPanelGroup=null;
+      if(_panelPaths){try{
+        var _saveTex=(typeof LIDTEX!=="undefined")?LIDTEX:null;LIDTEX=makePhotoTex();
+        var _pbase=0.8;var _pfit=off(_panelPaths,-0.2)||_panelPaths;if(!_pfit.length)_pfit=_panelPaths;var _pslabs=buildLidSlabs(_pfit,cx,cy,[],_pbase,Math.min(FLOOR_MIN,_pbase),null,0);
+        LIDTEX=_saveTex;
+        photoPanelGroup=new THREE.Group();var _pmat=new THREE.MeshLambertMaterial({color:0xf2ece1});
+        _pslabs.forEach(sl=>{var mh=new THREE.Mesh(sl.geo,_pmat);mh.position.z=sl.z;photoPanelGroup.add(mh);});
+        photoPanelGroup.position.z=_panelZ;photoPanelGroup.userData={isPhotoPanel:true};
+      }catch(e){photoPanelGroup=null;}}
+      window.__photoPanelGroup=photoPanelGroup;
 
       // ---- Drop the name/image inlay solids into their pockets (they stand proud by nameExt) ----
       // Build the inlay solids via the PolyTree converter so internal letter counters (the 'A' triangle,
@@ -1755,6 +1770,7 @@ async function buildModel(){
     // render is unchanged); on the plate it is auto-packed into a non-overlapping row (see layoutTextPlate).
     if(nameGroups.length){const textPlate=new THREE.Group();nameGroups.forEach(gr=>textPlate.add(gr));partList.push({group:textPlate,name:(nameGroups.length>1?("Text · "+nameGroups.length+" layers"):"Text"),flip:false,textPlate:true});}
     imgGroups.forEach((gr,i)=>partList.push({group:gr,name:"Image "+(i+1),flip:false}));
+    if(typeof photoPanelGroup!=="undefined"&&photoPanelGroup)partList.push({group:photoPanelGroup,name:"Photo panel",flip:false});
     if(stlParts&&stlParts.length){stlParts.forEach(p=>partList.push(p));}
     else{models.forEach((mo,i)=>{if(!mo.obj)return;const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));inst.position.set(+mo.x||0,+mo.y||0,TT);grp.userData={isStl:true,modelId:mo.id};grp.add(inst);partList.push({group:grp,name:"3D "+((mo.name||("model "+(i+1))).slice(0,9)),flip:false,modelId:mo.id});});}
     PLATES=partList;
@@ -1960,7 +1976,7 @@ async function exportPlates(){
     // CRITICAL: never let the exporter parse half-initialised geometry. If the post-font authoritative build
     // hasn't run yet (e.g. the user hits Export the instant the page loads), force a full, primed rebuild +
     // path recompute FIRST — so the 'A' counter and every cutout are present in the exported mesh.
-    if(!geomReady)await updateTextGeometry();if(typeof PHOTO!=="undefined"&&PHOTO){window.__photoFine=true;try{LIDTEX=makePhotoTex();await buildModel();buildSummary();}catch(_){}}
+    if(!geomReady)await updateTextGeometry();if(typeof PHOTO!=="undefined"&&PHOTO){window.__photoFine=true;try{await buildModel();buildSummary();}catch(_){}}
     await new Promise(r=>requestAnimationFrame(()=>r()));   // let the rebuilt scene graph settle
     if(!PLATES||!PLATES.length){alert("Nothing to export yet — design a lightbox first.");return;}
     // ===== CONFIRM before spending an export (guards against an accidental click) =====
@@ -2015,7 +2031,7 @@ async function exportPlates(){
     document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},800);
     if(btn){btn.textContent="✓ Exported "+plateCount+" plates";setTimeout(()=>{btn.textContent=orig;},1800);}
   }catch(e){console.error(e);alert("Export failed: "+(e&&e.message||e));if(btn)btn.textContent=orig;}
-  finally{if(btn)btn.disabled=false;if(typeof PHOTO!=="undefined"&&PHOTO){window.__photoFine=false;try{LIDTEX=makePhotoTex();if(typeof scheduleBuild==="function")scheduleBuild();}catch(_){}}}
+  finally{if(btn)btn.disabled=false;if(typeof PHOTO!=="undefined"&&PHOTO){window.__photoFine=false;try{if(typeof scheduleBuild==="function")scheduleBuild();}catch(_){}}}
 }
 window.exportPlates=exportPlates;   // the ONLY export entry point exposed globally (gated inside)
 })();
