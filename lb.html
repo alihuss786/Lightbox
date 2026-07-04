@@ -314,11 +314,19 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
 .pl-tab.active{color:var(--acc)}
 .pl-tab.active::after{content:"";position:absolute;left:11px;right:11px;bottom:-1px;height:2px;background:var(--acc);border-radius:2px}
 /* light on/off button as a POP LAMP pill, bottom-right */
-#lightPill.lightbtn{position:fixed;right:20px;bottom:20px;width:auto;height:46px;padding:0 20px;gap:10px;border-radius:24px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;background:#141821;border:1px solid var(--line2);color:#fff;backdrop-filter:blur(8px);box-shadow:0 16px 32px -14px rgba(0,0,0,.75);z-index:41}
+#lightPill.lightbtn{position:absolute;right:16px;bottom:16px;width:auto;height:46px;padding:0 20px;gap:10px;border-radius:24px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;background:#141821;border:1px solid var(--line2);color:#fff;backdrop-filter:blur(8px);box-shadow:0 16px 32px -14px rgba(0,0,0,.75);z-index:7}
 #lightPill .lb-ic{font-size:15px;line-height:1}
 #lightPill .lb-tx{white-space:nowrap}
 #lightPill.lightbtn.on{background:var(--acc);border-color:var(--acc);color:#241d12;box-shadow:0 0 26px -6px rgba(201,163,106,.7)}
-@media(min-width:980px){#lightPill.lightbtn{right:412px}}
+@media(min-width:980px){#lightPill.lightbtn{right:16px;bottom:16px}}
+/* ===== Mobile: keep the account pill off the toolbar, tighten the top row ===== */
+@media (max-width:979px){
+  #acct{top:56px;left:12px;transform:none;align-items:flex-start;max-width:calc(100vw - 24px)}
+  #acct .pill{flex-wrap:wrap;max-width:calc(100vw - 24px);row-gap:5px}
+  .topbar{gap:7px}
+  .seg-b{padding:7px 10px;font-size:11px}
+  .exportbtn{padding:0 11px;font-size:11px;height:36px}
+}
 
 /* POP LAMP collapsible header bar */
 .controls::before{display:none !important}
@@ -360,9 +368,9 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
     <img class="canvasfreeze" id="canvasFreeze" alt="">
     <div class="topbar">
       <div class="seg"><button class="seg-b" id="segR" onclick="setMode('render')">Rendering effect</button><button class="seg-b" id="segP" onclick="setMode('plates')">Plates</button></div>
-      <button class="lightbtn on" id="lightPill" onclick="toggleLight()"><span class="lb-ic">🌙</span><span class="lb-tx" id="lightLbl">Turn off lamp</span></button>
       <button class="exportbtn" id="exportBtn" onclick="exportPlates()" title="Export every build plate as a Bambu Studio-ready 3D project (one object per plate)">⬇ Export STL</button>
     </div>
+    <button class="lightbtn on" id="lightPill" onclick="toggleLight()"><span class="lb-ic">🌙</span><span class="lb-tx" id="lightLbl">Turn off lamp</span></button>
     <button class="iconbtn" id="resetBtn" onclick="resetView()">⟲</button>
     <div class="zoomhint" id="zoomhint">drag to orbit · pinch to zoom</div>
     <div class="dimlbl" id="dimX">—</div><div class="dimlbl" id="dimY">—</div><div class="dimlbl" id="dimZ">—</div>
@@ -1860,7 +1868,8 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
    +"#acct button{cursor:pointer;border-radius:8px;border:1px solid #33373f;background:#1b1e24;color:#eaecef;font-weight:600;font-size:12px;padding:7px 11px}"
    +"#acct button.primary{background:#c9a36a;color:#11140f;border-color:#c9a36a}"
    +"#acct input{border:1px solid #33373f;border-radius:8px;background:#0f1115;color:#eaecef;padding:8px 10px;font-size:13px;width:190px;max-width:44vw;outline:none}"
-   +"#acct .muted{color:#9aa0aa;font-size:12px}#acct .quota{color:#c9a36a;font-weight:700}";
+   +"#acct .muted{color:#9aa0aa;font-size:12px}#acct .quota{color:#c9a36a;font-weight:700}"
+   +"@media(max-width:979px){#acct{top:56px;left:12px;transform:none;align-items:flex-start;max-width:calc(100vw - 24px)}#acct .pill{flex-wrap:wrap;max-width:calc(100vw - 24px);row-gap:5px}}";
   var box=document.createElement("div");box.id="acct";
   function mount(){document.head.appendChild(css);document.body.appendChild(box);}
   function signedOut(){box.innerHTML='<div class="pill"><button class="primary" id="acIn">Sign in</button></div>';box.querySelector("#acIn").onclick=askEmail;}
