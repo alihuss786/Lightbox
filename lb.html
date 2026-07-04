@@ -463,30 +463,6 @@ body.plates-mode .arbtn{display:none}
 /* account avatar must not sit over the AR modal's close button */
 body.ar-open #acct{display:none!important}
 @media(max-width:979px){.arbtn span:not(.ari){display:none}.arbtn{padding:0 10px}}
-/* ---- Lithophane Studio (roadmap / test) ---- */
-body.lit-open #acct{display:none!important}
-.lit-overlay{position:fixed;inset:0;z-index:9998;background:rgba(6,7,9,.9);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px}
-.lit-sheet{position:relative;display:flex;width:min(1040px,96vw);height:min(88vh,760px);background:#0e0e10;border:1px solid rgba(255,255,255,.1);border-radius:20px;overflow:hidden;box-shadow:0 40px 100px -30px rgba(0,0,0,.85)}
-.lit-close{position:absolute;top:10px;right:12px;z-index:4;width:38px;height:38px;border-radius:50%;border:1px solid rgba(255,255,255,.16);background:rgba(20,20,24,.82);color:#fff;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
-.lit-view{flex:1;min-width:0;position:relative;background:radial-gradient(120% 100% at 55% 0%,#1b1b1f,#0b0b0d)}
-.lit-view.dark{background:#050506}
-.lit-view #litCv{display:block;width:100%;height:100%;touch-action:none}
-.lit-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8a8f98;font-size:13px;pointer-events:none}
-.lit-panel{width:300px;flex:none;background:#161618;border-left:1px solid rgba(255,255,255,.08);padding:18px;overflow:auto;display:flex;flex-direction:column;gap:14px;scrollbar-width:none}
-.lit-panel::-webkit-scrollbar{display:none}
-.lit-h{font-size:15px;font-weight:700;color:#f5f5f7}
-.lit-file{display:block;text-align:center;padding:12px;border-radius:11px;border:1.5px dashed rgba(255,255,255,.2);color:#c7ccd4;font-weight:600;font-size:12.5px;cursor:pointer}
-.lit-file:hover{border-color:var(--acc);color:var(--acc2)}
-.lit-row{display:flex;flex-direction:column;gap:6px}
-.lit-row label{font-size:11px;color:#98989d}.lit-row label b{color:#eaeaec;font-variant-numeric:tabular-nums}
-.lit-row input[type=range]{width:100%;accent-color:var(--acc)}
-.lit-toggle{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;color:#eaeaec;font-weight:600}
-.lit-sw{width:44px;height:26px;border-radius:14px;background:#2a2a2e;border:none;position:relative;cursor:pointer;padding:0;transition:background .15s}
-.lit-sw.on{background:var(--acc)}.lit-sw .k{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}.lit-sw.on .k{left:21px}
-.lit-export{padding:12px;border-radius:11px;border:1px solid var(--acc);background:var(--acc);color:#231a0c;font-weight:700;font-size:13px;cursor:pointer}
-.lit-export:disabled{opacity:.4;cursor:default;filter:grayscale(.4)}
-.lit-stats{font-size:10.5px;color:#8a8f98;font-variant-numeric:tabular-nums}
-@media(max-width:820px){.lit-sheet{flex-direction:column;height:min(92vh,860px)}.lit-view{min-height:44vh}.lit-panel{width:auto;border-left:none;border-top:1px solid rgba(255,255,255,.08)}}
 .exportbtn{background:var(--acc)!important;border:1px solid var(--acc)!important;color:#fff!important;box-shadow:0 8px 18px -10px var(--acc)!important;font-weight:700}
 .exportbtn:hover{filter:brightness(1.05)}
 
@@ -647,6 +623,20 @@ body.lit-open #acct{display:none!important}
       <div class="texgrid" id="texgrid"></div>
     </div>
   </div>
+  <div class="acc">
+    <div class="acc-h" onclick="accT(this)">Photo <i class="chev">⌄</i></div>
+    <div class="acc-b">
+      <div class="hint">Turn a photo into a lithophane relief on the lid front — it reveals the picture when the lamp is on, and prints as one solid piece.</div>
+      <label class="upfont" style="cursor:pointer">⬆ Upload a photo (lithophane)<input type="file" id="photoFile" accept="image/*" hidden onchange="onPhotoUpload(this)"></label>
+      <div id="photoControls" style="display:none;flex-direction:column;gap:13px">
+        <div class="row"><span class="lbl">Preview</span><div id="photoThumb" style="width:96px;height:96px;border-radius:10px;border:1px solid var(--line);background:#0a0b0e center/cover no-repeat;align-self:flex-start"></div></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth — <b id="photoDepthLbl">2.0</b> mm</span><div class="szc"><button type="button" class="stp" onclick="nudgePhoto('depth',-1)">−</button><input type="range" id="photoDepth" min="0.8" max="3.2" step="0.1" value="2" oninput="onPhotoParam()"><button type="button" class="stp" onclick="nudgePhoto('depth',1)">＋</button></div></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Detail — <b id="photoDetailLbl">Medium</b></span><input type="range" id="photoDetail" min="0.45" max="1.4" step="0.05" value="0.8" oninput="onPhotoParam()"></div>
+        <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_photoInv" onclick="togglePhotoInvert()"><div class="k"></div></div></div>
+        <button class="addtext" onclick="clearPhoto()">Remove photo</button>
+      </div>
+    </div>
+  </div>
   <div class="acc open">
     <div class="acc-h" onclick="accT(this)">Letter &amp; text <i class="chev">⌄</i></div>
     <div class="acc-b">
@@ -738,7 +728,7 @@ body.lit-open #acct{display:none!important}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
-<!-- LITHOPHANE (roadmap / test — remove or set window.__LITHO_ENABLED=false for launch) -->
+<!-- Photo lithophane (roadmap) — grayscale helper for the Photo tab; remove with the Photo section for launch -->
 <script src="lithophane.js"></script>
 <script>
 const PRINTERS=[{n:"A1 mini",x:180,y:180},{n:"A1",x:256,y:256},{n:"P1P",x:256,y:256},{n:"P1S",x:256,y:256},{n:"X1 Carbon",x:256,y:256},{n:"X1E",x:256,y:256},{n:"P2S",x:256,y:256},{n:"X2D",x:256,y:256},{n:"A2L",x:330,y:320},{n:"H2D",x:350,y:320},{n:"H2S",x:350,y:320}];
@@ -912,7 +902,19 @@ var TEXTURES=[
 ];
 var TEXFN={};TEXTURES.forEach(function(t){TEXFN[t.id]=t;});
 var LIDTEX=null;
-function selectTexture(id){var t=(id&&id!=="none")?TEXFN[id]:null;LIDTEX=(t&&(t.gen||t.fn))?{gen:t.gen,fn:t.fn,grid:t.grid,amp:t.amp,relief:t.relief||0.9,dome:t.dome,domeMin:t.domeMin}:null;window.__lidTexId=id||"none";try{renderTexList();}catch(e){}if(typeof scheduleBuild==="function")scheduleBuild();}
+function selectTexture(id){var t=(id&&id!=="none")?TEXFN[id]:null;LIDTEX=(t&&(t.gen||t.fn))?{gen:t.gen,fn:t.fn,grid:t.grid,amp:t.amp,relief:t.relief||0.9,dome:t.dome,domeMin:t.domeMin}:null;window.__lidTexId=id||"none";if(id&&id!=="none"&&typeof PHOTO!=="undefined"&&PHOTO){PHOTO=null;var _pc=document.getElementById("photoControls");if(_pc)_pc.style.display="none";}try{renderTexList();}catch(e){}if(typeof scheduleBuild==="function")scheduleBuild();}
+
+/* ===== Photo -> lithophane relief on the lid front (uses the addCapTextured fn path) ===== */
+var PHOTO=null, photoInvert=false;
+function photoParams(){var d=document.getElementById("photoDepth"),g=document.getElementById("photoDetail");return {amp:d?parseFloat(d.value):2, grid:g?parseFloat(g.value):0.8};}
+function sampleH(u,v){if(!PHOTO)return 0;var c=PHOTO.cols,r=PHOTO.rows;u=u<0?0:u>1?1:u;v=v<0?0:v>1?1:v;var fx=u*(c-1),fy=v*(r-1);var x0=Math.floor(fx),y0=Math.floor(fy),x1=Math.min(c-1,x0+1),y1=Math.min(r-1,y0+1);var tx=fx-x0,ty=fy-y0,H=PHOTO.h;var a=H[y0*c+x0],b=H[y0*c+x1],cc=H[y1*c+x0],dd=H[y1*c+x1];var top=a+(b-a)*tx,bot=cc+(dd-cc)*tx;return top+(bot-top)*ty;}
+function makePhotoTex(){var pp=photoParams();var tex={photo:true,relief:1,deboss:false,bbox:null,grid:pp.grid,amp:pp.amp};tex.fn=function(px,py){try{var bb=tex.bbox;if(!bb||!PHOTO)return 0;var u=(px-bb.mnX)/((bb.mxX-bb.mnX)||1);var v=(py-bb.mnY)/((bb.mxY-bb.mnY)||1);var h=sampleH(u,1-v);return photoInvert?1-h:h;}catch(e){return 0;}};return tex;}
+function applyPhoto(){if(!PHOTO)return;LIDTEX=makePhotoTex();window.__lidTexId="none";try{renderTexList();}catch(e){}if(typeof scheduleBuild==="function")scheduleBuild();}
+function onPhotoUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;if(!window.Lithophane){alert("Photo module still loading — try again in a moment.");return;}var img=new Image();img.onload=function(){try{var hm=window.Lithophane.imageToHeightMap(img,{minThickness:0,maxThickness:1,maxSamples:240});PHOTO={h:hm.thickness,cols:hm.cols,rows:hm.rows};var t=document.getElementById("photoThumb");if(t)t.style.backgroundImage="url("+img.src+")";var pc=document.getElementById("photoControls");if(pc)pc.style.display="flex";applyPhoto();}catch(e){alert("Could not read that image.");}};img.src=URL.createObjectURL(f);}
+function onPhotoParam(){var d=document.getElementById("photoDepth"),g=document.getElementById("photoDetail");if(document.getElementById("photoDepthLbl")&&d)document.getElementById("photoDepthLbl").textContent=(+d.value).toFixed(1);if(document.getElementById("photoDetailLbl")&&g)document.getElementById("photoDetailLbl").textContent=(+g.value<=0.6?"Fine":(+g.value>=1.15?"Coarse":"Medium"));if(PHOTO)applyPhoto();}
+function nudgePhoto(which,dir){var el=document.getElementById(which==="depth"?"photoDepth":"photoDetail");if(!el)return;el.value=(+el.value+dir*(+el.step)).toFixed(2);onPhotoParam();}
+function togglePhotoInvert(){photoInvert=!photoInvert;var tg=document.getElementById("tg_photoInv");if(tg)tg.classList.toggle("on",photoInvert);if(PHOTO)applyPhoto();}
+function clearPhoto(){PHOTO=null;LIDTEX=null;var pc=document.getElementById("photoControls");if(pc)pc.style.display="none";var t=document.getElementById("photoThumb");if(t)t.style.backgroundImage="";if(typeof scheduleBuild==="function")scheduleBuild();}
 function drawTexPreview(cv,t){var ctx=cv.getContext("2d");var W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
   var grout="#20242b",tile="#cdc6b8";
   ctx.fillStyle=grout;ctx.fillRect(0,0,W,H);
@@ -1418,7 +1420,7 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
     const inFull=(px,py)=>inR(px,py,full);const inSafe=(px,py)=>inR(px,py,eroded);
     const disp=(px,py)=>{const rx=px/d,ry=py/d;if(Math.abs(rx-Math.round(rx))>1e-4||Math.abs(ry-Math.round(ry))>1e-4)return 0;if(!inSafe(px,py))return 0;return sgn*amp*fn(px,py);};
     const emit=(a,b,c)=>{addTri([a.x-cx,a.y-cy,z+disp(a.x,a.y)],[b.x-cx,b.y-cy,z+disp(b.x,b.y)],[c.x-cx,c.y-cy,z+disp(c.x,c.y)]);};
-    let mnX=1e9,mnY=1e9,mxX=-1e9,mxY=-1e9;full.forEach(r=>r.outer.forEach(p=>{if(p.x<mnX)mnX=p.x;if(p.x>mxX)mxX=p.x;if(p.y<mnY)mnY=p.y;if(p.y>mxY)mxY=p.y;}));
+    let mnX=1e9,mnY=1e9,mxX=-1e9,mxY=-1e9;full.forEach(r=>r.outer.forEach(p=>{if(p.x<mnX)mnX=p.x;if(p.x>mxX)mxX=p.x;if(p.y<mnY)mnY=p.y;if(p.y>mxY)mxY=p.y;}));if(tex.photo)tex.bbox={mnX:mnX,mnY:mnY,mxX:mxX,mxY:mxY};
     const i0=Math.floor(mnX/d),i1=Math.ceil(mxX/d),j0=Math.floor(mnY/d),j1=Math.ceil(mxY/d);
     for(let i=i0;i<i1;i++)for(let j=j0;j<j1;j++){const x0=i*d,y0=j*d,x1=(i+1)*d,y1=(j+1)*d;
       const s00=inSafe(x0,y0),s10=inSafe(x1,y0),s11=inSafe(x1,y1),s01=inSafe(x0,y1);
@@ -3082,118 +3084,6 @@ window.USDZExporter=USDZExporter;})();
     tb.appendChild(b);return true;
   }
   var tries=0;(function wait(){if(injectBtn())return;if(tries++>40)return;setTimeout(wait,150);})();
-})();
-
-</script>
-<script>
-/* ============ LITHOPHANE STUDIO (roadmap / test) ============
- * Self-contained modal built on window.Lithophane. Does not touch the
- * letter-design pipeline. Toggle window.__LITHO_ENABLED=false to hide
- * (one line) for the Kickstarter launch. ============================ */
-(function(){
-  if(typeof window.__LITHO_ENABLED==="undefined") window.__LITHO_ENABLED=true;
-  var G=function(id){return document.getElementById(id);};
-  var built=false, ren=null, scn=null, cam=null, mesh=null, printMat=null, backMat=null;
-  var backlightOn=false, srcImg=null, statusBox=null, drag=false, px=0, py=0, rotX=-0.15, rotY=0.4;
-  function L(){return window.Lithophane;}
-  function opts(){return {widthMm:+G("litW").value, minThickness:+G("litMin").value, maxThickness:+G("litMax").value};}
-
-  function ensureUI(){
-    if(built)return; built=true;
-    var ov=document.createElement("div"); ov.id="litOverlay"; ov.className="lit-overlay"; ov.style.display="none";
-    ov.innerHTML=
-      '<div class="lit-sheet">'
-      +'<button class="lit-close" onclick="closeLitho()" aria-label="Close">×</button>'
-      +'<div class="lit-view"><canvas id="litCv"></canvas><div class="lit-empty" id="litEmpty">Upload a photo to begin</div></div>'
-      +'<div class="lit-panel">'
-      +'<div class="lit-h">Lithophane Studio</div>'
-      +'<label class="lit-file">＋ Upload a photo<input type="file" id="litFile" accept="image/*" hidden></label>'
-      +'<div class="lit-row"><label>Panel width — <b id="litWLbl">100</b> mm</label><input type="range" id="litW" min="40" max="200" step="1" value="100"></div>'
-      +'<div class="lit-row"><label>Min thickness (bright) — <b id="litMinLbl">0.5</b> mm</label><input type="range" id="litMin" min="0.4" max="1.5" step="0.1" value="0.5"></div>'
-      +'<div class="lit-row"><label>Max thickness (dark) — <b id="litMaxLbl">3.5</b> mm</label><input type="range" id="litMax" min="2" max="6" step="0.1" value="3.5"></div>'
-      +'<div class="lit-toggle"><span>Backlight preview</span><button class="lit-sw" id="litBack" type="button"><span class="k"></span></button></div>'
-      +'<div id="litStatusHost"></div>'
-      +'<button class="lit-export" id="litExport" disabled>⬇ Export STL</button>'
-      +'<div class="lit-stats" id="litStats"></div>'
-      +'</div></div>';
-    document.body.appendChild(ov);
-    statusBox=L().createStatusBox(G("litStatusHost"));
-    printMat=new THREE.MeshStandardMaterial({color:0xf0e9dd, roughness:0.62, metalness:0});
-
-    G("litFile").addEventListener("change", function(e){
-      var f=e.target.files[0]; if(!f)return;
-      var img=new Image(); img.onload=function(){ srcImg=img; G("litEmpty").style.display="none"; rebuild(); }; img.src=URL.createObjectURL(f);
-    });
-    G("litExport").addEventListener("click", function(){
-      if(!mesh)return;
-      var blob=L().exportSTL(mesh.geometry,{precision:5,solid:true,name:"lithophane"});
-      var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="lithophane.stl"; a.click();
-    });
-    G("litBack").addEventListener("click", function(){
-      backlightOn=!backlightOn; this.classList.toggle("on",backlightOn);
-      if(mesh&&backMat) mesh.material=backlightOn?backMat:printMat;
-      G("litCv").parentElement.classList.toggle("dark",backlightOn);
-    });
-    ["litW","litMin","litMax"].forEach(function(id){
-      G(id).addEventListener("input", function(){ G(id+"Lbl").textContent=G(id).value; rebuild(); });
-    });
-    var cv=G("litCv");
-    cv.addEventListener("mousedown",function(e){drag=true;px=e.clientX;py=e.clientY;});
-    cv.addEventListener("touchstart",function(e){drag=true;px=e.touches[0].clientX;py=e.touches[0].clientY;},{passive:true});
-    window.addEventListener("mouseup",function(){drag=false;});
-    window.addEventListener("touchend",function(){drag=false;});
-    var mv=function(x,y){ if(!drag)return; rotY+=(x-px)*0.01; rotX+=(y-py)*0.01; px=x; py=y; };
-    cv.addEventListener("mousemove",function(e){mv(e.clientX,e.clientY);});
-    cv.addEventListener("touchmove",function(e){if(drag){mv(e.touches[0].clientX,e.touches[0].clientY);}},{passive:true});
-    window.addEventListener("resize",function(){ if(G("litOverlay").style.display!=="none") resize(); });
-  }
-
-  function initRenderer(){
-    if(ren)return;
-    ren=new THREE.WebGLRenderer({canvas:G("litCv"), antialias:true});
-    ren.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
-    if(THREE.sRGBEncoding) ren.outputEncoding=THREE.sRGBEncoding;
-    scn=new THREE.Scene(); scn.background=new THREE.Color(0x141417);
-    cam=new THREE.PerspectiveCamera(38,1,0.1,6000); cam.position.set(0,0,240);
-    scn.add(new THREE.AmbientLight(0xffffff,0.55));
-    var k=new THREE.DirectionalLight(0xffffff,0.95); k.position.set(120,170,220); scn.add(k);
-    (function loop(){ requestAnimationFrame(loop); if(!G("litOverlay")||G("litOverlay").style.display==="none")return; if(mesh)mesh.rotation.set(rotX,rotY,0); ren.render(scn,cam); })();
-  }
-
-  function resize(){
-    if(!ren)return; var cv=G("litCv"); var w=cv.clientWidth||600, h=cv.clientHeight||400;
-    ren.setSize(w,h,false); cam.aspect=w/h; cam.updateProjectionMatrix();
-  }
-
-  function rebuild(){
-    if(!srcImg)return; var o=opts(); var Lit=L();
-    var hmap=Lit.imageToHeightMap(srcImg,o);
-    var geo=Lit.buildGeometry(hmap,o);
-    if(mesh){ scn.remove(mesh); mesh.geometry.dispose(); }
-    backMat=Lit.makeBacklightMaterial(o);
-    mesh=new THREE.Mesh(geo, backlightOn?backMat:printMat); scn.add(mesh);
-    var ld=geo.userData.lithophane; cam.position.z=Math.max(o.widthMm, o.widthMm*ld.heightMm/ld.widthMm)*2.1;
-    var res=Lit.validate(geo,o); statusBox.fromResult(res);
-    G("litExport").disabled=!res.ok;
-    G("litStats").textContent=(geo.index.count/3)+" triangles · "+ld.cols+"×"+ld.rows+" · "+res.min.toFixed(2)+"–"+res.max.toFixed(2)+" mm";
-  }
-
-  function openLitho(){
-    if(!window.Lithophane){ alert("Lithophane module not loaded."); return; }
-    ensureUI(); G("litOverlay").style.display="flex"; document.body.classList.add("lit-open"); window.__arPaused=true;
-    initRenderer(); setTimeout(resize,30);
-  }
-  function closeLitho(){ var o=G("litOverlay"); if(o)o.style.display="none"; document.body.classList.remove("lit-open"); window.__arPaused=false; }
-  window.openLitho=openLitho; window.closeLitho=closeLitho;
-
-  function injectBtn(){
-    if(!window.__LITHO_ENABLED)return true;
-    var tb=document.querySelector(".topbar"); if(!tb||tb.querySelector(".litbtn"))return true;
-    var b=document.createElement("button"); b.className="litbtn arbtn"; b.type="button"; b.setAttribute("onclick","openLitho()");
-    b.innerHTML='<span class="ari">◫</span><span>Lithophane</span>';
-    tb.appendChild(b); return true;
-  }
-  var tries=0;(function wait(){ if(injectBtn())return; if(tries++>40)return; setTimeout(wait,150); })();
 })();
 
 </script>
