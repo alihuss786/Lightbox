@@ -1969,7 +1969,7 @@ function zipStore(files){
   const all=parts.concat(cen,[end]);let len=0;all.forEach(a=>len+=a.length);
   const out=new Uint8Array(len);let p=0;all.forEach(a=>{out.set(a,p);p+=a.length;});return out;
 }
-async function exportPlates(){
+async function exportPlates(deliver){deliver=deliver||"download";
   const btn=g("exportBtn");const orig=btn?btn.textContent:"";
   try{
     if(btn){btn.disabled=true;btn.textContent="⏳ Preparing…";}
@@ -1986,10 +1986,16 @@ async function exportPlates(){
       if(_l&&_l.quota_type==="total"){var _r=Math.max(0,(_l.quota_limit||0)-(_l.exports_total||0));__cmsg="Export this design?\n\nThis uses 1 export — you have "+_r+" of "+_l.quota_limit+" left.";}
       else if(_l&&_l.quota_type==="monthly"){var _cur=new Date().toISOString().slice(0,7),_u=(_l.period_key===_cur)?(_l.exports_period||0):0,_r2=Math.max(0,(_l.quota_limit||0)-_u);__cmsg="Export this design?\n\nThis uses 1 of this month's exports — you have "+_r2+" of "+_l.quota_limit+" left this month.";}
     }catch(e){}
+    if(deliver==="concierge")__cmsg="Send this design to the print studio?\n\nWe’ll print it and ship it to you — no file is downloaded.";
     if(!window.confirm(__cmsg)){return;}
     if(btn){btn.disabled=true;btn.textContent="⏳ Preparing…";}
     // ===== LICENCE GATE: sign-in + an available export required before producing a file =====
-    if(typeof window.__consumeExport==="function"){var __lic=await window.__consumeExport();if(!__lic||!__lic.allowed){if(btn)btn.textContent=orig;return;}}
+    if(deliver==="concierge"){
+      if(!(window.__sb&&window.__user)){alert("Please sign in first, then tap Print for me.");if(btn)btn.textContent=orig;return;}
+    }else{
+      if(window.__isConcierge&&window.__isConcierge()){if(btn)btn.textContent=orig;alert("Your plan is Concierge — tap “Print for me” and we’ll print & ship it for you.");return;}
+      if(typeof window.__consumeExport==="function"){var __lic=await window.__consumeExport();if(!__lic||!__lic.allowed){if(btn)btn.textContent=orig;return;}}
+    }
     // Categorise every printable part, then enforce the STRICT 4-plate split:
     //   Plate 1 = Main Box (body) · Plate 2 = Lid · Plate 3 = ALL text layers · Plate 4 = ALL catalog models.
     // The lid is the only face-down (flip) part; text/models are detected by their flags.
@@ -2027,9 +2033,19 @@ async function exportPlates(){
     const zip=zipStore(files);
     const blob=new Blob([zip],{type:"model/3mf"});
     const letter=(v("letter")||"A").toUpperCase()[0];
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`lightbox_${letter}_${plateCount}plates.3mf`;
-    document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},800);
-    if(btn){btn.textContent="✓ Exported "+plateCount+" plates";setTimeout(()=>{btn.textContent=orig;},1800);}
+    const fname=`lightbox_${letter}_${plateCount}plates.3mf`;
+    if(deliver==="concierge"){
+      const summary={letter:letter,plates:plateCount,printer:((typeof PRINTERS!=="undefined"&&PRINTERS[selPrinter]&&PRINTERS[selPrinter].name)||selPrinter),colors:(typeof COLORS!=="undefined"?COLORS:null)};
+      if(btn)btn.textContent="⏳ Sending…";
+      let rr=null;try{rr=await window.__submitPrintJob(blob,summary,fname);}catch(_){rr=null;}
+      if(rr&&rr.ok){if(btn)btn.textContent="✓ Sent — we’ll print it";alert("Your design has been sent to the print studio. You’ll be contacted about your order.");}
+      else{if(btn)btn.textContent="⚠ Send failed";alert("Couldn’t send your design: "+((rr&&rr.reason)||"network error")+". Please try again.");}
+      if(btn)setTimeout(()=>{btn.textContent=orig;},2600);
+    }else{
+      const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=fname;
+      document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},800);
+      if(btn){btn.textContent="✓ Exported "+plateCount+" plates";setTimeout(()=>{btn.textContent=orig;},1800);}
+    }
   }catch(e){console.error(e);alert("Export failed: "+(e&&e.message||e));if(btn)btn.textContent=orig;}
   finally{if(btn)btn.disabled=false;if(typeof PHOTO!=="undefined"&&PHOTO){window.__photoFine=false;try{if(typeof scheduleBuild==="function")scheduleBuild();}catch(_){}}}
 }
@@ -2206,6 +2222,7 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
   function mount(){document.head.appendChild(css);document.body.appendChild(box);}
   var signinStep=0,signinMsg='';
   function signedOut(){
+    window.__user=null;window.__license=null;if(window.__afterLicence)try{window.__afterLicence()}catch(e){}
     var html='<button class="acsignin" id="acIn">Sign in</button>';
     if(signinStep===1)html+='<div class="acmenu"><div class="acmenuhead"><span>Sign in</span></div><input class="acinput" id="acEm" type="email" placeholder="you@email.com" autocomplete="email"><button class="acsignout" id="acGo">Email me a link</button></div>';
     else if(signinStep===2)html+='<div class="acmenu"><div class="acmsg">'+signinMsg+'</div></div>';
@@ -2224,7 +2241,7 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
     return '<span class="muted">Licensed</span>';
   }
   var detailsOpen=false;
-  function tierName(t){return t==='lifetime'?'Lifetime Access':t==='one_year'?'1-Year Access':t==='six_month'?'6-Month Access':'Access';}
+  function tierName(t){return t==='concierge'?'Concierge (print & ship)':t==='lifetime'?'Lifetime Access':t==='one_year'?'1-Year Access':t==='six_month'?'6-Month Access':'Access';}
   function fmtDate(iso){try{return new Date(iso).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});}catch(e){return '';}}
   function timeLeft(lic){if(!lic.expires_at)return 'Never expires';var ms=new Date(lic.expires_at)-new Date();if(ms<=0)return 'Expired';var days=Math.ceil(ms/86400000);if(days>=60)return Math.round(days/30)+' months left';return days+(days===1?' day left':' days left');}
   function exportsLeft(lic){if(lic.quota_type==='unlimited')return 'Unlimited';if(lic.quota_type==='total')return Math.max(0,(lic.quota_limit||0)-(lic.exports_total||0))+' of '+lic.quota_limit;if(lic.quota_type==='monthly'){var cur=(new Date()).toISOString().slice(0,7),used=(lic.period_key===cur)?(lic.exports_period||0):0;return Math.max(0,(lic.quota_limit||0)-used)+' of '+lic.quota_limit;}return '';}
@@ -2240,8 +2257,8 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
     return '<div class="acard">'+t+'</div>';
   }
   var menuOpen=false,designsView=false,_designs=[],_designsLoading=false;
-  function signedIn(user,lic){window.__user=user;window.__license=lic;renderAccount();}
-  function badgeText(lic){if(!lic)return 'No licence';var t=lic.tier;return (t==='lifetime'?'Lifetime':t==='one_year'?'1-Year':t==='six_month'?'6-Month':'Member')+' Member';}
+  function signedIn(user,lic){window.__user=user;window.__license=lic;renderAccount();if(window.__afterLicence)try{window.__afterLicence()}catch(e){}}
+  function badgeText(lic){if(!lic)return 'No licence';var t=lic.tier;if(t==='concierge')return 'Concierge';return (t==='lifetime'?'Lifetime':t==='one_year'?'1-Year':t==='six_month'?'6-Month':'Member')+' Member';}
   function usageText(lic){if(!lic)return '';if(lic.quota_type==='unlimited')return 'Unlimited';var e=exportsLeft(lic);return lic.quota_type==='monthly'?(e+' this month'):(e+' left');}
   function statRow(k,v){return '<div class="acstat"><span>'+k+'</span><span>'+v+'</span></div>';}
   function renderAccount(){
@@ -3131,5 +3148,136 @@ window.USDZExporter=USDZExporter;})();
 })();
 
 </script>
+<script>
+/* ============================================================================
+   CONCIERGE TIER  —  "Print for me"
+   Concierge users design but cannot download an STL. Instead the finished .3mf
+   is uploaded to Supabase Storage and a print_jobs row is filed; the owner is
+   emailed AND can review every job in an in-app queue.
+   Backend it relies on (see CONCIERGE_SETUP.md): Storage bucket "print-jobs",
+   table "print_jobs", RLS, and /api/print-job. Purely additive — if none of
+   that exists yet, paid/normal tiers are completely unaffected.
+   ============================================================================ */
+(function(){
+  var OWNER_EMAIL="alihus007@gmail.com";          // controls who sees the admin queue (real security is RLS)
+  var PRINT_BUCKET="print-jobs";
+
+  window.__isConcierge=function(){return !!(window.__license&&window.__license.tier==="concierge");};
+  function isOwner(){return !!(window.__user&&window.__user.email&&window.__user.email.toLowerCase()===OWNER_EMAIL);}
+
+  /* ---- Submit a finished design to the print studio ---- */
+  window.__submitPrintJob=async function(blob,summary,filename){
+    try{
+      var sb=window.__sb,user=window.__user;
+      if(!sb||!user)return {ok:false,reason:"not_signed_in"};
+      var sess=(await sb.auth.getSession()).data.session;
+      if(!sess)return {ok:false,reason:"not_signed_in"};
+      var safe=(filename||"lightbox.3mf").replace(/[^a-zA-Z0-9._-]/g,"_");
+      var path=user.id+"/"+Date.now()+"_"+safe;
+      // 1) upload the model straight to Storage (never through the 4.5MB serverless limit)
+      var up=await sb.storage.from(PRINT_BUCKET).upload(path,blob,{contentType:"model/3mf",upsert:false});
+      if(up.error)return {ok:false,reason:"upload_failed"};
+      // 2) record the job + email the owner (server verifies the user, writes with the service key)
+      var res=await fetch("/api/print-job",{method:"POST",
+        headers:{Authorization:"Bearer "+sess.access_token,"Content-Type":"application/json"},
+        body:JSON.stringify({file_path:path,filename:filename,summary:summary,size_bytes:blob.size})});
+      var d=await res.json().catch(function(){return {ok:false,reason:"bad_response"};});
+      return (d&&d.ok)?{ok:true,job:d.job_id}:{ok:false,reason:(d&&d.reason)||"record_failed"};
+    }catch(e){return {ok:false,reason:"error"};}
+  };
+
+  /* ---- Swap the export button + toggle the owner queue entry when the licence changes ---- */
+  function applyConciergeUI(){
+    var btn=document.getElementById("exportBtn");
+    if(btn){
+      if(window.__isConcierge()){
+        btn.textContent="🖨 Print for me";
+        btn.title="Send your design to our print studio — we print & ship it to you";
+        btn.onclick=function(){exportPlates("concierge");};
+      }else{
+        btn.textContent="⬇ Export STL";
+        btn.title="Export every build plate as a Bambu Studio-ready 3D project (one object per plate)";
+        btn.onclick=function(){exportPlates();};
+      }
+    }
+    var ob=document.getElementById("ownerJobsBtn");
+    if(isOwner()){
+      if(!ob){
+        ob=document.createElement("button");ob.id="ownerJobsBtn";ob.type="button";
+        ob.textContent="🖨 Print jobs";
+        ob.style.cssText="position:fixed;left:14px;bottom:14px;z-index:6000;padding:9px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:#1c1f26;color:#eaeaec;font:600 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35)";
+        ob.onclick=openPrintQueue;
+        document.body.appendChild(ob);
+      }
+    }else if(ob){ob.remove();}
+  }
+  window.__afterLicence=applyConciergeUI;
+
+  /* ---- Owner-only print-job queue ---- */
+  function ensureQueueModal(){
+    var m=document.getElementById("pqModal");if(m)return m;
+    m=document.createElement("div");m.id="pqModal";
+    m.style.cssText="display:none;position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:20px";
+    m.innerHTML=
+      '<div style="background:#14161b;color:#eaeaec;border:1px solid rgba(255,255,255,.12);border-radius:16px;max-width:720px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08)">'
+      +'<div style="font-weight:700;font-size:15px">🖨 Print jobs</div>'
+      +'<button id="pqClose" style="background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1">×</button></div>'
+      +'<div id="pqList" style="padding:14px 18px;overflow:auto;display:flex;flex-direction:column;gap:10px">Loading…</div></div>';
+    document.body.appendChild(m);
+    m.addEventListener("click",function(e){if(e.target===m)m.style.display="none";});
+    m.querySelector("#pqClose").onclick=function(){m.style.display="none";};
+    return m;
+  }
+  function esc(x){return String(x==null?"":x).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+  function fmt(iso){try{return new Date(iso).toLocaleString();}catch(e){return iso||"";}}
+  function summaryLine(s){if(!s)return"";try{if(typeof s==="string")s=JSON.parse(s);}catch(e){return"";}
+    var bits=[];if(s.letter)bits.push('Letter “'+esc(s.letter)+'”');if(s.plates)bits.push(s.plates+" plates");if(s.printer)bits.push(esc(s.printer));return bits.join(" · ");}
+
+  async function openPrintQueue(){
+    var sb=window.__sb;if(!sb){alert("Sign-in offline.");return;}
+    var m=ensureQueueModal();m.style.display="flex";
+    var list=document.getElementById("pqList");list.textContent="Loading…";
+    var r=await sb.from("print_jobs").select("*").order("created_at",{ascending:false}).limit(200);
+    if(r.error){list.innerHTML='<div style="color:#f88">Could not load jobs: '+esc(r.error.message)+'</div>';return;}
+    var rows=r.data||[];
+    if(!rows.length){list.innerHTML='<div style="color:#9aa">No print jobs yet.</div>';return;}
+    list.innerHTML="";
+    rows.forEach(function(job){
+      var card=document.createElement("div");
+      card.style.cssText="border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;background:#191c22";
+      var done=(job.status==="done");
+      card.innerHTML=
+        '<div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">'
+        +'<div style="font-weight:600">'+esc(job.email||job.user_id||"customer")+'</div>'
+        +'<div style="font-size:11px;color:#8b93a1">'+fmt(job.created_at)+'</div></div>'
+        +'<div style="font-size:12px;color:#aab2c0">'+summaryLine(job.summary)+'</div>'
+        +'<div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">'
+        +'<button class="pqDl" style="padding:7px 12px;border-radius:8px;border:none;background:#e0c08d;color:#231a0c;font-weight:600;cursor:pointer">⬇ Download .3mf</button>'
+        +'<button class="pqDone" style="padding:7px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:'+(done?"#1f3d29":"transparent")+';color:#dfe;cursor:pointer">'+(done?"✓ Done":"Mark done")+'</button>'
+        +'<span style="align-self:center;font-size:11px;color:#7f8896">'+esc(job.filename||"")+'</span></div>';
+      card.querySelector(".pqDl").onclick=async function(){
+        this.textContent="…";
+        var su=await sb.storage.from(PRINT_BUCKET).createSignedUrl(job.file_path,3600);
+        if(su.error||!su.data){this.textContent="⚠ error";return;}
+        var a=document.createElement("a");a.href=su.data.signedUrl;a.download=job.filename||"lightbox.3mf";document.body.appendChild(a);a.click();a.remove();
+        this.textContent="⬇ Download .3mf";
+      };
+      card.querySelector(".pqDone").onclick=async function(){
+        var nb=this;nb.textContent="…";
+        var u=await sb.from("print_jobs").update({status:done?"new":"done"}).eq("id",job.id);
+        if(u.error){nb.textContent="⚠";return;}openPrintQueue();
+      };
+      list.appendChild(card);
+    });
+  }
+  window.__openPrintQueue=openPrintQueue;
+
+  // apply once at load in case the licence resolved before this script ran
+  if(document.readyState!=="loading")setTimeout(applyConciergeUI,300);
+  else document.addEventListener("DOMContentLoaded",function(){setTimeout(applyConciergeUI,300);});
+})();
+</script>
+
 </body>
 </html>
