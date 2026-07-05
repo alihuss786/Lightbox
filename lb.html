@@ -1848,7 +1848,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=ne
     // Text layers are physically small — group EVERY text element onto ONE shared text build plate instead
     // of one plate per layer. The combined group holds each layer at its design position (so the assembled
     // render is unchanged); on the plate it is auto-packed into a non-overlapping row (see layoutTextPlate).
-    if(nameGroups.length){const textPlate=new THREE.Group();nameGroups.forEach(gr=>textPlate.add(gr));partList.push({group:textPlate,name:(nameGroups.length>1?("Text · "+nameGroups.length+" layers"):"Text"),flip:false,textPlate:true,color:COLORS.front});}
+    if(nameGroups.length){if(window.__hasAMS&&nameMode){nameGroups.forEach(gr=>capGroup.add(gr));partList[0].name="Lid + Name";}else{const textPlate=new THREE.Group();nameGroups.forEach(gr=>textPlate.add(gr));partList.push({group:textPlate,name:(nameGroups.length>1?("Text · "+nameGroups.length+" layers"):"Text"),flip:false,textPlate:true,color:COLORS.front});}}
     imgGroups.forEach((gr,i)=>partList.push({group:gr,name:"Image "+(i+1),flip:false,color:COLORS.image}));
     if(typeof photoPanelGroup!=="undefined"&&photoPanelGroup)partList.push({group:photoPanelGroup,name:"Photo panel",flip:false,color:"#FFFFFF"});
     if(stlParts&&stlParts.length){stlParts.forEach(p=>partList.push(p));}
@@ -1895,7 +1895,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=ne
 function renderPlateList(){const el=g("platelist");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";
   el.innerHTML=`<div class="plbl">Plates</div>`+PLATES.map((p,i)=>{const extra=p.flip?" · face-down":"";const th=PLATE_THUMBS[i]?`<img src="${PLATE_THUMBS[i]}">`:"";return `<div class="pcard${i===selPlate?' sel':''}" data-i="${i}"><div class="pth">${th}</div><div><div class="pnm">Plate ${i+1}</div><div class="psub">${p.name}${extra}</div></div></div>`;}).join("");
   el.querySelectorAll(".pcard").forEach(d=>d.onclick=()=>{selPlate=+d.dataset.i;zoom=1;buildModel();});}
-function renderPrinter(){const el=g("printerbox");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";el.innerHTML=`<div class="plbl">Printer</div><select class="psel" onchange="setPrinter(this.selectedIndex)">`+PRINTERS.map((p,i)=>`<option ${i===selPrinter?"selected":""}>${p.n} · ${p.x}×${p.y}mm</option>`).join("")+`</select><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;opacity:.85;cursor:pointer;line-height:1.3"><input type="checkbox" ${window.__hasAMS?"checked":""} onchange="window.__hasAMS=this.checked" style="width:16px;height:16px;flex:none"> I have an AMS (multi-colour printer)</label><div style="font-size:10.5px;opacity:.55;margin-top:4px">On: colours baked into one .3mf. Off: each part on its own plate to print separately.</div>`;}
+function renderPrinter(){const el=g("printerbox");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";el.innerHTML=`<div class="plbl">Printer</div><select class="psel" onchange="setPrinter(this.selectedIndex)">`+PRINTERS.map((p,i)=>`<option ${i===selPrinter?"selected":""}>${p.n} · ${p.x}×${p.y}mm</option>`).join("")+`</select><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;opacity:.85;cursor:pointer;line-height:1.3"><input type="checkbox" ${window.__hasAMS?"checked":""} onchange="window.__hasAMS=this.checked;if(typeof buildModel==='function')buildModel()" style="width:16px;height:16px;flex:none"> I have an AMS (multi-colour printer)</label><div style="font-size:10.5px;opacity:.55;margin-top:4px">On: colours baked into one .3mf. Off: each part on its own plate to print separately.</div>`;}
 function setPrinter(i){selPrinter=i;zoom=1;buildModel();}
 
 function buildSummary(){const nameExt=mmOf("nameExt")||10;let pocket=Math.max(0,Math.min(mmOf("nameDepth")||0,nameExt));const above=Math.round((nameExt-pocket)*10)/10;const liveTexts=texts.filter(t=>(t.str||"").trim());const parts=2+liveTexts.length+images.length+models.length;const bed=PRINTERS[selPrinter];const tnames=liveTexts.map(t=>t.str.trim()).join(", ")||"—";g("summary").innerHTML=`<b>${(v("letter")||"A").toUpperCase()}</b> · ${selFont.name} · overall ${fmt(mmOf("lh"))} tall × ${fmt(mmOf("bd"))} deep<br>Text layers (${liveTexts.length||"none"}): <b>${tnames}</b> · ${fmt(nameExt)} tall, ${fmt(above)} proud<br>Images: ${images.length||"none"} · 3D models: ${models.length||"none"}<br>Printer <b>${bed.n}</b> (${bed.x}×${bed.y} mm bed)<br><b>${parts} separate printable parts</b> — lid prints face-down`;}
@@ -1951,6 +1951,25 @@ function partTriangles(part,skipLayout){
     const m=p=>({x:f3(p.x-cx),y:f3(cz-p.z),z:f3(p.y-mny)});
     return [m(t[0]),m(t[2]),m(t[1])];
   });
+}
+function partTrianglesByColor(part,skipLayout){
+  const clone=part.group.clone(true);
+  if(part.textPlate&&!skipLayout)layoutTextPlate(clone);
+  clone.rotation.x=part.flip?Math.PI/2:-Math.PI/2;clone.position.set(0,0,0);clone.updateMatrixWorld(true);
+  const v=new THREE.Vector3();const fin=p=>isFinite(p.x)&&isFinite(p.y)&&isFinite(p.z);const byCol={};
+  clone.traverse(o=>{if(!o.isMesh||!o.geometry||(o.userData&&(o.userData.isGlow||o.userData.isPreview)))return;const ge=o.geometry,pos=ge.attributes&&ge.attributes.position;if(!pos)return;const mw=o.matrixWorld,idx=ge.index;
+    var col="#DDDDDD";try{if(o.material&&o.material.color)col="#"+o.material.color.getHexString().toUpperCase();}catch(e){}
+    var arr=byCol[col]||(byCol[col]=[]);
+    const gv=i=>{v.fromBufferAttribute(pos,i).applyMatrix4(mw);return{x:v.x,y:v.y,z:v.z};};
+    const addTri=(a,b2,c)=>{if(fin(a)&&fin(b2)&&fin(c))arr.push([a,b2,c]);};
+    if(idx){for(let i=0;i<idx.count;i+=3)addTri(gv(idx.getX(i)),gv(idx.getX(i+1)),gv(idx.getX(i+2)));}
+    else{for(let i=0;i<pos.count;i+=3)addTri(gv(i),gv(i+1),gv(i+2));}});
+  let mnx=1/0,mxx=-1/0,mnz=1/0,mxz=-1/0,mny=1/0,any=false;
+  Object.keys(byCol).forEach(c=>byCol[c].forEach(t=>t.forEach(p=>{any=true;mnx=Math.min(mnx,p.x);mxx=Math.max(mxx,p.x);mnz=Math.min(mnz,p.z);mxz=Math.max(mxz,p.z);mny=Math.min(mny,p.y);})));
+  if(!any)return [];
+  const cx=(mnx+mxx)/2,cz=(mnz+mxz)/2;const map=p=>({x:f3(p.x-cx),y:f3(cz-p.z),z:f3(p.y-mny)});
+  const out=[];Object.keys(byCol).forEach(c=>{const ts=byCol[c];if(!ts.length)return;out.push({color:c,tris:ts.map(t=>[map(t[0]),map(t[2]),map(t[1])])});});
+  return out;
 }
 // Build the 3MF model EXACTLY like a Bambu Studio multi-plate project (mimicking HeartDog_split.3mf):
 //   * each printable mesh is an <object> with an ODD id (1,3,5,…) holding the <mesh>,
@@ -2070,22 +2089,21 @@ async function exportPlates(deliver){deliver=deliver||"download";
     // Categorise every printable part, then enforce the STRICT 4-plate split:
     //   Plate 1 = Main Box (body) · Plate 2 = Lid · Plate 3 = ALL text layers · Plate 4 = ALL catalog models.
     // The lid is the only face-down (flip) part; text/models are detected by their flags.
-    const AMS=!!window.__hasAMS;const NAMEMODE=(typeof LIDNAME!=="undefined"&&LIDNAME.trim().length>0);
-    const objs=[];
-    PLATES.forEach((part,i)=>{const keep=(AMS&&NAMEMODE&&part.textPlate);const tris=partTriangles(part,keep);if(!tris||!tris.length)return;
-      const clean=(part.name||("part "+(i+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
-      const cat=part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
-      objs.push({name:clean,tris:tris,cat:cat,color:(part.color||"#DDDDDD")});});
+    const AMS=!!window.__hasAMS;
     const groups=[];window.__amsFilaments=null;
     if(AMS){
       const pal=[];const idxOf=c=>{c=_hex6(c);var kk=pal.indexOf(c);if(kk<0){kk=pal.length;pal.push(c);}return kk+1;};
-      objs.forEach(o=>{o.extruder=idxOf(o.color);});window.__amsFilaments=pal.slice();
-      const pick=c=>objs.filter(o=>o.cat===c);const lidO=pick("lid"),boxO=pick("box"),textO=pick("text"),modelO=pick("model");
-      if(NAMEMODE&&lidO.length&&textO.length){groups.push({name:"Plate 1 - Lid + Name",overlay:true,objects:lidO.concat(textO)});if(boxO.length)groups.push({name:"Plate "+(groups.length+1)+" - Body",objects:boxO});}
-      else{if(boxO.length)groups.push({name:"Plate "+(groups.length+1)+" - Main Box",objects:boxO});if(lidO.length)groups.push({name:"Plate "+(groups.length+1)+" - Lid",objects:lidO});if(textO.length)groups.push({name:"Plate "+(groups.length+1)+" - Text",objects:textO});}
-      if(modelO.length)groups.push({name:"Plate "+(groups.length+1)+" - Models",objects:modelO});
+      PLATES.forEach((part,pi)=>{const cols=partTrianglesByColor(part,false);if(!cols||!cols.length)return;
+        const base=(part.name||("part "+(pi+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
+        const objects=cols.map((cg,ci)=>({name:base+(cols.length>1?(" #"+(ci+1)):""),tris:cg.tris,extruder:idxOf(cg.color)}));
+        groups.push({name:"Plate "+(groups.length+1)+" - "+base,overlay:objects.length>1,objects:objects});});
+      window.__amsFilaments=pal.slice();
     } else {
-      const bucket={box:[],lid:[],text:[],model:[]};objs.forEach(o=>bucket[o.cat].push(o));
+      const bucket={box:[],lid:[],text:[],model:[]};
+      PLATES.forEach((part,i)=>{const tris=partTriangles(part);if(!tris||!tris.length)return;
+        const clean=(part.name||("part "+(i+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
+        const cat=part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
+        bucket[cat].push({name:clean,tris:tris});});
       if(bucket.box.length)groups.push({name:"Plate "+(groups.length+1)+" - Main Box",objects:bucket.box});
       if(bucket.lid.length)groups.push({name:"Plate "+(groups.length+1)+" - Lid",objects:bucket.lid});
       if(bucket.text.length)groups.push({name:"Plate "+(groups.length+1)+" - Text Layers",objects:bucket.text});
