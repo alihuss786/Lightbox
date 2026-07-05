@@ -54,9 +54,13 @@ policy. Only **you** may read/manage jobs. Replace the email with yours everywhe
 create policy "owner reads jobs" on public.print_jobs
   for select using ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
 
--- Owner can update status (Mark done)
+-- Owner can update status (Mark done / Move to pending)
 create policy "owner updates jobs" on public.print_jobs
   for update using ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
+
+-- Owner can delete completed orders (dashboard Delete)
+create policy "owner deletes jobs" on public.print_jobs
+  for delete using ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
 ```
 
 Storage: let a signed-in user upload into **their own folder**, and let **you** read
@@ -74,6 +78,13 @@ create policy "user uploads own folder" on storage.objects
 -- Owner may read all files (dashboard downloads)
 create policy "owner reads files" on storage.objects
   for select using (
+    bucket_id = 'print-jobs'
+    and (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com'
+  );
+
+-- Owner may delete files (dashboard Delete)
+create policy "owner deletes files" on storage.objects
+  for delete using (
     bucket_id = 'print-jobs'
     and (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com'
   );

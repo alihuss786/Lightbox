@@ -3363,42 +3363,70 @@ window.USDZExporter=USDZExporter;})();
     var notes=sh.notes?('<div style="color:#8b93a1;font-size:11px;margin-top:3px">✎ '+esc(sh.notes)+'</div>'):"";
     return '<div style="margin-top:6px;padding:9px 11px;background:#0f1116;border-radius:8px;border:1px solid #23252b"><div style="font-size:12px;color:#dfe3ea">📦 '+addr+'</div>'+(contact?'<div style="font-size:11px;color:#8b93a1;margin-top:2px">'+contact+'</div>':"")+notes+'</div>';}
 
+  function dashConfirm(msg){
+    return new Promise(function(resolve){
+      var m=document.getElementById("dashConfirmModal");
+      if(!m){
+        m=document.createElement("div");m.id="dashConfirmModal";
+        m.style.cssText="display:none;position:fixed;inset:0;z-index:7600;background:rgba(0,0,0,.62);align-items:center;justify-content:center;padding:16px";
+        m.innerHTML='<div style="background:#14161b;color:#eaeaec;border:1px solid rgba(255,255,255,.12);border-radius:16px;max-width:380px;width:100%;padding:24px;text-align:center"><div id="dcMsg" style="font-size:14px;line-height:1.55;margin-bottom:20px"></div><div style="display:flex;gap:10px"><button id="dcNo" style="flex:1;padding:11px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#dfe;cursor:pointer">Cancel</button><button id="dcYes" style="flex:1;padding:11px;border-radius:10px;border:none;background:#c9433a;color:#fff;font-weight:700;cursor:pointer">Delete</button></div></div>';
+        document.body.appendChild(m);
+      }
+      m.querySelector("#dcMsg").textContent=msg;m.style.display="flex";
+      var done=function(v){m.style.display="none";resolve(v);};
+      m.querySelector("#dcNo").onclick=function(){done(false);};
+      m.querySelector("#dcYes").onclick=function(){done(true);};
+      m.onclick=function(e){if(e.target===m)done(false);};
+    });
+  }
+  function odTabBtn(key,label,count,active){
+    var on=key===active;
+    return '<button data-tab="'+key+'" style="padding:9px 16px;border-radius:10px;border:1px solid '+(on?"#e0c08d":"#2a2d35")+';background:'+(on?"rgba(224,192,141,.12)":"transparent")+';color:'+(on?"#e0c08d":"#c7cbd2")+';font-weight:600;cursor:pointer">'+label+' <span style="opacity:.65">'+count+'</span></button>';
+  }
   async function renderOrders(list){
     var sb=window.__sb;if(!sb){list.innerHTML='<div style="color:#9aa0aa">Sign-in offline — check your connection.</div>';return;}
     list.textContent="Loading orders…";
-    var r=await sb.from("print_jobs").select("*").order("created_at",{ascending:false}).limit(300);
+    var r=await sb.from("print_jobs").select("*").order("created_at",{ascending:false}).limit(500);
     if(r.error){list.innerHTML='<div style="color:#f88">Could not load orders: '+esc(r.error.message)+'</div>';return;}
-    var rows=r.data||[];
-    if(!rows.length){list.innerHTML='<div style="text-align:center;color:#7f8896;padding:70px 0">No order requests yet.<div style="font-size:12px;margin-top:6px;color:#5c606a">New “Print for me” orders will appear here.</div></div>';return;}
-    list.innerHTML='<div style="color:#8b93a1;font-size:12px;margin-bottom:12px">'+rows.length+' order'+(rows.length===1?"":"s")+'</div>';
+    var all=r.data||[];
+    var pending=all.filter(function(j){return j.status!=="done";});
+    var completed=all.filter(function(j){return j.status==="done";});
+    var tab=window.__dashTab||"pending";
+    var rows=(tab==="completed")?completed:pending;
+    var tabsHtml='<div style="display:flex;gap:8px;margin-bottom:16px">'+odTabBtn("pending","Pending",pending.length,tab)+odTabBtn("completed","Completed",completed.length,tab)+'</div>';
+    list.innerHTML=tabsHtml+'<div id="odCards"></div>';
+    [].forEach.call(list.querySelectorAll("[data-tab]"),function(btn){btn.onclick=function(){window.__dashTab=btn.getAttribute("data-tab");refreshDash();};});
+    var host=list.querySelector("#odCards");
+    if(!rows.length){host.innerHTML='<div style="text-align:center;color:#7f8896;padding:60px 0">No '+tab+' orders'+(tab==="pending"?" — new “Print for me” orders will appear here.":".")+'</div>';return;}
     rows.forEach(function(job){
       var card=document.createElement("div");
       card.style.cssText="border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;background:#14161b;margin-bottom:12px";
       var done=(job.status==="done");
+      var actions='<button class="pqDl" style="padding:8px 13px;border-radius:8px;border:none;background:#e0c08d;color:#231a0c;font-weight:700;cursor:pointer">⬇ Download .3mf</button>';
+      if(done){
+        actions+='<button class="pqUndo" style="padding:8px 13px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#dfe;cursor:pointer">↩ Move to pending</button>';
+        actions+='<button class="pqDel" style="padding:8px 13px;border-radius:8px;border:1px solid rgba(201,67,58,.5);background:transparent;color:#e88;cursor:pointer">🗑 Delete</button>';
+      }else{
+        actions+='<button class="pqDone" style="padding:8px 13px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#dfe;cursor:pointer">✓ Mark done</button>';
+      }
       card.innerHTML=
         '<div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">'
         +'<div style="font-weight:700;font-size:14px">'+esc(job.email||"customer")+'</div>'
         +'<div style="font-size:11px;color:#8b93a1">'+fmt(job.created_at)+'</div></div>'
         +'<div style="font-size:12px;color:#aab2c0">'+summaryLine(job.summary)+'</div>'
         +shipBlock(job.summary)
-        +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">'
-        +'<button class="pqDl" style="padding:8px 13px;border-radius:8px;border:none;background:#e0c08d;color:#231a0c;font-weight:700;cursor:pointer">⬇ Download .3mf</button>'
-        +'<button class="pqDone" style="padding:8px 13px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:'+(done?"rgba(46,168,79,.14)":"transparent")+';color:#dfe;cursor:pointer">'+(done?"✓ Done — undo":"Mark done")+'</button>'
+        +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">'+actions
         +'<span style="margin-left:auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:'+(done?"rgba(46,168,79,.16)":"rgba(224,192,141,.16)")+';color:'+(done?"#7fe0a3":"#e0c08d")+'">'+(done?"Completed":"New")+'</span>'
         +'</div>';
-      card.querySelector(".pqDl").onclick=async function(){
-        var btn=this;btn.textContent="…";
-        var su=await sb.storage.from(PRINT_BUCKET).createSignedUrl(job.file_path,3600);
-        if(su.error||!su.data){btn.textContent="⚠ error";return;}
-        var a=document.createElement("a");a.href=su.data.signedUrl;a.download=job.filename||"lightbox.3mf";document.body.appendChild(a);a.click();a.remove();
-        btn.textContent="⬇ Download .3mf";
-      };
-      card.querySelector(".pqDone").onclick=async function(){
-        var nb=this;nb.textContent="…";
-        var u=await sb.from("print_jobs").update({status:done?"new":"done"}).eq("id",job.id);
-        if(u.error){nb.textContent="⚠";return;}refreshDash();
-      };
-      list.appendChild(card);
+      var dl=card.querySelector(".pqDl");
+      dl.onclick=async function(){var btn=this;btn.textContent="…";var su=await sb.storage.from(PRINT_BUCKET).createSignedUrl(job.file_path,3600);if(su.error||!su.data){btn.textContent="⚠ error";return;}var a=document.createElement("a");a.href=su.data.signedUrl;a.download=job.filename||"lightbox.3mf";document.body.appendChild(a);a.click();a.remove();btn.textContent="⬇ Download .3mf";};
+      var mk=card.querySelector(".pqDone");
+      if(mk)mk.onclick=async function(){this.textContent="…";var u=await sb.from("print_jobs").update({status:"done"}).eq("id",job.id);if(u.error){this.textContent="⚠";return;}refreshDash();};
+      var un=card.querySelector(".pqUndo");
+      if(un)un.onclick=async function(){this.textContent="…";var u=await sb.from("print_jobs").update({status:"new"}).eq("id",job.id);if(u.error){this.textContent="⚠";return;}refreshDash();};
+      var del=card.querySelector(".pqDel");
+      if(del)del.onclick=async function(){var ok=await dashConfirm("Delete this completed order permanently? This removes the order and its file — it can’t be undone.");if(!ok)return;this.textContent="…";try{await sb.storage.from(PRINT_BUCKET).remove([job.file_path]);}catch(e){}var d=await sb.from("print_jobs").delete().eq("id",job.id);if(d.error){this.textContent="⚠ "+esc(d.error.message);return;}refreshDash();};
+      host.appendChild(card);
     });
   }
   function refreshDash(){var l=document.getElementById("odList");if(l)renderOrders(l);}
