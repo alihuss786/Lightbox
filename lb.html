@@ -1720,7 +1720,7 @@ async function buildModel(){
     if(hasClip&&nameMode){
       /* NAME MODE — fuse a multi-line name with the connect border into one lid shape */
       var _rc=(LIDNAME.replace(/\s/g,"")[0])||"A";var _nlines=LIDNAME.split(/\r?\n/).filter(function(l){return l.trim().length;}).length||1;var _nf0=unionEO(glyphSubj(font,_rc,lh));var _nex0=pathsExtent(_nf0,0,0);if(_nex0.H>1){var _nk=_nex0.H/lh;glyphSize=Math.max(8,(lh-capMargin)/_nlines)/_nk;}
-      var _uni=unionEO(nameGlyphSubj(font,LIDNAME,glyphSize));var _eb=Math.max(nameBorderVal()/_nlines,1.2);if(_nlines>1){var _fr=nameFramedFilled(font,LIDNAME,glyphSize,nameBorderVal());filled=(_fr&&_fr.length)?_fr:off(_uni,_eb);}else{filled=off(_uni,_eb);}if(!filled||!filled.length)filled=_uni;var _nc=pathsCenter(filled);cx=_nc.x;cy=_nc.y;var _nex=pathsExtent(filled,cx,cy);LW=_nex.W;LH=_nex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
+      var _uni=unionEO(nameGlyphSubj(font,LIDNAME,glyphSize));var _ucl=cleanPaths(_uni);if(_ucl&&_ucl.length)_uni=_ucl;window.__nameLetters=_uni;var _uconn=_uni;if(_nlines>1){var _mnY=1e18,_mxY=-1e18;_uni.forEach(function(p){p.forEach(function(pt){if(pt.Y<_mnY)_mnY=pt.Y;if(pt.Y>_mxY)_mxY=pt.Y;});});var _sw=Math.round(1.6*S);var _spine=[[{X:-_sw,Y:_mnY},{X:_sw,Y:_mnY},{X:_sw,Y:_mxY},{X:-_sw,Y:_mxY}]];var _uu=union2(_uni,_spine);if(_uu&&_uu.length)_uconn=_uu;}var _eb=Math.max(nameBorderVal(),1.5);filled=off(_uconn,_eb);if(_nlines>1){var _fc2=off(off(filled,0.3),-0.3);if(_fc2&&_fc2.length)filled=_fc2;}var _fcl=cleanPaths(filled);if(_fcl&&_fcl.length)filled=_fcl;if(!filled||!filled.length)filled=_uni;var _nc=pathsCenter(filled);cx=_nc.x;cy=_nc.y;var _nex=pathsExtent(filled,cx,cy);LW=_nex.W;LH=_nex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
     }else if(hasClip){
       // Build the capital-letter silhouette with the EVEN-ODD fill rule (unionEO), not non-zero. Non-zero
       // depends on the glyph's hole contour winding being correct; on the first font parse (before the glyph
@@ -1758,6 +1758,7 @@ async function buildModel(){
       const A=off(filled,clearance),B=off(filled,clearance+capW);   // skirt is now folded into the single manifold lid mesh (buildLidSlabs), so no separate skirt extrude here.
       // ---- Gather pocket features. Name + images share the name pocket depth; each STL gets its own. ----
       const inlays=[];                 // solids that fill name/image pockets and stand proud
+      if(nameMode&&window.__nameLetters&&window.__nameLetters.length){inlays.push({p:window.__nameLetters,kind:"name",depth:0,color:COLORS.front});}  // crisp name letters on the glowing outline border
       const slabFeatures=[];           // every pocket carved into the lid top: {p, depth}
       // Every independent text layer becomes its own inlay + pocket, placed at its own x/y, with its OWN colour.
       for(const t of texts){const raw=(t.str||"").trim();if(!raw){t._dropped="";continue;}
