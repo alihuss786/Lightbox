@@ -130,11 +130,23 @@ export default async function handler(req, res) {
         ["Letter", s.letter || "—"],
         ["Plates", s.plates != null ? String(s.plates) : "—"],
         ["Printer", s.printer || "—"],
+        ["Size", s.size ? (s.size.label + " (" + s.size.cm + " cm tall)") : "—"],
+        ["Price", (s.size && s.size.price != null) ? ("£" + s.size.price) : "—"],
         ["File", filename],
       ].map(([k, v]) =>
         `<tr><td style="padding:10px 0;color:#8b8f98;font-size:13px;border-bottom:1px solid #23252b">${k}</td>` +
         `<td style="padding:10px 0;color:#f2f3f5;font-size:13px;font-weight:600;text-align:right;border-bottom:1px solid #23252b">${escapeHtml(v)}</td></tr>`
       ).join("");
+      const sh = (s.shipping && typeof s.shipping === "object") ? s.shipping : null;
+      const shipHtml = sh
+        ? `<div style="margin-top:16px;padding:14px 16px;background:#0f1116;border:1px solid #23252b;border-radius:12px">`
+          + `<div style="color:#d8b877;font-size:11px;font-weight:700;letter-spacing:.06em;margin-bottom:6px">SHIP TO</div>`
+          + `<div style="color:#f2f3f5;font-size:14px;font-weight:600">${escapeHtml(sh.name || "")}</div>`
+          + `<div style="color:#c7cbd2;font-size:13px;line-height:1.55">${[sh.line1, sh.line2, sh.city, sh.postcode, sh.country].filter(Boolean).map(escapeHtml).join("<br>")}</div>`
+          + `<div style="color:#8b8f98;font-size:12px;margin-top:8px">${[sh.email, sh.phone].filter(Boolean).map(escapeHtml).join(" &middot; ")}</div>`
+          + (sh.notes ? `<div style="color:#8b8f98;font-size:12px;margin-top:6px;font-style:italic">&ldquo;${escapeHtml(sh.notes)}&rdquo;</div>` : "")
+          + `</div>`
+        : "";
       const link = downloadUrl
         ? `<tr><td align="center" style="padding:26px 0 8px"><a href="${downloadUrl}" style="display:inline-block;padding:13px 32px;background:#d8b877;color:#1a1206;font-weight:700;font-size:14px;text-decoration:none;border-radius:10px">⬇ Download .3mf</a></td></tr>`
           + `<tr><td align="center" style="color:#7c808a;font-size:11px;padding-bottom:2px">Link valid 14 days · also in your in-app Print jobs queue</td></tr>`
@@ -158,6 +170,7 @@ export default async function handler(req, res) {
             `<div style="color:#f2f3f5;font:700 19px system-ui,-apple-system,Segoe UI,sans-serif">New &ldquo;Print for me&rdquo; order</div>` +
             `<div style="color:#8b8f98;font:400 13px system-ui,sans-serif;margin:4px 0 18px">A concierge customer sent a design to print.</div>` +
             `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-family:system-ui,sans-serif">${rowsHtml}</table>` +
+            shipHtml +
             `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">` + link + `</table>` +
             `</td></tr>` +
             `<tr><td align="center" style="color:#5c606a;font:400 11px system-ui,sans-serif;padding:18px 0 4px">Signature Lightboxes · concierge print queue</td></tr>` +

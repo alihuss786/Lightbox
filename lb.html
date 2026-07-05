@@ -2035,7 +2035,7 @@ async function exportPlates(deliver){deliver=deliver||"download";
     const letter=(v("letter")||"A").toUpperCase()[0];
     const fname=`lightbox_${letter}_${plateCount}plates.3mf`;
     if(deliver==="concierge"){
-      const summary={letter:letter,plates:plateCount,printer:((typeof PRINTERS!=="undefined"&&PRINTERS[selPrinter]&&PRINTERS[selPrinter].name)||selPrinter),colors:(typeof COLORS!=="undefined"?COLORS:null)};
+      const summary={letter:letter,plates:plateCount,printer:((typeof PRINTERS!=="undefined"&&PRINTERS[selPrinter]&&PRINTERS[selPrinter].name)||selPrinter),colors:(typeof COLORS!=="undefined"?COLORS:null),shipping:(typeof window.__shipInfo!=="undefined"?window.__shipInfo:null),size:(typeof window.__conciergeSize!=="undefined"?window.__conciergeSize:null)};
       if(btn)btn.textContent="⏳ Sending…";
       let rr=null;try{rr=await window.__submitPrintJob(blob,summary,fname);}catch(_){rr=null;}
       if(rr&&rr.ok){if(btn)btn.textContent="✓ Sent — we’ll print it";alert("Your design has been sent to the print studio. You’ll be contacted about your order.");}
@@ -3186,6 +3186,109 @@ window.USDZExporter=USDZExporter;})();
     }catch(e){return {ok:false,reason:"error"};}
   };
 
+  /* ---- Concierge: collect ship-to + contact details before sending the job ---- */
+  var _shipIn="width:100%;padding:9px 11px;border-radius:8px;border:1px solid #2a2d35;background:#0f1116;color:#f2f3f5;font-size:14px;box-sizing:border-box";
+  var _shipLbl="display:block;font-size:11px;color:#8b8f98;margin:10px 0 4px";
+  function ensureShipModal(){
+    var m=document.getElementById("shipModal");if(m)return m;
+    m=document.createElement("div");m.id="shipModal";
+    m.style.cssText="display:none;position:fixed;inset:0;z-index:7200;background:rgba(0,0,0,.62);align-items:center;justify-content:center;padding:16px";
+    m.innerHTML=
+      '<div style="background:#14161b;color:#eaeaec;border:1px solid rgba(255,255,255,.12);border-radius:16px;max-width:460px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08)">'
+      +'<div style="font-weight:700;font-size:15px">📦 Where should we ship it?</div>'
+      +'<button id="shipClose" style="background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1">×</button></div>'
+      +'<div style="padding:14px 18px;overflow:auto">'
+      +'<div id="ship_order" style="font-size:13px;color:#e0c08d;font-weight:700;margin-bottom:8px"></div>'
+      +'<div style="font-size:12px;color:#8b8f98;margin-bottom:6px">We’ll print your design and post it to this address.</div>'
+      +'<label style="'+_shipLbl+'">Full name *</label><input id="ship_name" style="'+_shipIn+'" autocomplete="name">'
+      +'<label style="'+_shipLbl+'">Contact email *</label><input id="ship_email" type="email" style="'+_shipIn+'" autocomplete="email">'
+      +'<label style="'+_shipLbl+'">Phone (optional)</label><input id="ship_phone" type="tel" style="'+_shipIn+'" autocomplete="tel">'
+      +'<label style="'+_shipLbl+'">Address line 1 *</label><input id="ship_l1" style="'+_shipIn+'" autocomplete="address-line1">'
+      +'<label style="'+_shipLbl+'">Address line 2 (optional)</label><input id="ship_l2" style="'+_shipIn+'" autocomplete="address-line2">'
+      +'<label style="'+_shipLbl+'">Town / City *</label><input id="ship_city" style="'+_shipIn+'" autocomplete="address-level2">'
+      +'<label style="'+_shipLbl+'">Postcode *</label><input id="ship_pc" style="'+_shipIn+'" autocomplete="postal-code">'
+      +'<label style="'+_shipLbl+'">Country</label><input id="ship_country" value="United Kingdom" style="'+_shipIn+'" autocomplete="country-name">'
+      +'<label style="'+_shipLbl+'">Notes for the maker (optional)</label><textarea id="ship_notes" rows="2" style="'+_shipIn+';resize:vertical"></textarea>'
+      +'</div>'
+      +'<div style="display:flex;gap:10px;padding:14px 18px;border-top:1px solid rgba(255,255,255,.08)">'
+      +'<button id="shipCancel" style="flex:none;padding:11px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#dfe;cursor:pointer">Cancel</button>'
+      +'<button id="shipGo" style="flex:1;padding:11px 16px;border-radius:10px;border:none;background:#e0c08d;color:#231a0c;font-weight:700;cursor:pointer">Continue → send to print</button>'
+      +'</div></div>';
+    document.body.appendChild(m);
+    m.addEventListener("click",function(e){if(e.target===m)m.style.display="none";});
+    m.querySelector("#shipClose").onclick=function(){m.style.display="none";};
+    m.querySelector("#shipCancel").onclick=function(){m.style.display="none";};
+    m.querySelector("#shipGo").onclick=shipContinue;
+    return m;
+  }
+  function openShipForm(){
+    var m=ensureShipModal();m.style.display="flex";
+    var od=document.getElementById("ship_order");if(od){var sz=window.__conciergeSize;od.textContent=sz?("Order: "+sz.label+" · "+sz.cm+"cm tall · £"+sz.price+" per print"):"";}
+    var em=document.getElementById("ship_email");
+    if(em&&!em.value&&window.__user)em.value=window.__user.email||"";
+    // restore last-used details for convenience
+    try{var last=JSON.parse(localStorage.getItem("__shipInfo")||"null");if(last){var set=function(id,v){var el=document.getElementById(id);if(el&&!el.value)el.value=v||"";};set("ship_name",last.name);set("ship_phone",last.phone);set("ship_l1",last.line1);set("ship_l2",last.line2);set("ship_city",last.city);set("ship_pc",last.postcode);if(last.country)set("ship_country",last.country);}}catch(e){}
+  }
+  function shipContinue(){
+    var g=function(id){return ((document.getElementById(id)||{}).value||"").trim();};
+    var info={name:g("ship_name"),email:g("ship_email"),phone:g("ship_phone"),line1:g("ship_l1"),line2:g("ship_l2"),city:g("ship_city"),postcode:g("ship_pc"),country:g("ship_country")||"United Kingdom",notes:g("ship_notes")};
+    if(!info.name||!info.email||!info.line1||!info.city||!info.postcode){alert("Please fill in your name, email, address, town/city and postcode so we can ship your print.");return;}
+    window.__shipInfo=info;
+    try{localStorage.setItem("__shipInfo",JSON.stringify(info));}catch(e){}
+    var m=document.getElementById("shipModal");if(m)m.style.display="none";
+    exportPlates("concierge");
+  }
+  window.__openShipForm=openShipForm;
+
+  /* ---- Concierge: fixed sizes (no free dimension editing) ---- */
+  var CONCIERGE_SIZES=[
+    {key:"small", label:"Small",  cm:10, mm:100, price:20},
+    {key:"medium",label:"Medium", cm:20, mm:200, price:35},
+    {key:"large", label:"Large",  cm:25, mm:250, price:45}
+  ];
+  function _money(n){return "£"+Number(n).toFixed(0);}
+  function setConciergeSize(key,doBuild){
+    var sz=null;for(var i=0;i<CONCIERGE_SIZES.length;i++)if(CONCIERGE_SIZES[i].key===key)sz=CONCIERGE_SIZES[i];
+    if(!sz)return;
+    window.__conciergeSize={key:sz.key,label:sz.label,heightMm:sz.mm,cm:sz.cm,price:sz.price};
+    if(doBuild!==false){var R=document.getElementById("lhR");if(R){R.value=sz.mm;R.dispatchEvent(new Event("input",{bubbles:true}));}}
+    renderSizeCards();
+  }
+  function renderSizeCards(){
+    var host=document.getElementById("conciergeSizeCards");if(!host)return;
+    var cur=(window.__conciergeSize&&window.__conciergeSize.key)||"";
+    host.innerHTML=CONCIERGE_SIZES.map(function(s){
+      var on=s.key===cur;
+      return '<button type="button" data-k="'+s.key+'" style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;margin-bottom:9px;border-radius:12px;cursor:pointer;text-align:left;border:1px solid '+(on?"#e0c08d":"#2a2d35")+';background:'+(on?"rgba(224,192,141,.12)":"#0f1116")+';color:#eaeaec">'
+        +'<span><span style="font-weight:700;font-size:14px">'+s.label+'</span><span style="display:block;font-size:12px;color:#8b8f98;margin-top:2px">'+s.cm+' cm tall</span></span>'
+        +'<span style="font-weight:700;color:'+(on?"#e0c08d":"#c7cbd2")+'">'+_money(s.price)+'</span></button>';
+    }).join("");
+    [].forEach.call(host.querySelectorAll("button"),function(btn){btn.onclick=function(){setConciergeSize(btn.getAttribute("data-k"),true);};});
+  }
+  function ensureSizePicker(){
+    var dr=document.getElementById("dimRows");if(!dr)return;
+    if(document.getElementById("conciergeSize"))return;
+    var cs=document.createElement("div");cs.id="conciergeSize";cs.style.display="none";
+    cs.innerHTML='<div style="font-size:12px;color:#8b8f98;margin:2px 2px 10px">Choose your lightbox size — the height is fixed per size for a flawless print.</div>'
+      +'<div id="conciergeSizeCards"></div>'
+      +'<div style="font-size:11px;color:#7c808a;margin-top:2px">Price is per print; you add delivery details when you send it.</div>';
+    dr.insertBefore(cs,dr.firstChild);
+  }
+  function applySizeMode(){
+    ensureSizePicker();
+    var dr=document.getElementById("dimRows");if(!dr)return;
+    var cs=document.getElementById("conciergeSize");
+    var conc=window.__isConcierge();
+    [].forEach.call(dr.children,function(ch){
+      if(ch===cs){ch.style.display=conc?"block":"none";}
+      else{ch.style.display=conc?"none":"";}
+    });
+    if(conc){ if(!window.__conciergeSize){setConciergeSize("medium",true);} else {renderSizeCards();} }
+  }
+  window.__applySizeMode=applySizeMode;
+
+
   /* ---- Swap the export button + toggle the owner queue entry when the licence changes ---- */
   function applyConciergeUI(){
     var btn=document.getElementById("exportBtn");
@@ -3193,13 +3296,14 @@ window.USDZExporter=USDZExporter;})();
       if(window.__isConcierge()){
         btn.textContent="🖨 Print for me";
         btn.title="Send your design to our print studio — we print & ship it to you";
-        btn.onclick=function(){exportPlates("concierge");};
+        btn.onclick=function(){openShipForm();};
       }else{
         btn.textContent="⬇ Export STL";
         btn.title="Export every build plate as a Bambu Studio-ready 3D project (one object per plate)";
         btn.onclick=function(){exportPlates();};
       }
     }
+    try{applySizeMode();}catch(e){}
     var ob=document.getElementById("ownerJobsBtn");
     if(isOwner()){
       if(!ob){
@@ -3232,7 +3336,12 @@ window.USDZExporter=USDZExporter;})();
   function esc(x){return String(x==null?"":x).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
   function fmt(iso){try{return new Date(iso).toLocaleString();}catch(e){return iso||"";}}
   function summaryLine(s){if(!s)return"";try{if(typeof s==="string")s=JSON.parse(s);}catch(e){return"";}
-    var bits=[];if(s.letter)bits.push('Letter “'+esc(s.letter)+'”');if(s.plates)bits.push(s.plates+" plates");if(s.printer)bits.push(esc(s.printer));return bits.join(" · ");}
+    var bits=[];if(s.letter)bits.push('Letter “'+esc(s.letter)+'”');if(s.size)bits.push(esc(s.size.label)+" · "+esc(s.size.cm)+"cm · £"+esc(s.size.price));else if(s.plates)bits.push(s.plates+" plates");if(s.printer)bits.push(esc(s.printer));return bits.join(" · ");}
+  function shipBlock(sum){var s=sum;try{if(typeof s==="string")s=JSON.parse(s);}catch(e){return"";}var sh=s&&s.shipping;if(!sh)return"";
+    var addr=[sh.name,sh.line1,sh.line2,sh.city,sh.postcode,sh.country].filter(Boolean).map(esc).join(", ");
+    var contact=[sh.email,sh.phone].filter(Boolean).map(esc).join(" · ");
+    var notes=sh.notes?('<div style="color:#8b93a1;font-size:11px;margin-top:3px">✎ '+esc(sh.notes)+'</div>'):"";
+    return '<div style="margin-top:6px;padding:8px 10px;background:#12141a;border-radius:8px;border:1px solid #23252b"><div style="font-size:12px;color:#dfe3ea">📦 '+addr+'</div>'+(contact?'<div style="font-size:11px;color:#8b93a1;margin-top:2px">'+contact+'</div>':"")+notes+'</div>';}
 
   async function openPrintQueue(){
     var sb=window.__sb;if(!sb){alert("Sign-in offline.");return;}
@@ -3252,6 +3361,7 @@ window.USDZExporter=USDZExporter;})();
         +'<div style="font-weight:600">'+esc(job.email||job.user_id||"customer")+'</div>'
         +'<div style="font-size:11px;color:#8b93a1">'+fmt(job.created_at)+'</div></div>'
         +'<div style="font-size:12px;color:#aab2c0">'+summaryLine(job.summary)+'</div>'
+        +shipBlock(job.summary)
         +'<div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">'
         +'<button class="pqDl" style="padding:7px 12px;border-radius:8px;border:none;background:#e0c08d;color:#231a0c;font-weight:600;cursor:pointer">⬇ Download .3mf</button>'
         +'<button class="pqDone" style="padding:7px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:'+(done?"#1f3d29":"transparent")+';color:#dfe;cursor:pointer">'+(done?"✓ Done":"Mark done")+'</button>'
