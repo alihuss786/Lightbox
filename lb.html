@@ -3268,12 +3268,13 @@ window.USDZExporter=USDZExporter;})();
   }
   window.__conciergeResult=function(ok,reason){
     var m=ensureResultModal();
-    var email=(window.__shipInfo&&window.__shipInfo.email)||(window.__user&&window.__user.email)||"your email";
+    var email=(window.__shipInfo&&window.__shipInfo.email)||(window.__user&&window.__user.email)||"";
     email=String(email).replace(/[<>&]/g,"");
+    var toWhom=(email.indexOf("@")>0)?(' to <b style="color:#f2f3f5">'+email+'</b>'):'';
     document.getElementById("sentIcon").textContent=ok?"🎉":"⚠️";
-    document.getElementById("sentTitle").textContent=ok?"Order sent!":"Couldn’t send";
+    document.getElementById("sentTitle").textContent=ok?"Order confirmed!":"Couldn’t send";
     document.getElementById("sentMsg").innerHTML=ok
-      ? 'Thanks — we’ve got your design and size. A confirmation email is on its way to <b style="color:#f2f3f5">'+email+'</b>. We’ll print it and post it to you.'
+      ? 'Thank you — your order is placed. A confirmation email is on its way'+toWhom+'. We’ll print your lightbox and post it to you.'
       : 'Something went wrong ('+String(reason||"network error").replace(/[<>&]/g,"")+'). Your design wasn’t sent — please try again.';
     var okb=document.getElementById("sentOk");okb.textContent=ok?"Done":"Close";
     okb.style.background=ok?"#e0c08d":"#2a2d35";okb.style.color=ok?"#231a0c":"#eaeaec";
@@ -3465,9 +3466,11 @@ window.USDZExporter=USDZExporter;})();
   // Returning from Stripe Checkout: confirm the paid order + show the result.
   (function(){try{var q=new URLSearchParams(location.search);var o=q.get("order");
     if(o==="success"){var sid=q.get("session_id");history.replaceState({},"",location.pathname);
+      try{enterStudio();}catch(e){}var _sp=document.getElementById("splash");if(_sp)_sp.style.display="none";
       if(window.__conciergeResult)window.__conciergeResult(true);
       if(sid){fetch("/api/confirm-order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session_id:sid})}).catch(function(){});}
     }else if(o==="cancel"){history.replaceState({},"",location.pathname);
+      try{enterStudio();}catch(e){}var _sp2=document.getElementById("splash");if(_sp2)_sp2.style.display="none";
       setTimeout(function(){if(window.__conciergeResult)window.__conciergeResult(false,"Payment cancelled — your order was not placed.");},500);}
   }catch(e){}})();
   // apply once at load in case the licence resolved before this script ran
