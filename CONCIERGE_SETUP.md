@@ -216,6 +216,21 @@ and never appear in your dashboard.
 
 Test with a `sk_test_` key and card **4242 4242 4242 4242**, any future expiry/CVC.
 
+### Webhook (recommended — guarantees paid orders finalise)
+
+The success redirect confirms most orders, but if a customer pays then closes the
+tab before returning, the redirect never fires. The webhook covers that: Stripe
+delivers `checkout.session.completed` server-to-server, and `/api/stripe-webhook`
+finalises the order (idempotent — no double-processing with the redirect).
+
+Stripe → **Developers → Webhooks → Add endpoint**:
+- Endpoint URL: `https://signaturelightboxes.com/api/stripe-webhook`
+- Event to send: **`checkout.session.completed`**
+
+No `STRIPE_WEBHOOK_SECRET` needed — the handler re-verifies each session directly
+with Stripe (using your secret key) before acting, so a forged call can't confirm
+an unpaid order.
+
 ---
 
 ## How it works end-to-end

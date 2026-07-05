@@ -106,3 +106,42 @@ export async function sendOrderEmails(env, o) {
 
 // Server-authoritative pricing (pence). Keep in sync with CONCIERGE_SIZES in lb.html.
 export const SIZE_PRICES = { small: 2000, medium: 3500, large: 4500 };
+
+// Confirm a Stripe Checkout session is paid, then mark the order `new` and email.
+// Idempotent + re-verifies with Stripe directly (so it's safe to call from both
+// the success redirect and the webhook, without needing signature verification).
+export async function confirmPaidOrder(env, sessionId) {
+  const STRIPE = env.STRIPE_SECRET_KEY || "";
+  if (!STRIPE) return { ok: false, reason: "no_stripe" };
+  let session;
+  try {
+    const r = await fetch("https://api.stripe.com/v1/checkout/sessions/" + encodeURIComponent(sessionId), {
+      headers: { Authorization: "Bearer " + STRIPE },
+    });
+    session = await r.json().catch(() => null);
+    if (!r.ok || !session) return { ok: false, reason: "stripe_error" };
+  } catch (e) { return { ok: false, reason: "stripe_unreachable" }; }
+  if (session.payment_status !== "paid") return { ok: false, reason: "unpaid" };
+  const jobId = session.metadata && session.metadata.job_id;
+  if (!jobId) return { ok: false, reason: "no_job_ref" };
+
+  const SB = { apikey: env.SUPABASE_SECRET_KEY, Authorization: "Bearer " + env.SUPABASE_SECRET_KEY, "Content-Type": "application/json" };
+  let job;
+  try {
+    const r = await fetch(env.SUPABASE_URL + "/rest/v1/print_jobs?id=eq." + jobId + "&select=*", { headers: SB });
+    const rows = await r.json().catch(() => null);
+    job = Array.isArray(rows) && rows[0] ? rows[0] : null;
+  } catch (e) { return { ok: false, reason: "db_unreachable" }; }
+  if (!job) return { ok: false, reason: "job_not_found" };
+  if (job.status !== "awaiting_payment") return { ok: true, already: true };
+
+  try {
+    await fetch(env.SUPABASE_URL + "/rest/v1/print_jobs?id=eq." + jobId, {
+      method: "PATCH", headers: SB, body: JSON.stringify({ status: "new" }),
+    });
+  } catch (e) { return { ok: false, reason: "update_failed" }; }
+
+  const downloadUrl = await signedDownloadUrl(env, job.file_path);
+  await sendOrderEmails(env, { user_email: job.email, filename: job.filename, summary: job.summary, downloadUrl: downloadUrl, amount: session.amount_total });
+  return { ok: true, job_id: jobId };
+}

@@ -3431,7 +3431,7 @@ window.USDZExporter=USDZExporter;})();
       var un=card.querySelector(".pqUndo");
       if(un)un.onclick=async function(){this.textContent="…";var u=await sb.from("print_jobs").update({status:"new"}).eq("id",job.id);if(u.error){this.textContent="⚠";return;}refreshDash();};
       var del=card.querySelector(".pqDel");
-      if(del)del.onclick=async function(){var ok=await dashConfirm("Delete this completed order permanently? This removes the order and its file — it can’t be undone.");if(!ok)return;this.textContent="…";try{await sb.storage.from(PRINT_BUCKET).remove([job.file_path]);}catch(e){}var d=await sb.from("print_jobs").delete().eq("id",job.id);if(d.error){this.textContent="⚠ "+esc(d.error.message);return;}refreshDash();};
+      if(del)del.onclick=async function(){var ok=await dashConfirm("Delete this completed order permanently? This removes the order and its file — it can’t be undone.");if(!ok)return;this.textContent="…";try{await sb.storage.from(PRINT_BUCKET).remove([job.file_path]);}catch(e){}var d=await sb.from("print_jobs").delete().eq("id",job.id).select();if(d.error){this.textContent="⚠ "+esc(d.error.message);return;}if(!d.data||!d.data.length){this.textContent="🗑 Delete";alert("Couldn’t delete — the owner DELETE policy is missing in Supabase. Run the delete policies from CONCIERGE_SETUP.md §3, then try again.");return;}refreshDash();};
       host.appendChild(card);
     });
   }
