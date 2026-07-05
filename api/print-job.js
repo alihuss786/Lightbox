@@ -121,23 +121,21 @@ export default async function handler(req, res) {
     if (sres.ok && sdata && sdata.signedURL) downloadUrl = SUPA_URL + "/storage/v1" + sdata.signedURL;
   } catch (e) { /* ignore */ }
 
-  // 4) Email the owner (best-effort; only if a key is configured).
+  // 4) Emails (best-effort; only if a key is set): notify the owner AND send the
+  //    customer a branded order confirmation.
   if (RESEND_API_KEY) {
     try {
       const s = (summary && typeof summary === "object") ? summary : {};
-      const rowsHtml = [
-        ["Customer", user.email],
-        ["Letter", s.letter || "—"],
-        ["Plates", s.plates != null ? String(s.plates) : "—"],
-        ["Printer", s.printer || "—"],
-        ["Size", s.size ? (s.size.label + " (" + s.size.cm + " cm tall)") : "—"],
-        ["Price", (s.size && s.size.price != null) ? ("£" + s.size.price) : "—"],
-        ["File", filename],
-      ].map(([k, v]) =>
-        `<tr><td style="padding:10px 0;color:#8b8f98;font-size:13px;border-bottom:1px solid #23252b">${k}</td>` +
-        `<td style="padding:10px 0;color:#f2f3f5;font-size:13px;font-weight:600;text-align:right;border-bottom:1px solid #23252b">${escapeHtml(v)}</td></tr>`
-      ).join("");
       const sh = (s.shipping && typeof s.shipping === "object") ? s.shipping : null;
+      const row = (k, v) =>
+        `<tr><td style="padding:10px 0;color:#8b8f98;font-size:13px;border-bottom:1px solid #23252b">${k}</td>` +
+        `<td style="padding:10px 0;color:#f2f3f5;font-size:13px;font-weight:600;text-align:right;border-bottom:1px solid #23252b">${escapeHtml(v)}</td></tr>`;
+      const coreRows =
+        row("Letter", s.letter || "—") +
+        row("Size", s.size ? (s.size.label + " (" + s.size.cm + " cm tall)") : "—") +
+        row("Price", (s.size && s.size.price != null) ? ("£" + s.size.price) : "—") +
+        row("Printer", s.printer || "—");
+      const ownerRows = row("Customer", user.email) + coreRows;
       const shipHtml = sh
         ? `<div style="margin-top:16px;padding:14px 16px;background:#0f1116;border:1px solid #23252b;border-radius:12px">`
           + `<div style="color:#d8b877;font-size:11px;font-weight:700;letter-spacing:.06em;margin-bottom:6px">SHIP TO</div>`
@@ -147,37 +145,45 @@ export default async function handler(req, res) {
           + (sh.notes ? `<div style="color:#8b8f98;font-size:12px;margin-top:6px;font-style:italic">&ldquo;${escapeHtml(sh.notes)}&rdquo;</div>` : "")
           + `</div>`
         : "";
-      const link = downloadUrl
-        ? `<tr><td align="center" style="padding:26px 0 8px"><a href="${downloadUrl}" style="display:inline-block;padding:13px 32px;background:#d8b877;color:#1a1206;font-weight:700;font-size:14px;text-decoration:none;border-radius:10px">⬇ Download .3mf</a></td></tr>`
-          + `<tr><td align="center" style="color:#7c808a;font-size:11px;padding-bottom:2px">Link valid 14 days · also in your in-app Print jobs queue</td></tr>`
-        : `<tr><td align="center" style="color:#9aa0aa;font-size:13px;padding:22px 0">Open the in-app <b style="color:#f2f3f5">Print jobs</b> queue to download the file.</td></tr>`;
-      await fetch("https://api.resend.com/emails", {
+      const ownerBtn = downloadUrl
+        ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:26px 0 8px"><a href="${downloadUrl}" style="display:inline-block;padding:13px 32px;background:#d8b877;color:#1a1206;font-weight:700;font-size:14px;text-decoration:none;border-radius:10px">⬇ Download .3mf</a></td></tr>`
+          + `<tr><td align="center" style="color:#7c808a;font-size:11px;padding-bottom:2px">Link valid 14 days · also in your in-app Print jobs queue</td></tr></table>`
+        : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="color:#9aa0aa;font-size:13px;padding:22px 0">Open the in-app <b style="color:#f2f3f5">Print jobs</b> queue to download the file.</td></tr></table>`;
+      const shell = (title, intro, bodyRows, extra) =>
+        `<div style="margin:0;padding:0;background:#0b0b0d">` +
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0b0d;padding:30px 12px"><tr><td align="center">` +
+        `<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">` +
+        `<tr><td align="center" style="padding:4px 0 22px"><img src="${LOGO_URL}" width="240" alt="Signature Lightboxes" style="display:block;width:240px;max-width:72%;height:auto;border-radius:12px"></td></tr>` +
+        `<tr><td style="background:#141419;border:1px solid #23252b;border-radius:16px;padding:26px 28px">` +
+        `<div style="color:#f2f3f5;font:700 19px system-ui,-apple-system,Segoe UI,sans-serif">${title}</div>` +
+        `<div style="color:#8b8f98;font:400 13px system-ui,sans-serif;margin:4px 0 18px">${intro}</div>` +
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-family:system-ui,sans-serif">${bodyRows}</table>` +
+        shipHtml + (extra || "") +
+        `</td></tr>` +
+        `<tr><td align="center" style="color:#5c606a;font:400 11px system-ui,sans-serif;padding:18px 0 4px">Signature Lightboxes</td></tr>` +
+        `</table></td></tr></table></div>`;
+      const send = (to, subject, html) => fetch("https://api.resend.com/emails", {
         method: "POST",
-        headers: {
-          Authorization: "Bearer " + RESEND_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: "Lightbox Studio <" + FROM_EMAIL + ">",
-          to: OWNER_EMAIL.split(",").map((e) => e.trim()).filter(Boolean),
-          subject: "🖨 New Lightbox print job — " + (user.email || "customer"),
-          html:
-            `<div style="margin:0;padding:0;background:#0b0b0d">` +
-            `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0b0d;padding:30px 12px"><tr><td align="center">` +
-            `<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">` +
-            `<tr><td align="center" style="padding:4px 0 22px"><img src="${LOGO_URL}" width="240" alt="Signature Lightboxes" style="display:block;width:240px;max-width:72%;height:auto;border-radius:12px"></td></tr>` +
-            `<tr><td style="background:#141419;border:1px solid #23252b;border-radius:16px;padding:26px 28px">` +
-            `<div style="color:#f2f3f5;font:700 19px system-ui,-apple-system,Segoe UI,sans-serif">New &ldquo;Print for me&rdquo; order</div>` +
-            `<div style="color:#8b8f98;font:400 13px system-ui,sans-serif;margin:4px 0 18px">A concierge customer sent a design to print.</div>` +
-            `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-family:system-ui,sans-serif">${rowsHtml}</table>` +
-            shipHtml +
-            `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">` + link + `</table>` +
-            `</td></tr>` +
-            `<tr><td align="center" style="color:#5c606a;font:400 11px system-ui,sans-serif;padding:18px 0 4px">Signature Lightboxes · concierge print queue</td></tr>` +
-            `</table></td></tr></table></div>`,
-        }),
+        headers: { Authorization: "Bearer " + RESEND_API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: "Signature Lightboxes <" + FROM_EMAIL + ">", to, subject, html }),
       });
-    } catch (e) { /* email is best-effort */ }
+      // Owner notification (with download link)
+      await send(
+        OWNER_EMAIL.split(",").map((e) => e.trim()).filter(Boolean),
+        "🖨 New Lightbox print job — " + (user.email || "customer"),
+        shell("New &ldquo;Print for me&rdquo; order", "A concierge customer sent a design to print.", ownerRows, ownerBtn)
+      );
+      // Customer order confirmation (no download link)
+      const customerEmail = ((sh && sh.email) || user.email || "").trim();
+      if (customerEmail.indexOf("@") > 0) {
+        const custExtra = `<div style="margin-top:18px;color:#c7cbd2;font-size:13px;line-height:1.6">We&rsquo;re on it! Your lightbox will be printed and posted to the address above. We&rsquo;ll be in touch if we need anything, and again when it ships. Thank you for your order.</div>`;
+        await send(
+          [customerEmail],
+          "Your Signature Lightboxes order is confirmed ✨",
+          shell("Thank you &mdash; your order is confirmed!", "We&rsquo;ve received your design and we&rsquo;re getting it ready to print.", coreRows, custExtra)
+        );
+      }
+    } catch (e) { /* emails are best-effort */ }
   }
 
   res.status(200).json({ ok: true, job_id: jobId, notified: !!RESEND_API_KEY });
