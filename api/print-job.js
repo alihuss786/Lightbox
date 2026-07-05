@@ -29,6 +29,7 @@ export default async function handler(req, res) {
   const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
   const FROM_EMAIL = process.env.FROM_EMAIL || "onboarding@resend.dev";
   const BUCKET = process.env.PRINT_BUCKET || "print-jobs";
+  const LOGO_URL = process.env.LOGO_URL || "https://signaturelightboxes.com/email-logo.jpg";
   if (!SUPA_URL || !ANON || !SECRET) {
     res.status(500).json({ ok: false, reason: "server_not_configured" });
     return;
@@ -131,11 +132,13 @@ export default async function handler(req, res) {
         ["Printer", s.printer || "—"],
         ["File", filename],
       ].map(([k, v]) =>
-        `<tr><td style="padding:4px 10px;color:#666">${k}</td><td style="padding:4px 10px;font-weight:600">${escapeHtml(v)}</td></tr>`
+        `<tr><td style="padding:10px 0;color:#8b8f98;font-size:13px;border-bottom:1px solid #23252b">${k}</td>` +
+        `<td style="padding:10px 0;color:#f2f3f5;font-size:13px;font-weight:600;text-align:right;border-bottom:1px solid #23252b">${escapeHtml(v)}</td></tr>`
       ).join("");
       const link = downloadUrl
-        ? `<p><a href="${downloadUrl}" style="display:inline-block;padding:10px 18px;background:#111;color:#fff;border-radius:8px;text-decoration:none">⬇ Download .3mf</a></p><p style="color:#888;font-size:12px">Link valid 14 days. You can always re-download from the in-app Print jobs queue.</p>`
-        : `<p style="color:#888">Open the in-app <b>Print jobs</b> queue to download the file.</p>`;
+        ? `<tr><td align="center" style="padding:26px 0 8px"><a href="${downloadUrl}" style="display:inline-block;padding:13px 32px;background:#d8b877;color:#1a1206;font-weight:700;font-size:14px;text-decoration:none;border-radius:10px">⬇ Download .3mf</a></td></tr>`
+          + `<tr><td align="center" style="color:#7c808a;font-size:11px;padding-bottom:2px">Link valid 14 days · also in your in-app Print jobs queue</td></tr>`
+        : `<tr><td align="center" style="color:#9aa0aa;font-size:13px;padding:22px 0">Open the in-app <b style="color:#f2f3f5">Print jobs</b> queue to download the file.</td></tr>`;
       await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -147,11 +150,18 @@ export default async function handler(req, res) {
           to: OWNER_EMAIL.split(",").map((e) => e.trim()).filter(Boolean),
           subject: "🖨 New Lightbox print job — " + (user.email || "customer"),
           html:
-            `<div style="font-family:system-ui,sans-serif;max-width:520px">` +
-            `<h2>New "Print for me" order</h2>` +
-            `<table style="border-collapse:collapse;margin:8px 0">${rowsHtml}</table>` +
-            link +
-            `</div>`,
+            `<div style="margin:0;padding:0;background:#0b0b0d">` +
+            `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0b0d;padding:30px 12px"><tr><td align="center">` +
+            `<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">` +
+            `<tr><td align="center" style="padding:4px 0 22px"><img src="${LOGO_URL}" width="240" alt="Signature Lightboxes" style="display:block;width:240px;max-width:72%;height:auto;border-radius:12px"></td></tr>` +
+            `<tr><td style="background:#141419;border:1px solid #23252b;border-radius:16px;padding:26px 28px">` +
+            `<div style="color:#f2f3f5;font:700 19px system-ui,-apple-system,Segoe UI,sans-serif">New &ldquo;Print for me&rdquo; order</div>` +
+            `<div style="color:#8b8f98;font:400 13px system-ui,sans-serif;margin:4px 0 18px">A concierge customer sent a design to print.</div>` +
+            `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-family:system-ui,sans-serif">${rowsHtml}</table>` +
+            `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">` + link + `</table>` +
+            `</td></tr>` +
+            `<tr><td align="center" style="color:#5c606a;font:400 11px system-ui,sans-serif;padding:18px 0 4px">Signature Lightboxes · concierge print queue</td></tr>` +
+            `</table></td></tr></table></div>`,
         }),
       });
     } catch (e) { /* email is best-effort */ }
