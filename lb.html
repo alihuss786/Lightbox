@@ -669,10 +669,8 @@ body.ar-open #acct{display:none!important}
   <div class="acc">
     <div class="acc-h" onclick="accT(this)">Name <i class="chev">⌄</i></div>
     <div class="acc-b">
-      <div class="hint">Make the lid a full name — or several names over multiple lines. A border fuses the letters into one connected, printable piece. Uses your selected Letter font.</div>
-      <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Name (one per line for multiple lines)</span><textarea id="lidName" rows="3" maxlength="60" placeholder="e.g. Sophie&#10;&amp;&#10;James" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:15px system-ui,sans-serif;resize:vertical;box-sizing:border-box" oninput="onNameInput()"></textarea></div>
-      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Backing border — <b id="nameBorderLbl">5.0</b> mm</span><div class="szc"><button type="button" class="stp" onclick="nudgeNameBorder(-1)">−</button><input type="range" id="nameBorder" min="1" max="14" step="0.5" value="5" oninput="onNameBorderLabel()" onchange="if(typeof rebuild==='function')rebuild()"><button type="button" class="stp" onclick="nudgeNameBorder(1)">＋</button></div></div>
-      <div class="hint" style="font-size:11px">The border is the white backing plate around the name (max 3 lines). Bigger = thicker backing; the letters sit raised on top.</div>
+      <div class="hint">Turn the lid into a name plate — your name sits flat on a solid white glowing background. Uses your selected Letter font.</div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Name</span><input type="text" id="lidName" maxlength="24" placeholder="e.g. Leo" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:15px system-ui,sans-serif;box-sizing:border-box" oninput="onNameInput()"></div>
       <button class="addtext" onclick="clearName()">Clear name (back to single letter)</button>
     </div>
   </div>
@@ -1293,10 +1291,10 @@ const S=1000;
 function pip(pt,poly){let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const xi=poly[i].x,yi=poly[i].y,xj=poly[j].x,yj=poly[j].y;if(((yi>pt.y)!==(yj>pt.y))&&(pt.x<(xj-xi)*(pt.y-yi)/(yj-yi)+xi))c=!c;}return c;}
 function glyphSubj(font,text,size){const shapes=font.generateShapes(text,size);const div=12;const subj=[];shapes.forEach(sh=>{subj.push(sh.getPoints(div).map(p=>({X:Math.round(p.x*S),Y:Math.round(p.y*S)})));(sh.holes||[]).forEach(h=>subj.push(h.getPoints(div).map(p=>({X:Math.round(p.x*S),Y:Math.round(p.y*S)}))));});return subj;}
 var LIDNAME="";
-function nameBorderVal(){var el=document.getElementById("nameBorder");return el?parseFloat(el.value):3;}
+function nameBorderVal(){return 7;}
 function onNameBorderLabel(){var el=document.getElementById("nameBorder"),l=document.getElementById("nameBorderLbl");if(el&&l)l.textContent=parseFloat(el.value).toFixed(1);}
 function nudgeNameBorder(d){var el=document.getElementById("nameBorder");if(!el)return;el.value=Math.max(0.5,Math.min(8,(parseFloat(el.value)+d*0.5)));onNameBorderLabel();if(typeof rebuild==="function")rebuild();}
-function onNameInput(){var el=document.getElementById("lidName");var v=el?el.value:"";var ls=v.split(/\r?\n/);if(ls.length>3){ls=ls.slice(0,3);v=ls.join("\n");if(el)el.value=v;}LIDNAME=v;if(typeof rebuild==="function")rebuild();}
+function onNameInput(){var el=document.getElementById("lidName");var v=el?el.value:"";v=v.replace(/[\r\n]+/g," ").slice(0,24);if(el&&el.value!==v)el.value=v;LIDNAME=v;if(typeof rebuild==="function")rebuild();}
 function clearName(){LIDNAME="";var el=document.getElementById("lidName");if(el)el.value="";if(typeof rebuild==="function")rebuild();}
 /* Multi-line name -> Clipper subject paths. Each glyph is placed individually with
    tight tracking (bounding boxes overlap slightly) so a small connect-border fuses
@@ -1353,6 +1351,7 @@ function unionFilled(subj){const cl=new ClipperLib.Clipper();cl.AddPaths(subj,Cl
 function unionEO(subj){const cl=new ClipperLib.Clipper();cl.AddPaths(subj,ClipperLib.PolyType.ptSubject,true);const f=new ClipperLib.Paths();cl.Execute(ClipperLib.ClipType.ctUnion,f,ClipperLib.PolyFillType.pftEvenOdd,ClipperLib.PolyFillType.pftEvenOdd);return f;}
 function union2(a,b){const cl=new ClipperLib.Clipper();cl.AddPaths(a,ClipperLib.PolyType.ptSubject,true);cl.AddPaths(b,ClipperLib.PolyType.ptClip,true);const f=new ClipperLib.Paths();cl.Execute(ClipperLib.ClipType.ctUnion,f,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return f;}
 function off(filled,delta){const co=new ClipperLib.ClipperOffset(2,0.25);co.AddPaths(filled,ClipperLib.JoinType.jtRound,ClipperLib.EndType.etClosedPolygon);const sol=new ClipperLib.Paths();co.Execute(sol,delta*S);return sol;}
+function fillSolid(paths){if(!paths||!paths.length)return paths;try{var ba=0;for(var i=0;i<paths.length;i++){var a=ClipperLib.Clipper.Area(paths[i]);if(Math.abs(a)>Math.abs(ba))ba=a;}var sg=ba>0?1:-1;var out=[];for(var j=0;j<paths.length;j++){if(ClipperLib.Clipper.Area(paths[j])*sg>0)out.push(paths[j]);}return out.length?out:paths;}catch(e){return paths;}}
 function diff(a,b){const c=new ClipperLib.Clipper();c.AddPaths(a,ClipperLib.PolyType.ptSubject,true);c.AddPaths(b,ClipperLib.PolyType.ptClip,true);const s=new ClipperLib.Paths();c.Execute(ClipperLib.ClipType.ctDifference,s,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return s;}
 function intersect(a,b){const c=new ClipperLib.Clipper();c.AddPaths(a,ClipperLib.PolyType.ptSubject,true);c.AddPaths(b,ClipperLib.PolyType.ptClip,true);const s=new ClipperLib.Paths();c.Execute(ClipperLib.ClipType.ctIntersection,s,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return s;}
 // Robust subject−clip → THREE.Shapes. Executes the difference to a Clipper PolyTree, which carries the
@@ -1703,8 +1702,11 @@ async function buildModel(){
   g("syncHint").textContent=name?`Stands ${fmt(above)} above the lid (proud height ${fmt(nameExt)} − pocket ${fmt(pocket)}).`:'';
   const hasClip=(typeof ClipperLib!=="undefined");
   const capMargin=2*(clearance+capW);
+  const NAME_BG_MM=7;    // white background halo around the name (mm)
+  const NAME_TEXT_MM=1.2; // name colour layer thickness — flat on the plate (mm)
 
   MATS.front=new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.5,metalness:0.0,envMapIntensity:0.35});
+  MATS.nameBg=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.6,metalness:0.0,envMapIntensity:0.3});
   // Body is a hollow shell with an open front. Render it double-sided so the closed back face and the
   // inside of the walls draw solidly — otherwise back-face culling let you see straight through the
   // open front into empty space (the "no bottom/back" bug on the plate view).
@@ -1718,9 +1720,13 @@ async function buildModel(){
   try{
     const font=await loadFont(selFont.url);let cx=0,cy=0,filled=null,glyphSize=lh;
     if(hasClip&&nameMode){
-      /* NAME MODE — fuse a multi-line name with the connect border into one lid shape */
-      var _rc=(LIDNAME.replace(/\s/g,"")[0])||"A";var _nlines=LIDNAME.split(/\r?\n/).filter(function(l){return l.trim().length;}).length||1;var _nf0=unionEO(glyphSubj(font,_rc,lh));var _nex0=pathsExtent(_nf0,0,0);if(_nex0.H>1){var _nk=_nex0.H/lh;glyphSize=Math.max(8,(lh-capMargin)/_nlines)/_nk;}
-      var _uni=unionEO(nameGlyphSubj(font,LIDNAME,glyphSize));var _ucl=cleanPaths(_uni);if(_ucl&&_ucl.length)_uni=_ucl;window.__nameLetters=_uni;var _uconn=_uni;if(_nlines>1){var _mnY=1e18,_mxY=-1e18;_uni.forEach(function(p){p.forEach(function(pt){if(pt.Y<_mnY)_mnY=pt.Y;if(pt.Y>_mxY)_mxY=pt.Y;});});var _sw=Math.round(1.6*S);var _spine=[[{X:-_sw,Y:_mnY},{X:_sw,Y:_mnY},{X:_sw,Y:_mxY},{X:-_sw,Y:_mxY}]];var _uu=union2(_uni,_spine);if(_uu&&_uu.length)_uconn=_uu;}var _eb=Math.max(nameBorderVal(),1.5);filled=off(_uconn,_eb);if(_nlines>1){var _fc2=off(off(filled,0.3),-0.3);if(_fc2&&_fc2.length)filled=_fc2;}var _fcl=cleanPaths(filled);if(_fcl&&_fcl.length)filled=_fcl;if(!filled||!filled.length)filled=_uni;var _nc=pathsCenter(filled);cx=_nc.x;cy=_nc.y;var _nex=pathsExtent(filled,cx,cy);LW=_nex.W;LH=_nex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
+      /* NAME MODE — the name sits FLAT on a solid white glowing background plate. Single line. */
+      var _line=(LIDNAME.split(/\r?\n/)[0]||"").trim()||"Name";
+      var _rc=(_line.replace(/\s/g,"")[0])||"A";var _nf0=unionEO(glyphSubj(font,_rc,lh));var _nex0=pathsExtent(_nf0,0,0);if(_nex0.H>1){var _nk=_nex0.H/lh;glyphSize=Math.max(8,lh-capMargin)/_nk;}
+      var _L=unionEO(nameGlyphSubj(font,_line,glyphSize));var _Lc=cleanPaths(_L);if(_Lc&&_Lc.length)_L=_Lc;window.__nameLetters=_L;
+      var _plate=off(_L,NAME_BG_MM);var _ps=fillSolid(_plate);if(_ps&&_ps.length)_plate=_ps;var _pcl=cleanPaths(_plate);if(_pcl&&_pcl.length)_plate=_pcl;
+      filled=_plate;if(!filled||!filled.length)filled=_L;
+      var _nc=pathsCenter(filled);cx=_nc.x;cy=_nc.y;var _nex=pathsExtent(filled,cx,cy);LW=_nex.W;LH=_nex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
     }else if(hasClip){
       // Build the capital-letter silhouette with the EVEN-ODD fill rule (unionEO), not non-zero. Non-zero
       // depends on the glyph's hole contour winding being correct; on the first font parse (before the glyph
@@ -1737,8 +1743,8 @@ async function buildModel(){
     if(hasClip&&filled){try{
       const inner=off(filled,-wall);
       if(inner&&inner.length){
-        const shellGeo=buildBodyShell(filled,inner,depth,wall,cx,cy);
-        bodyGroup.add(new THREE.Mesh(shellGeo,MATS.body));builtHollow=true;}
+        const shellGeo=buildBodyShell(filled,inner,nameMode?Math.min(depth,16):depth,wall,cx,cy);
+        bodyGroup.add(new THREE.Mesh(shellGeo,nameMode?MATS.nameBg:MATS.body));builtHollow=true;}
     }catch(e){}}
     if(!builtHollow){const geo=new THREE.TextGeometry(letter,{font,size:glyphSize,height:depth,curveSegments:8,bevelEnabled:false});geo.computeBoundingBox();const bb=geo.boundingBox;geo.translate(-(bb.max.x+bb.min.x)/2,-(bb.max.y+bb.min.y)/2,0);const body=new THREE.Mesh(geo,MATS.body);body.position.z=-depth;bodyGroup.add(body);}
 
@@ -1758,7 +1764,7 @@ async function buildModel(){
       const A=off(filled,clearance),B=off(filled,clearance+capW);   // skirt is now folded into the single manifold lid mesh (buildLidSlabs), so no separate skirt extrude here.
       // ---- Gather pocket features. Name + images share the name pocket depth; each STL gets its own. ----
       const inlays=[];                 // solids that fill name/image pockets and stand proud
-      if(nameMode&&window.__nameLetters&&window.__nameLetters.length){inlays.push({p:window.__nameLetters,kind:"name",depth:0,color:COLORS.front});}  // crisp name letters on the glowing outline border
+      if(nameMode&&window.__nameLetters&&window.__nameLetters.length){inlays.push({p:window.__nameLetters,kind:"name",depth:0,color:COLORS.front,ext:NAME_TEXT_MM});}  // name = thin coloured layer on the white plate (flat)
       const slabFeatures=[];           // every pocket carved into the lid top: {p, depth}
       // Every independent text layer becomes its own inlay + pocket, placed at its own x/y, with its OWN colour.
       for(const t of texts){const raw=(t.str||"").trim();if(!raw){t._dropped="";continue;}
@@ -1810,7 +1816,7 @@ async function buildModel(){
       var _panelPaths=null,_panelZ=0;
       if(typeof PHOTO!=="undefined"&&PHOTO){try{_panelPaths=off(B,-3.5);}catch(e){_panelPaths=null;}
         if(_panelPaths&&_panelPaths.length){var _wd=Math.max(0,TT-FLOOR_MIN);slabFeatures.push({p:_panelPaths,depth:_wd});_panelZ=TT-_wd;}else{_panelPaths=null;}}
-buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=new THREE.Mesh(s.geo,lidMat);m.position.z=s.z;capGroup.add(m);});
+buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=new THREE.Mesh(s.geo,nameMode?MATS.nameBg:lidMat);m.position.z=s.z;capGroup.add(m);});
       // ---- Flat photo panel: its own watertight, printable part (true flat lithophane; the geometry colour needs) ----
       var photoPanelGroup=null;
       if(_panelPaths){try{
@@ -1827,7 +1833,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=ne
       // Build the inlay solids via the PolyTree converter so internal letter counters (the 'A' triangle,
       // 'o'/'e' holes, …) stay hollow at EVERY position. The old parity/point-in-polygon nesting misfired
       // when the centred text put a contour's test vertex on another edge, filling the counters in.
-      inlays.forEach(it=>{const shp=diffToShapes(it.p,null,0);if(!shp.length)return;const ge=new THREE.ExtrudeGeometry(shp,{depth:nameExt,bevelEnabled:false,curveSegments:6});ge.translate(-cx,-cy,0);
+      inlays.forEach(it=>{const shp=diffToShapes(it.p,null,0);if(!shp.length)return;const ge=new THREE.ExtrudeGeometry(shp,{depth:(it.ext!=null?it.ext:nameExt),bevelEnabled:false,curveSegments:6});ge.translate(-cx,-cy,0);
         const mat=(it.kind==="name")?new THREE.MeshLambertMaterial({color:it.color||COLORS.name}):it.mat;   // per-text colour
         const mh=new THREE.Mesh(ge,mat);mh.position.z=TT-Math.max(0,Math.min(it.depth,TT-FLOOR_MIN));const grp=new THREE.Group();grp.add(mh);
         if(it.kind==="name"){grp.userData={textId:it.tid};nameGroups.push(grp);}else imgGroups.push(grp);});
