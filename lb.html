@@ -602,7 +602,7 @@ body.ar-open #acct{display:none!important}
 <div class="fontwait" id="fontWait"><div class="fwspin"></div><span id="fontWaitMsg">Parsing font…</span></div>
 
 <div class="controls"><div class="pl-head"><button class="pl-title" onclick="plToggle()"><span class="pl-ic">✦</span><span>Designer Studio</span><i class="pl-chev">⌄</i></button><button class="pl-dice" onclick="plRandom()" title="Randomise colour">⚄</button></div>
-  <div class="acc">
+  <div class="acc open">
     <div class="acc-h" onclick="accT(this)">Colour <i class="chev">⌄</i></div>
     <div class="acc-b">
       <div class="sub">Front plate</div>
@@ -642,10 +642,10 @@ body.ar-open #acct{display:none!important}
       </div>
     </div>
   </div>
-  <div class="acc open">
+  <div class="acc">
     <div class="acc-h" onclick="accT(this)">Letter <i class="chev">⌄</i></div>
     <div class="acc-b">
-      <div class="row"><span class="lbl">Capital letter</span><input type="text" class="letter-big" id="letter" maxlength="1" value="A" oninput="this.value=this.value.toUpperCase();rebuild()"></div>
+      <div class="row"><span class="lbl">Capital letter</span><input type="text" class="letter-big" id="letter" maxlength="1" value="A" oninput="this.value=(this.value.slice(-1)||'').toUpperCase();rebuild()"></div>
       <div class="row"><span class="lbl">Letter font</span><div class="grid3" id="font-grid"></div></div>
       <button class="upfont" id="upLetterFontBtn" onclick="g('letterFontFile').click()">⬆ Upload Letter Font (.ttf / .otf)</button>
       <input type="file" id="letterFontFile" accept=".ttf,.otf,font/ttf,font/otf,application/font-sfnt" style="display:none" onchange="onLetterFontUpload(this)">
@@ -750,7 +750,8 @@ const PRINTERS=[{n:"A1 mini",x:180,y:180},{n:"A1",x:256,y:256},{n:"P1P",x:256,y:
 let selPrinter=3;
 const plateOpacity=0.12;        // build-plate translucency permanently locked at its lowest level
 let __plateMats=[];             // live references to the current plate's materials for instant opacity updates
-function accT(h){const acc=h.parentElement;const open=acc.classList.contains("open");document.querySelectorAll(".controls .acc.open").forEach(a=>a.classList.remove("open"));if(!open)acc.classList.add("open");setTimeout(()=>{try{drawPad();}catch(e){}},0);}
+function maybeExitNameMode(){try{if(typeof LIDNAME==="undefined"||!LIDNAME.trim().length)return;var wrap=document.querySelector(".controls");if(!wrap)return;var openAcc=wrap.querySelector(".acc.open");if(!openAcc)return;var hd=openAcc.querySelector(".acc-h");var nm="";if(hd)[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)nm+=n.textContent;});nm=nm.trim().toLowerCase();if(nm==="letter"){LIDNAME="";var ta=document.getElementById("lidName");if(ta)ta.value="";if(typeof rebuild==="function")rebuild();}}catch(e){}}
+function accT(h){const acc=h.parentElement;const open=acc.classList.contains("open");document.querySelectorAll(".controls .acc.open").forEach(a=>a.classList.remove("open"));if(!open)acc.classList.add("open");maybeExitNameMode();setTimeout(()=>{try{drawPad();}catch(e){}},0);}
 const FB="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/fonts/";
 const FONTS=[{name:"Sans",url:FB+"helvetiker_bold.typeface.json",css:"Arial Black,sans-serif"},{name:"Serif",url:FB+"optimer_bold.typeface.json",css:"Georgia,serif"},{name:"Soft",url:FB+"gentilis_bold.typeface.json",css:"Trebuchet MS,sans-serif"}];
 const EX="https://cdn.jsdelivr.net/npm/@expo-google-fonts/";
@@ -988,7 +989,7 @@ function applyColors(){refreshSwatches();if(MATS.front)MATS.front.color.set(COLO
 
 function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");const lt=document.documentElement.getAttribute("data-theme")==="light";const onBg=lt?"#ffffff":"rgba(255,255,255,.12)";const onCol=lt?"#1d1d1f":"#fff";const offCol=lt?"#8a8a8f":"rgba(255,255,255,.55)";const onSh=lt?"0 1px 4px rgba(0,0,0,.12)":"none";R.style.background=r?onBg:"transparent";R.style.color=r?onCol:offCol;R.style.boxShadow=r?onSh:"none";P.style.background=!r?onBg:"transparent";P.style.color=!r?onCol:offCol;P.style.boxShadow=!r?onSh:"none";}
 function setMode(m){mode=m;zoom=1;try{document.body.classList.toggle("plates-mode",m==="plates");}catch(e){}paintSeg();g("platelist").style.display=m==="plates"?"flex":"none";g("printerbox").style.display=m==="plates"?"flex":"none";g("zoomhint").style.display="block";clearTimeout(zhT);zhT=setTimeout(()=>g("zoomhint").style.display="none",1900);if(m==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}buildModel();buildSummary();}
-function toggleLight(){lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plTab(i){var wrap=document.querySelector(".controls");if(!wrap)return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));accs.forEach(function(a,j){a.classList.toggle("open",j===i);});var tabs=[].slice.call(wrap.querySelectorAll(".pl-tab"));tabs.forEach(function(t,j){t.classList.toggle("active",j===i);});var at=tabs[i];if(at&&at.scrollIntoView){try{at.scrollIntoView({inline:"center",block:"nearest"});}catch(e){}}try{wrap.scrollTop=0;}catch(e){}}
+function toggleLight(){lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plTab(i){var wrap=document.querySelector(".controls");if(!wrap)return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));accs.forEach(function(a,j){a.classList.toggle("open",j===i);});maybeExitNameMode();var tabs=[].slice.call(wrap.querySelectorAll(".pl-tab"));tabs.forEach(function(t,j){t.classList.toggle("active",j===i);});var at=tabs[i];if(at&&at.scrollIntoView){try{at.scrollIntoView({inline:"center",block:"nearest"});}catch(e){}}try{wrap.scrollTop=0;}catch(e){}}
 function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export|lithophane)$/i.test(name))return;var t=document.createElement("button");t.className="pl-tab";t.textContent=name;t.setAttribute("data-i",i);t.onclick=function(){plTab(i);};bar.appendChild(t);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
 function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Letter"],name:["\u270e","Name"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
@@ -1300,19 +1301,18 @@ function clearName(){LIDNAME="";var el=document.getElementById("lidName");if(el)
    tight tracking (bounding boxes overlap slightly) so a small connect-border fuses
    adjacent letters into one piece. Lines are centred and stacked top-to-bottom. */
 function nameGlyphSubj(font,text,size){
-  var lines=String(text).split(/\r?\n/).slice(0,3);var lineH=size*0.86;var track=-size*0.012;var spaceW=size*0.30;var out=[];
+  /* Natural letter spacing: lay out each line with the font's own advance widths
+     (generateShapes on the whole line), centre it, and stack lines top-to-bottom.
+     Letters stay legible; the connect-border (off) fuses them into one piece. */
+  var lines=String(text).split(/\r?\n/).slice(0,3);var lineH=size*0.78;var out=[];var k=0;
   for(var li=0;li<lines.length;li++){var line=lines[li];if(!line.trim().length)continue;
-    var glyphs=[],total=0;
-    for(var ci=0;ci<line.length;ci++){var ch=line[ci];
-      if(ch===" "){glyphs.push({space:true,w:spaceW});total+=spaceW+track;continue;}
-      var shapes=font.generateShapes(ch,size);var mnX=1e9,mxX=-1e9,any=false;
-      shapes.forEach(function(sh){sh.getPoints(4).forEach(function(pt){any=true;if(pt.x<mnX)mnX=pt.x;if(pt.x>mxX)mxX=pt.x;});});
-      if(!any){mnX=0;mxX=spaceW;}glyphs.push({shapes:shapes,mnX:mnX,w:(mxX-mnX)});total+=(mxX-mnX)+track;}
-    total-=track;var x=-total/2,oY=-li*lineH;
-    glyphs.forEach(function(g){if(g.space){x+=g.w+track;return;}var shift=x-g.mnX;
-      g.shapes.forEach(function(sh){out.push(sh.getPoints(12).map(function(pt){return {X:Math.round((pt.x+shift)*S),Y:Math.round((pt.y+oY)*S)};}));
-        (sh.holes||[]).forEach(function(h){out.push(h.getPoints(12).map(function(pt){return {X:Math.round((pt.x+shift)*S),Y:Math.round((pt.y+oY)*S)};}));});});
-      x+=g.w+track;});}
+    var shapes=font.generateShapes(line,size);var mnX=1e9,mxX=-1e9;
+    shapes.forEach(function(sh){sh.getPoints(4).forEach(function(pt){if(pt.x<mnX)mnX=pt.x;if(pt.x>mxX)mxX=pt.x;});
+      (sh.holes||[]).forEach(function(h){h.getPoints(4).forEach(function(pt){if(pt.x<mnX)mnX=pt.x;if(pt.x>mxX)mxX=pt.x;});});});
+    var cxL=(mnX+mxX)/2,oY=-k*lineH;
+    shapes.forEach(function(sh){out.push(sh.getPoints(12).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));
+      (sh.holes||[]).forEach(function(h){out.push(h.getPoints(12).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));});});
+    k++;}
   return out;}
 function cb(p0,p1,p2,p3,t){const u=1-t;return u*u*u*p0+3*u*u*t*p1+3*u*t*t*p2+t*t*t*p3;}function qb(p0,p1,p2,t){const u=1-t;return u*u*p0+2*u*t*p1+t*t*p2;}
 function nameSubjOT(otf,text,size){const path=otf.getPath(text,0,0,size);const seg=10;const cs=[];let cur=null,px=0,py=0;path.commands.forEach(c=>{if(c.type==="M"){if(cur&&cur.length>2)cs.push(cur);cur=[{x:c.x,y:c.y}];px=c.x;py=c.y;}else if(c.type==="L"){cur.push({x:c.x,y:c.y});px=c.x;py=c.y;}else if(c.type==="C"){for(let i=1;i<=seg;i++){const t=i/seg;cur.push({x:cb(px,c.x1,c.x2,c.x,t),y:cb(py,c.y1,c.y2,c.y,t)});}px=c.x;py=c.y;}else if(c.type==="Q"){for(let i=1;i<=seg;i++){const t=i/seg;cur.push({x:qb(px,c.x1,c.x,t),y:qb(py,c.y1,c.y,t)});}px=c.x;py=c.y;}else if(c.type==="Z"){if(cur&&cur.length>2)cs.push(cur);cur=null;}});if(cur&&cur.length>2)cs.push(cur);return cs.map(ct=>ct.map(p=>({X:Math.round(p.x*S),Y:Math.round(-p.y*S)})));}
@@ -1686,8 +1686,8 @@ async function buildModel(){
     const font=await loadFont(selFont.url);let cx=0,cy=0,filled=null,glyphSize=lh;
     if(hasClip&&nameMode){
       /* NAME MODE — fuse a multi-line name with the connect border into one lid shape */
-      var _rc=(LIDNAME.replace(/\s/g,"")[0])||"A";var _nf0=unionEO(glyphSubj(font,_rc,lh));var _nex0=pathsExtent(_nf0,0,0);if(_nex0.H>1){var _nk=_nex0.H/lh;glyphSize=Math.max(8,lh-capMargin)/_nk;}
-      var _uni=unionEO(nameGlyphSubj(font,LIDNAME,glyphSize));filled=off(_uni,nameBorderVal());if(!filled||!filled.length)filled=_uni;var _nc=pathsCenter(filled);cx=_nc.x;cy=_nc.y;var _nex=pathsExtent(filled,cx,cy);LW=_nex.W;LH=_nex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
+      var _rc=(LIDNAME.replace(/\s/g,"")[0])||"A";var _nlines=LIDNAME.split(/\r?\n/).filter(function(l){return l.trim().length;}).length||1;var _nf0=unionEO(glyphSubj(font,_rc,lh));var _nex0=pathsExtent(_nf0,0,0);if(_nex0.H>1){var _nk=_nex0.H/lh;glyphSize=Math.max(8,(lh-capMargin)/_nlines)/_nk;}
+      var _uni=unionEO(nameGlyphSubj(font,LIDNAME,glyphSize));var _eb=Math.max(nameBorderVal()/_nlines,1.2);filled=off(_uni,_eb);if(!filled||!filled.length)filled=_uni;var _nc=pathsCenter(filled);cx=_nc.x;cy=_nc.y;var _nex=pathsExtent(filled,cx,cy);LW=_nex.W;LH=_nex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
     }else if(hasClip){
       // Build the capital-letter silhouette with the EVEN-ODD fill rule (unionEO), not non-zero. Non-zero
       // depends on the glyph's hole contour winding being correct; on the first font parse (before the glyph
@@ -1725,7 +1725,6 @@ async function buildModel(){
       const A=off(filled,clearance),B=off(filled,clearance+capW);   // skirt is now folded into the single manifold lid mesh (buildLidSlabs), so no separate skirt extrude here.
       // ---- Gather pocket features. Name + images share the name pocket depth; each STL gets its own. ----
       const inlays=[];                 // solids that fill name/image pockets and stand proud
-      if(nameMode&&typeof _uni!=="undefined"&&_uni&&_uni.length){inlays.push({p:_uni,kind:"name",depth:0,color:COLORS.name});}  // raised name letters on the backing board
       const slabFeatures=[];           // every pocket carved into the lid top: {p, depth}
       // Every independent text layer becomes its own inlay + pocket, placed at its own x/y, with its OWN colour.
       for(const t of texts){const raw=(t.str||"").trim();if(!raw){t._dropped="";continue;}
