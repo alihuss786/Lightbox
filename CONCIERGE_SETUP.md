@@ -97,11 +97,16 @@ sure they have **no** download quota so the normal Export path is also denied
 server-side (defence in depth — the UI already hides it):
 
 ```sql
-update public.licenses
-set tier = 'concierge',
-    quota_type = 'none',      -- or whatever your schema uses for "no exports"
-    exports_remaining = 0
-where user_id = (select id from auth.users where email = 'customer@example.com');
+-- Upsert so it works whether or not the customer already has a licence row.
+-- quota_type must be one of: total | monthly | unlimited. Use total + limit 0
+-- so a concierge user has zero downloads (the UI also hides Export).
+insert into public.licenses (user_id, tier, quota_type, quota_limit)
+values (
+  (select id from auth.users where email = 'customer@example.com'),
+  'concierge', 'total', 0
+)
+on conflict (user_id) do update
+  set tier = 'concierge', quota_type = 'total', quota_limit = 0;
 ```
 
 If your `consume_export()` SQL function grants exports by tier, add an early guard:
