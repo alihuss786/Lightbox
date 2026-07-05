@@ -2037,7 +2037,8 @@ async function exportPlates(deliver){deliver=deliver||"download";
       const summary={letter:letter,plates:plateCount,printer:((typeof PRINTERS!=="undefined"&&PRINTERS[selPrinter]&&PRINTERS[selPrinter].name)||selPrinter),colors:(typeof COLORS!=="undefined"?COLORS:null),shipping:(typeof window.__shipInfo!=="undefined"?window.__shipInfo:null),size:(typeof window.__conciergeSize!=="undefined"?window.__conciergeSize:null)};
       if(btn)btn.textContent="⏳ Sending…";
       let rr=null;try{rr=await window.__submitPrintJob(blob,summary,fname);}catch(_){rr=null;}
-      if(rr&&rr.ok){if(btn)btn.textContent="✓ Sent — we’ll print it";if(window.__conciergeResult)window.__conciergeResult(true);}
+      if(rr&&rr.redirect){if(btn)btn.textContent="→ payment…";}
+      else if(rr&&rr.ok){if(btn)btn.textContent="✓ Sent — we’ll print it";if(window.__conciergeResult)window.__conciergeResult(true);}
       else{if(btn)btn.textContent="⚠ Send failed";if(window.__conciergeResult)window.__conciergeResult(false,(rr&&rr.reason)||"network error");}
       if(btn)setTimeout(()=>{btn.textContent=orig;},2600);
     }else{
@@ -3181,10 +3182,15 @@ window.USDZExporter=USDZExporter;})();
       // 1) upload the model straight to Storage (never through the 4.5MB serverless limit)
       var up=await sb.storage.from(PRINT_BUCKET).upload(path,blob,{contentType:"model/3mf",upsert:false});
       if(up.error)return {ok:false,reason:"upload_failed"};
-      // 2) record the job + email the owner (server verifies the user, writes with the service key)
-      var res=await fetch("/api/print-job",{method:"POST",
-        headers:{Authorization:"Bearer "+sess.access_token,"Content-Type":"application/json"},
-        body:JSON.stringify({file_path:path,filename:filename,summary:summary,size_bytes:blob.size})});
+      // 2) take payment via Stripe Checkout (server prices it by size). If Stripe is
+      //    not configured yet, fall back to the free submit so nothing breaks.
+      var payload={file_path:path,filename:filename,summary:summary,size_bytes:blob.size};
+      var H={Authorization:"Bearer "+sess.access_token,"Content-Type":"application/json"};
+      var cd=null;try{var cr=await fetch("/api/create-checkout",{method:"POST",headers:H,body:JSON.stringify(payload)});cd=await cr.json().catch(function(){return null;});}catch(e){cd=null;}
+      if(cd&&cd.ok&&cd.url){window.location.href=cd.url;return {ok:true,redirect:true};}
+      if(cd&&cd.ok===false&&cd.configured!==false&&cd.reason){return {ok:false,reason:cd.reason};}
+      // Stripe off (configured:false) or unreachable -> free submit
+      var res=await fetch("/api/print-job",{method:"POST",headers:H,body:JSON.stringify(payload)});
       var d=await res.json().catch(function(){return {ok:false,reason:"bad_response"};});
       return (d&&d.ok)?{ok:true,job:d.job_id}:{ok:false,reason:(d&&d.reason)||"record_failed"};
     }catch(e){return {ok:false,reason:"error"};}
@@ -3217,7 +3223,7 @@ window.USDZExporter=USDZExporter;})();
       +'</div>'
       +'<div style="display:flex;gap:10px;padding:14px 18px;border-top:1px solid rgba(255,255,255,.08)">'
       +'<button id="shipCancel" style="flex:none;padding:11px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#dfe;cursor:pointer">Cancel</button>'
-      +'<button id="shipGo" style="flex:1;padding:11px 16px;border-radius:10px;border:none;background:#e0c08d;color:#231a0c;font-weight:700;cursor:pointer">Continue → send to print</button>'
+      +'<button id="shipGo" style="flex:1;padding:11px 16px;border-radius:10px;border:none;background:#e0c08d;color:#231a0c;font-weight:700;cursor:pointer">Continue to payment →</button>'
       +'</div></div>';
     document.body.appendChild(m);
     m.addEventListener("click",function(e){if(e.target===m)m.style.display="none";});
@@ -3389,7 +3395,7 @@ window.USDZExporter=USDZExporter;})();
     var r=await sb.from("print_jobs").select("*").order("created_at",{ascending:false}).limit(500);
     if(r.error){list.innerHTML='<div style="color:#f88">Could not load orders: '+esc(r.error.message)+'</div>';return;}
     var all=r.data||[];
-    var pending=all.filter(function(j){return j.status!=="done";});
+    var pending=all.filter(function(j){return j.status==="new";});
     var completed=all.filter(function(j){return j.status==="done";});
     var tab=window.__dashTab||"pending";
     var rows=(tab==="completed")?completed:pending;
@@ -3456,6 +3462,14 @@ window.USDZExporter=USDZExporter;})();
   window.__showOwnerDash=showOwnerDash;
   window.__hideOwnerDash=hideOwnerDash;
 
+  // Returning from Stripe Checkout: confirm the paid order + show the result.
+  (function(){try{var q=new URLSearchParams(location.search);var o=q.get("order");
+    if(o==="success"){var sid=q.get("session_id");history.replaceState({},"",location.pathname);
+      if(window.__conciergeResult)window.__conciergeResult(true);
+      if(sid){fetch("/api/confirm-order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session_id:sid})}).catch(function(){});}
+    }else if(o==="cancel"){history.replaceState({},"",location.pathname);
+      setTimeout(function(){if(window.__conciergeResult)window.__conciergeResult(false,"Payment cancelled — your order was not placed.");},500);}
+  }catch(e){}})();
   // apply once at load in case the licence resolved before this script ran
   if(document.readyState!=="loading")setTimeout(applyConciergeUI,300);
   else document.addEventListener("DOMContentLoaded",function(){setTimeout(applyConciergeUI,300);});

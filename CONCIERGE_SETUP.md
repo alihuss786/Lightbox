@@ -39,7 +39,9 @@ create table if not exists public.print_jobs (
   filename    text,
   summary     jsonb,
   size_bytes  bigint,
-  status      text not null default 'new'
+  status      text not null default 'new',   -- awaiting_payment | new | done
+  payment_amount     int,                         -- pence, once Stripe is on
+  payment_session_id text
 );
 alter table public.print_jobs enable row level security;
 ```
@@ -182,6 +184,37 @@ Set the owner password in Supabase, one-time:
 
 > Security: the password is validated by Supabase Auth, and the order data is
 > protected by the RLS policies in step 3 (only the owner email can read jobs).
+
+## 8. Payment — Stripe (optional until you’re ready)
+
+“Print for me” charges the customer per size via **Stripe Checkout**. Prices are set
+**server-side** (`SIZE_PRICES` in `api/_lib.js`): Small £20, Medium £35, Large £45.
+**If `STRIPE_SECRET_KEY` is not set, orders submit free** — fine for pre-launch testing.
+
+1. Create a Stripe account → **Developers → API keys** → copy the **Secret key**
+   (`sk_test_...` while testing, `sk_live_...` for real charges).
+2. Vercel → Environment Variables, add:
+   - `STRIPE_SECRET_KEY` = `sk_...`
+   - `SITE_URL` = `https://signaturelightboxes.com` (used for the return links)
+3. Add the payment columns (if your table predates them):
+
+```sql
+alter table public.print_jobs add column if not exists payment_amount int;
+alter table public.print_jobs add column if not exists payment_session_id text;
+```
+
+4. **Redeploy.**
+
+No Stripe Products/Prices to create — each order builds its price inline. To change
+prices, edit `SIZE_PRICES` in `api/_lib.js` (pence) **and** `CONCIERGE_SIZES` in
+`lb.html` (keep them in sync).
+
+Flow: customer pays on Stripe’s hosted page → returns to the site → the app calls
+`/api/confirm-order`, which **re-checks with Stripe that the session is paid** before
+marking the order and emailing. Abandoned/unpaid checkouts stay `awaiting_payment`
+and never appear in your dashboard.
+
+Test with a `sk_test_` key and card **4242 4242 4242 4242**, any future expiry/CVC.
 
 ---
 
