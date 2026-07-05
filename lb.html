@@ -670,9 +670,9 @@ body.ar-open #acct{display:none!important}
     <div class="acc-h" onclick="accT(this)">Name <i class="chev">⌄</i></div>
     <div class="acc-b">
       <div class="hint">Make the lid a full name — or several names over multiple lines. A border fuses the letters into one connected, printable piece. Uses your selected Letter font.</div>
-      <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Name (one per line for multiple lines)</span><textarea id="lidName" rows="2" placeholder="e.g. Sophie" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:15px system-ui,sans-serif;resize:vertical;box-sizing:border-box" oninput="onNameInput()"></textarea></div>
-      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Connect border — <b id="nameBorderLbl">3.0</b> mm</span><div class="szc"><button type="button" class="stp" onclick="nudgeNameBorder(-1)">−</button><input type="range" id="nameBorder" min="0.5" max="8" step="0.1" value="3" oninput="onNameBorderLabel()" onchange="if(typeof rebuild==='function')rebuild()"><button type="button" class="stp" onclick="nudgeNameBorder(1)">＋</button></div></div>
-      <div class="hint" style="font-size:11px">Increase the border if letters aren’t joined. Very high values can close small letter holes (o, e, a).</div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Name (one per line for multiple lines)</span><textarea id="lidName" rows="3" maxlength="60" placeholder="e.g. Sophie&#10;&amp;&#10;James" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:15px system-ui,sans-serif;resize:vertical;box-sizing:border-box" oninput="onNameInput()"></textarea></div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Backing border — <b id="nameBorderLbl">5.0</b> mm</span><div class="szc"><button type="button" class="stp" onclick="nudgeNameBorder(-1)">−</button><input type="range" id="nameBorder" min="1" max="14" step="0.5" value="5" oninput="onNameBorderLabel()" onchange="if(typeof rebuild==='function')rebuild()"><button type="button" class="stp" onclick="nudgeNameBorder(1)">＋</button></div></div>
+      <div class="hint" style="font-size:11px">The border is the white backing plate around the name (max 3 lines). Bigger = thicker backing; the letters sit raised on top.</div>
       <button class="addtext" onclick="clearName()">Clear name (back to single letter)</button>
     </div>
   </div>
@@ -1294,13 +1294,13 @@ var LIDNAME="";
 function nameBorderVal(){var el=document.getElementById("nameBorder");return el?parseFloat(el.value):3;}
 function onNameBorderLabel(){var el=document.getElementById("nameBorder"),l=document.getElementById("nameBorderLbl");if(el&&l)l.textContent=parseFloat(el.value).toFixed(1);}
 function nudgeNameBorder(d){var el=document.getElementById("nameBorder");if(!el)return;el.value=Math.max(0.5,Math.min(8,(parseFloat(el.value)+d*0.5)));onNameBorderLabel();if(typeof rebuild==="function")rebuild();}
-function onNameInput(){var el=document.getElementById("lidName");LIDNAME=el?el.value:"";if(typeof rebuild==="function")rebuild();}
+function onNameInput(){var el=document.getElementById("lidName");var v=el?el.value:"";var ls=v.split(/\r?\n/);if(ls.length>3){ls=ls.slice(0,3);v=ls.join("\n");if(el)el.value=v;}LIDNAME=v;if(typeof rebuild==="function")rebuild();}
 function clearName(){LIDNAME="";var el=document.getElementById("lidName");if(el)el.value="";if(typeof rebuild==="function")rebuild();}
 /* Multi-line name -> Clipper subject paths. Each glyph is placed individually with
    tight tracking (bounding boxes overlap slightly) so a small connect-border fuses
    adjacent letters into one piece. Lines are centred and stacked top-to-bottom. */
 function nameGlyphSubj(font,text,size){
-  var lines=String(text).split(/\r?\n/);var lineH=size*1.5;var track=-size*0.04;var spaceW=size*0.34;var out=[];
+  var lines=String(text).split(/\r?\n/).slice(0,3);var lineH=size*0.86;var track=-size*0.012;var spaceW=size*0.30;var out=[];
   for(var li=0;li<lines.length;li++){var line=lines[li];if(!line.trim().length)continue;
     var glyphs=[],total=0;
     for(var ci=0;ci<line.length;ci++){var ch=line[ci];
@@ -1725,6 +1725,7 @@ async function buildModel(){
       const A=off(filled,clearance),B=off(filled,clearance+capW);   // skirt is now folded into the single manifold lid mesh (buildLidSlabs), so no separate skirt extrude here.
       // ---- Gather pocket features. Name + images share the name pocket depth; each STL gets its own. ----
       const inlays=[];                 // solids that fill name/image pockets and stand proud
+      if(nameMode&&typeof _uni!=="undefined"&&_uni&&_uni.length){inlays.push({p:_uni,kind:"name",depth:0,color:COLORS.name});}  // raised name letters on the backing board
       const slabFeatures=[];           // every pocket carved into the lid top: {p, depth}
       // Every independent text layer becomes its own inlay + pocket, placed at its own x/y, with its OWN colour.
       for(const t of texts){const raw=(t.str||"").trim();if(!raw){t._dropped="";continue;}
