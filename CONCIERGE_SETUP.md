@@ -149,6 +149,29 @@ If `RESEND_API_KEY` is unset, jobs still save and appear in the in-app queue —
 just don’t get the email. Swap Resend for SendGrid/Postmark by editing the one
 `fetch("https://api.resend.com/emails", …)` block in `api/print-job.js`.
 
+## 7. Owner sign-in password + dashboard
+
+When you sign into the site with the **owner email** (`ali.hussain755@outlook.com`),
+the app asks for a **password** — everyone else still gets the passwordless email
+link — and then drops you on a full-screen **Order requests** dashboard instead of
+the designer. (From the dashboard, **Open designer** returns to the tool; the
+floating **Orders** button reopens the dashboard.)
+
+Set the owner password in Supabase, one-time:
+
+1. Supabase → **Authentication → Users**.
+2. If your user detail panel has a password/**Reset password** field, set one there and skip to step 4.
+3. Otherwise: delete the existing owner user (**⋯ → Delete user** — safe, the queue
+   is keyed by email, not user id), then **Add user → Create new user**:
+   - Email: `ali.hussain755@outlook.com`
+   - Password: a strong password
+   - **Auto Confirm User: ON**
+4. Sign into signaturelightboxes.com with the owner email → it asks for the
+   password → you land on the dashboard.
+
+> Security: the password is validated by Supabase Auth, and the order data is
+> protected by the RLS policies in step 3 (only the owner email can read jobs).
+
 ---
 
 ## How it works end-to-end
