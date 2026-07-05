@@ -643,7 +643,7 @@ body.ar-open #acct{display:none!important}
     </div>
   </div>
   <div class="acc open">
-    <div class="acc-h" onclick="accT(this)">Letter &amp; text <i class="chev">⌄</i></div>
+    <div class="acc-h" onclick="accT(this)">Letter <i class="chev">⌄</i></div>
     <div class="acc-b">
       <div class="row"><span class="lbl">Capital letter</span><input type="text" class="letter-big" id="letter" maxlength="1" value="A" oninput="this.value=this.value.toUpperCase();rebuild()"></div>
       <div class="row"><span class="lbl">Letter font</span><div class="grid3" id="font-grid"></div></div>
@@ -664,6 +664,16 @@ body.ar-open #acct{display:none!important}
         <div class="pad" id="pad_name"><svg class="pad-svg" id="padSvg_name"></svg><div class="pad-cross h"></div><div class="pad-cross v"></div><div class="pad-layer" id="textLayer"></div></div>
         <div class="padhint">Tap a layer to select, drag any layer independently</div>
       </div>
+    </div>
+  </div>
+  <div class="acc">
+    <div class="acc-h" onclick="accT(this)">Name <i class="chev">⌄</i></div>
+    <div class="acc-b">
+      <div class="hint">Make the lid a full name — or several names over multiple lines. A border fuses the letters into one connected, printable piece. Uses your selected Letter font.</div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Name (one per line for multiple lines)</span><textarea id="lidName" rows="2" placeholder="e.g. Sophie" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:15px system-ui,sans-serif;resize:vertical;box-sizing:border-box" oninput="onNameInput()"></textarea></div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Connect border — <b id="nameBorderLbl">3.0</b> mm</span><div class="szc"><button type="button" class="stp" onclick="nudgeNameBorder(-1)">−</button><input type="range" id="nameBorder" min="0.5" max="8" step="0.1" value="3" oninput="onNameBorderLabel()" onchange="if(typeof rebuild==='function')rebuild()"><button type="button" class="stp" onclick="nudgeNameBorder(1)">＋</button></div></div>
+      <div class="hint" style="font-size:11px">Increase the border if letters aren’t joined. Very high values can close small letter holes (o, e, a).</div>
+      <button class="addtext" onclick="clearName()">Clear name (back to single letter)</button>
     </div>
   </div>
   <div class="acc">
@@ -980,7 +990,7 @@ function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");cons
 function setMode(m){mode=m;zoom=1;try{document.body.classList.toggle("plates-mode",m==="plates");}catch(e){}paintSeg();g("platelist").style.display=m==="plates"?"flex":"none";g("printerbox").style.display=m==="plates"?"flex":"none";g("zoomhint").style.display="block";clearTimeout(zhT);zhT=setTimeout(()=>g("zoomhint").style.display="none",1900);if(m==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}buildModel();buildSummary();}
 function toggleLight(){lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plTab(i){var wrap=document.querySelector(".controls");if(!wrap)return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));accs.forEach(function(a,j){a.classList.toggle("open",j===i);});var tabs=[].slice.call(wrap.querySelectorAll(".pl-tab"));tabs.forEach(function(t,j){t.classList.toggle("active",j===i);});var at=tabs[i];if(at&&at.scrollIntoView){try{at.scrollIntoView({inline:"center",block:"nearest"});}catch(e){}}try{wrap.scrollTop=0;}catch(e){}}
 function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export|lithophane)$/i.test(name))return;var t=document.createElement("button");t.className="pl-tab";t.textContent=name;t.setAttribute("data-i",i);t.onclick=function(){plTab(i);};bar.appendChild(t);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
-function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Text"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
+function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Letter"],name:["\u270e","Name"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
 function applyLight(){{var _lbl=g("lightLbl");if(_lbl)_lbl.textContent=lightOn?"Turn off lamp":"Turn on lamp";}
   g("lightPill").classList.toggle("on",lightOn);
@@ -1280,6 +1290,30 @@ function updateDimLabels(){const lx=g("dimX"),ly=g("dimY"),lz=g("dimZ");if(mode!
 const S=1000;
 function pip(pt,poly){let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const xi=poly[i].x,yi=poly[i].y,xj=poly[j].x,yj=poly[j].y;if(((yi>pt.y)!==(yj>pt.y))&&(pt.x<(xj-xi)*(pt.y-yi)/(yj-yi)+xi))c=!c;}return c;}
 function glyphSubj(font,text,size){const shapes=font.generateShapes(text,size);const div=12;const subj=[];shapes.forEach(sh=>{subj.push(sh.getPoints(div).map(p=>({X:Math.round(p.x*S),Y:Math.round(p.y*S)})));(sh.holes||[]).forEach(h=>subj.push(h.getPoints(div).map(p=>({X:Math.round(p.x*S),Y:Math.round(p.y*S)}))));});return subj;}
+var LIDNAME="";
+function nameBorderVal(){var el=document.getElementById("nameBorder");return el?parseFloat(el.value):3;}
+function onNameBorderLabel(){var el=document.getElementById("nameBorder"),l=document.getElementById("nameBorderLbl");if(el&&l)l.textContent=parseFloat(el.value).toFixed(1);}
+function nudgeNameBorder(d){var el=document.getElementById("nameBorder");if(!el)return;el.value=Math.max(0.5,Math.min(8,(parseFloat(el.value)+d*0.5)));onNameBorderLabel();if(typeof rebuild==="function")rebuild();}
+function onNameInput(){var el=document.getElementById("lidName");LIDNAME=el?el.value:"";if(typeof rebuild==="function")rebuild();}
+function clearName(){LIDNAME="";var el=document.getElementById("lidName");if(el)el.value="";if(typeof rebuild==="function")rebuild();}
+/* Multi-line name -> Clipper subject paths. Each glyph is placed individually with
+   tight tracking (bounding boxes overlap slightly) so a small connect-border fuses
+   adjacent letters into one piece. Lines are centred and stacked top-to-bottom. */
+function nameGlyphSubj(font,text,size){
+  var lines=String(text).split(/\r?\n/);var lineH=size*1.5;var track=-size*0.04;var spaceW=size*0.34;var out=[];
+  for(var li=0;li<lines.length;li++){var line=lines[li];if(!line.trim().length)continue;
+    var glyphs=[],total=0;
+    for(var ci=0;ci<line.length;ci++){var ch=line[ci];
+      if(ch===" "){glyphs.push({space:true,w:spaceW});total+=spaceW+track;continue;}
+      var shapes=font.generateShapes(ch,size);var mnX=1e9,mxX=-1e9,any=false;
+      shapes.forEach(function(sh){sh.getPoints(4).forEach(function(pt){any=true;if(pt.x<mnX)mnX=pt.x;if(pt.x>mxX)mxX=pt.x;});});
+      if(!any){mnX=0;mxX=spaceW;}glyphs.push({shapes:shapes,mnX:mnX,w:(mxX-mnX)});total+=(mxX-mnX)+track;}
+    total-=track;var x=-total/2,oY=-li*lineH;
+    glyphs.forEach(function(g){if(g.space){x+=g.w+track;return;}var shift=x-g.mnX;
+      g.shapes.forEach(function(sh){out.push(sh.getPoints(12).map(function(pt){return {X:Math.round((pt.x+shift)*S),Y:Math.round((pt.y+oY)*S)};}));
+        (sh.holes||[]).forEach(function(h){out.push(h.getPoints(12).map(function(pt){return {X:Math.round((pt.x+shift)*S),Y:Math.round((pt.y+oY)*S)};}));});});
+      x+=g.w+track;});}
+  return out;}
 function cb(p0,p1,p2,p3,t){const u=1-t;return u*u*u*p0+3*u*u*t*p1+3*u*t*t*p2+t*t*t*p3;}function qb(p0,p1,p2,t){const u=1-t;return u*u*p0+2*u*t*p1+t*t*p2;}
 function nameSubjOT(otf,text,size){const path=otf.getPath(text,0,0,size);const seg=10;const cs=[];let cur=null,px=0,py=0;path.commands.forEach(c=>{if(c.type==="M"){if(cur&&cur.length>2)cs.push(cur);cur=[{x:c.x,y:c.y}];px=c.x;py=c.y;}else if(c.type==="L"){cur.push({x:c.x,y:c.y});px=c.x;py=c.y;}else if(c.type==="C"){for(let i=1;i<=seg;i++){const t=i/seg;cur.push({x:cb(px,c.x1,c.x2,c.x,t),y:cb(py,c.y1,c.y2,c.y,t)});}px=c.x;py=c.y;}else if(c.type==="Q"){for(let i=1;i<=seg;i++){const t=i/seg;cur.push({x:qb(px,c.x1,c.x,t),y:qb(py,c.y1,c.y,t)});}px=c.x;py=c.y;}else if(c.type==="Z"){if(cur&&cur.length>2)cs.push(cur);cur=null;}});if(cur&&cur.length>2)cs.push(cur);return cs.map(ct=>ct.map(p=>({X:Math.round(p.x*S),Y:Math.round(-p.y*S)})));}
 function unionFilled(subj){const cl=new ClipperLib.Clipper();cl.AddPaths(subj,ClipperLib.PolyType.ptSubject,true);const f=new ClipperLib.Paths();cl.Execute(ClipperLib.ClipType.ctUnion,f,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return f;}
@@ -1625,7 +1659,7 @@ function buildBodyShell(filled,inner,depth,wall,cx,cy){
 let PLATES=[],PLATE_THUMBS=[];
 async function buildModel(){
   if(!renderer||!pivot)return;clearPivot();glowFace=null;glowSpot=null;floorPlane=null;DIM=null;
-  const letter=(v("letter")||"A").toUpperCase()[0];const name=texts.map(t=>(t.str||"").trim()).filter(Boolean).join(" ");
+  const letter=(v("letter")||"A").toUpperCase()[0];const nameMode=(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;const name=texts.map(t=>(t.str||"").trim()).filter(Boolean).join(" ");
   const lh=mmOf("lh")||140,depth=mmOf("bd")||40,wall=mmOf("wall")||3;
   const topT=mmOf("topT")||3,capW=mmOf("capW")||3,skirtD=mmOf("skirt")||14,clearance=0.4;
   const nameExt=mmOf("nameExt")||10;
@@ -1650,7 +1684,11 @@ async function buildModel(){
   let LW=lh*0.7,LH=lh;
   try{
     const font=await loadFont(selFont.url);let cx=0,cy=0,filled=null,glyphSize=lh;
-    if(hasClip){
+    if(hasClip&&nameMode){
+      /* NAME MODE — fuse a multi-line name with the connect border into one lid shape */
+      var _rc=(LIDNAME.replace(/\s/g,"")[0])||"A";var _nf0=unionEO(glyphSubj(font,_rc,lh));var _nex0=pathsExtent(_nf0,0,0);if(_nex0.H>1){var _nk=_nex0.H/lh;glyphSize=Math.max(8,lh-capMargin)/_nk;}
+      var _uni=unionEO(nameGlyphSubj(font,LIDNAME,glyphSize));filled=off(_uni,nameBorderVal());if(!filled||!filled.length)filled=_uni;var _nc=pathsCenter(filled);cx=_nc.x;cy=_nc.y;var _nex=pathsExtent(filled,cx,cy);LW=_nex.W;LH=_nex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
+    }else if(hasClip){
       // Build the capital-letter silhouette with the EVEN-ODD fill rule (unionEO), not non-zero. Non-zero
       // depends on the glyph's hole contour winding being correct; on the first font parse (before the glyph
       // outlines are fully cached) the inner counter can come back as a same-winding contour, which non-zero
