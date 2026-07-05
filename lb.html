@@ -3345,6 +3345,10 @@ window.USDZExporter=USDZExporter;})();
       }
     }
     try{applySizeMode();}catch(e){}
+    var cob=document.getElementById("myOrdersBtn");
+    if(window.__isConcierge()&&!isOwner()){
+      if(!cob){cob=document.createElement("button");cob.id="myOrdersBtn";cob.type="button";cob.textContent="📦 My orders";cob.style.cssText="position:fixed;left:14px;bottom:14px;z-index:6000;padding:9px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:#1c1f26;color:#eaeaec;font:600 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35)";cob.onclick=openMyOrders;document.body.appendChild(cob);}
+    }else if(cob){cob.remove();}
     var ob=document.getElementById("ownerJobsBtn");
     if(isOwner()){
       if(!window.__ownerDashShown){window.__ownerDashShown=true;try{showOwnerDash();}catch(e){}}
@@ -3462,6 +3466,48 @@ window.USDZExporter=USDZExporter;})();
   window.__openPrintQueue=showOwnerDash;
   window.__showOwnerDash=showOwnerDash;
   window.__hideOwnerDash=hideOwnerDash;
+
+  /* ---- Concierge customer: read-only "My orders" history ---- */
+  function custStatus(st){ return (st==="done") ? {t:"Completed",bg:"rgba(46,168,79,.16)",c:"#7fe0a3"} : {t:"In production",bg:"rgba(224,192,141,.16)",c:"#e0c08d"}; }
+  function ensureMyOrdersModal(){
+    var m=document.getElementById("myOrdersModal");if(m)return m;
+    m=document.createElement("div");m.id="myOrdersModal";
+    m.style.cssText="display:none;position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:18px";
+    m.innerHTML=
+      '<div style="background:#14161b;color:#eaeaec;border:1px solid rgba(255,255,255,.12);border-radius:16px;max-width:560px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08)">'
+      +'<div style="font-weight:700;font-size:15px">📦 My orders</div>'
+      +'<button id="moClose" style="background:none;border:none;color:#aaa;font-size:22px;cursor:pointer;line-height:1">×</button></div>'
+      +'<div id="moList" style="padding:14px 18px;overflow:auto">Loading…</div></div>';
+    document.body.appendChild(m);
+    m.addEventListener("click",function(e){if(e.target===m)m.style.display="none";});
+    m.querySelector("#moClose").onclick=function(){m.style.display="none";};
+    return m;
+  }
+  async function renderMyOrders(list){
+    var sb=window.__sb;if(!sb){list.innerHTML='<div style="color:#9aa0aa">Sign-in offline.</div>';return;}
+    list.textContent="Loading…";
+    var r=await sb.from("print_jobs").select("*").order("created_at",{ascending:false}).limit(100);
+    if(r.error){list.innerHTML='<div style="color:#f88">Could not load your orders: '+esc(r.error.message)+'</div>';return;}
+    var rows=(r.data||[]).filter(function(j){return j.status==="new"||j.status==="done";});
+    if(!rows.length){list.innerHTML='<div style="text-align:center;color:#7f8896;padding:50px 0">No orders yet.<div style="font-size:12px;margin-top:6px;color:#5c606a">When you send a design to print it’ll appear here.</div></div>';return;}
+    list.innerHTML="";
+    rows.forEach(function(job){
+      var st=custStatus(job.status);
+      var card=document.createElement("div");
+      card.style.cssText="border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:13px 15px;display:flex;flex-direction:column;gap:6px;background:#191c22;margin-bottom:11px";
+      card.innerHTML=
+        '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center">'
+        +'<div style="font-size:12px;color:#8b93a1">'+fmt(job.created_at)+'</div>'
+        +'<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:'+st.bg+';color:'+st.c+'">'+st.t+'</span></div>'
+        +'<div style="font-size:13px;color:#eaeaec;font-weight:600">'+summaryLine(job.summary)+'</div>'
+        +shipBlock(job.summary);
+      list.appendChild(card);
+    });
+    var note=document.createElement("div");note.style.cssText="font-size:11px;color:#7f8896;text-align:center;margin-top:2px";note.textContent="We’ll email you when your order ships.";list.appendChild(note);
+  }
+  function openMyOrders(){var m=ensureMyOrdersModal();m.style.display="flex";renderMyOrders(document.getElementById("moList"));}
+  window.__openMyOrders=openMyOrders;
 
   // Returning from Stripe Checkout: confirm the paid order + show the result.
   (function(){try{var q=new URLSearchParams(location.search);var o=q.get("order");

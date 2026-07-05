@@ -56,6 +56,10 @@ policy. Only **you** may read/manage jobs. Replace the email with yours everywhe
 create policy "owner reads jobs" on public.print_jobs
   for select using ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
 
+-- Each customer can see THEIR OWN orders (the in-app "My orders" view)
+create policy "users read own jobs" on public.print_jobs
+  for select using ( user_id = auth.uid() );
+
 -- Owner can update status (Mark done / Move to pending)
 create policy "owner updates jobs" on public.print_jobs
   for update using ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
