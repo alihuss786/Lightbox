@@ -746,6 +746,7 @@ body.ar-open #acct{display:none!important}
 <script>
 const PRINTERS=[{n:"A1 mini",x:180,y:180},{n:"A1",x:256,y:256},{n:"P1P",x:256,y:256},{n:"P1S",x:256,y:256},{n:"X1 Carbon",x:256,y:256},{n:"X1E",x:256,y:256},{n:"P2S",x:256,y:256},{n:"X2D",x:256,y:256},{n:"A2L",x:330,y:320},{n:"H2D",x:350,y:320},{n:"H2S",x:350,y:320}];
 let selPrinter=3;
+window.__hasAMS=false;   // AMS = multi-colour: bake chosen colours into the .3mf
 const plateOpacity=0.12;        // build-plate translucency permanently locked at its lowest level
 let __plateMats=[];             // live references to the current plate's materials for instant opacity updates
 function maybeExitNameMode(){try{var wrap=document.querySelector(".controls");if(!wrap)return;var openAcc=wrap.querySelector(".acc.open");if(!openAcc)return;var hd=openAcc.querySelector(".acc-h");var nm="";if(hd)[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)nm+=n.textContent;});nm=nm.trim().toLowerCase();if(nm==="letter"){if(typeof LIDNAME!=="undefined"&&LIDNAME.trim().length){LIDNAME="";var ta=document.getElementById("lidName");if(ta)ta.value="";if(typeof rebuild==="function")rebuild();}}else if(nm==="name"){if(typeof clearNameTexts==="function")clearNameTexts();}}catch(e){}}
@@ -1351,6 +1352,7 @@ function unionFilled(subj){const cl=new ClipperLib.Clipper();cl.AddPaths(subj,Cl
 function unionEO(subj){const cl=new ClipperLib.Clipper();cl.AddPaths(subj,ClipperLib.PolyType.ptSubject,true);const f=new ClipperLib.Paths();cl.Execute(ClipperLib.ClipType.ctUnion,f,ClipperLib.PolyFillType.pftEvenOdd,ClipperLib.PolyFillType.pftEvenOdd);return f;}
 function union2(a,b){const cl=new ClipperLib.Clipper();cl.AddPaths(a,ClipperLib.PolyType.ptSubject,true);cl.AddPaths(b,ClipperLib.PolyType.ptClip,true);const f=new ClipperLib.Paths();cl.Execute(ClipperLib.ClipType.ctUnion,f,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return f;}
 function off(filled,delta){const co=new ClipperLib.ClipperOffset(2,0.25);co.AddPaths(filled,ClipperLib.JoinType.jtRound,ClipperLib.EndType.etClosedPolygon);const sol=new ClipperLib.Paths();co.Execute(sol,delta*S);return sol;}
+function _hex6(c){c=(c==null?"#FFFFFF":c).toString().trim();if(c[0]!=="#")c="#"+c;if(c.length===4)c="#"+c[1]+c[1]+c[2]+c[2]+c[3]+c[3];return c.slice(0,7).toUpperCase();}
 function fillSolid(paths){if(!paths||!paths.length)return paths;try{var ba=0;for(var i=0;i<paths.length;i++){var a=ClipperLib.Clipper.Area(paths[i]);if(Math.abs(a)>Math.abs(ba))ba=a;}var sg=ba>0?1:-1;var out=[];for(var j=0;j<paths.length;j++){if(ClipperLib.Clipper.Area(paths[j])*sg>0)out.push(paths[j]);}return out.length?out:paths;}catch(e){return paths;}}
 function diff(a,b){const c=new ClipperLib.Clipper();c.AddPaths(a,ClipperLib.PolyType.ptSubject,true);c.AddPaths(b,ClipperLib.PolyType.ptClip,true);const s=new ClipperLib.Paths();c.Execute(ClipperLib.ClipType.ctDifference,s,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return s;}
 function intersect(a,b){const c=new ClipperLib.Clipper();c.AddPaths(a,ClipperLib.PolyType.ptSubject,true);c.AddPaths(b,ClipperLib.PolyType.ptClip,true);const s=new ClipperLib.Paths();c.Execute(ClipperLib.ClipType.ctIntersection,s,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return s;}
@@ -1744,7 +1746,7 @@ async function buildModel(){
       const inner=off(filled,-wall);
       if(inner&&inner.length){
         const shellGeo=buildBodyShell(filled,inner,nameMode?Math.min(depth,16):depth,wall,cx,cy);
-        bodyGroup.add(new THREE.Mesh(shellGeo,nameMode?MATS.nameBg:MATS.body));builtHollow=true;}
+        bodyGroup.add(new THREE.Mesh(shellGeo,MATS.body));builtHollow=true;}
     }catch(e){}}
     if(!builtHollow){const geo=new THREE.TextGeometry(letter,{font,size:glyphSize,height:depth,curveSegments:8,bevelEnabled:false});geo.computeBoundingBox();const bb=geo.boundingBox;geo.translate(-(bb.max.x+bb.min.x)/2,-(bb.max.y+bb.min.y)/2,0);const body=new THREE.Mesh(geo,MATS.body);body.position.z=-depth;bodyGroup.add(body);}
 
@@ -1842,15 +1844,15 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=ne
     // Movement confines for catalog models: XY bounded by the letter (lid/body) footprint. Models are
     // seated flat on the lid — there is no free Z axis. The 2D pad clamps to this.
     window.__GB={hx:Math.max(8,LW/2),hy:Math.max(8,LH/2)};
-    const partList=[{group:capGroup,name:"Lid · front",flip:false,isLid:true},{group:bodyGroup,name:"Body",flip:false}];
+    const partList=[{group:capGroup,name:"Lid · front",flip:false,isLid:true,color:(nameMode?"#FFFFFF":COLORS.front)},{group:bodyGroup,name:"Body",flip:false,color:COLORS.body}];
     // Text layers are physically small — group EVERY text element onto ONE shared text build plate instead
     // of one plate per layer. The combined group holds each layer at its design position (so the assembled
     // render is unchanged); on the plate it is auto-packed into a non-overlapping row (see layoutTextPlate).
-    if(nameGroups.length){const textPlate=new THREE.Group();nameGroups.forEach(gr=>textPlate.add(gr));partList.push({group:textPlate,name:(nameGroups.length>1?("Text · "+nameGroups.length+" layers"):"Text"),flip:false,textPlate:true});}
-    imgGroups.forEach((gr,i)=>partList.push({group:gr,name:"Image "+(i+1),flip:false}));
-    if(typeof photoPanelGroup!=="undefined"&&photoPanelGroup)partList.push({group:photoPanelGroup,name:"Photo panel",flip:false});
+    if(nameGroups.length){const textPlate=new THREE.Group();nameGroups.forEach(gr=>textPlate.add(gr));partList.push({group:textPlate,name:(nameGroups.length>1?("Text · "+nameGroups.length+" layers"):"Text"),flip:false,textPlate:true,color:COLORS.front});}
+    imgGroups.forEach((gr,i)=>partList.push({group:gr,name:"Image "+(i+1),flip:false,color:COLORS.image}));
+    if(typeof photoPanelGroup!=="undefined"&&photoPanelGroup)partList.push({group:photoPanelGroup,name:"Photo panel",flip:false,color:"#FFFFFF"});
     if(stlParts&&stlParts.length){stlParts.forEach(p=>partList.push(p));}
-    else{models.forEach((mo,i)=>{if(!mo.obj)return;const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));inst.position.set(+mo.x||0,+mo.y||0,TT);grp.userData={isStl:true,modelId:mo.id};grp.add(inst);partList.push({group:grp,name:"3D "+((mo.name||("model "+(i+1))).slice(0,9)),flip:false,modelId:mo.id});});}
+    else{models.forEach((mo,i)=>{if(!mo.obj)return;const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));inst.position.set(+mo.x||0,+mo.y||0,TT);grp.userData={isStl:true,modelId:mo.id};grp.add(inst);partList.push({group:grp,name:"3D "+((mo.name||("model "+(i+1))).slice(0,9)),flip:false,modelId:mo.id,color:COLORS.model});});}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
 
@@ -1893,7 +1895,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=ne
 function renderPlateList(){const el=g("platelist");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";
   el.innerHTML=`<div class="plbl">Plates</div>`+PLATES.map((p,i)=>{const extra=p.flip?" · face-down":"";const th=PLATE_THUMBS[i]?`<img src="${PLATE_THUMBS[i]}">`:"";return `<div class="pcard${i===selPlate?' sel':''}" data-i="${i}"><div class="pth">${th}</div><div><div class="pnm">Plate ${i+1}</div><div class="psub">${p.name}${extra}</div></div></div>`;}).join("");
   el.querySelectorAll(".pcard").forEach(d=>d.onclick=()=>{selPlate=+d.dataset.i;zoom=1;buildModel();});}
-function renderPrinter(){const el=g("printerbox");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";el.innerHTML=`<div class="plbl">Printer</div><select class="psel" onchange="setPrinter(this.selectedIndex)">`+PRINTERS.map((p,i)=>`<option ${i===selPrinter?"selected":""}>${p.n} · ${p.x}×${p.y}mm</option>`).join("")+`</select>`;}
+function renderPrinter(){const el=g("printerbox");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";el.innerHTML=`<div class="plbl">Printer</div><select class="psel" onchange="setPrinter(this.selectedIndex)">`+PRINTERS.map((p,i)=>`<option ${i===selPrinter?"selected":""}>${p.n} · ${p.x}×${p.y}mm</option>`).join("")+`</select><label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;opacity:.85;cursor:pointer;line-height:1.3"><input type="checkbox" ${window.__hasAMS?"checked":""} onchange="window.__hasAMS=this.checked" style="width:16px;height:16px;flex:none"> I have an AMS (multi-colour printer)</label><div style="font-size:10.5px;opacity:.55;margin-top:4px">On: colours baked into one .3mf. Off: each part on its own plate to print separately.</div>`;}
 function setPrinter(i){selPrinter=i;zoom=1;buildModel();}
 
 function buildSummary(){const nameExt=mmOf("nameExt")||10;let pocket=Math.max(0,Math.min(mmOf("nameDepth")||0,nameExt));const above=Math.round((nameExt-pocket)*10)/10;const liveTexts=texts.filter(t=>(t.str||"").trim());const parts=2+liveTexts.length+images.length+models.length;const bed=PRINTERS[selPrinter];const tnames=liveTexts.map(t=>t.str.trim()).join(", ")||"—";g("summary").innerHTML=`<b>${(v("letter")||"A").toUpperCase()}</b> · ${selFont.name} · overall ${fmt(mmOf("lh"))} tall × ${fmt(mmOf("bd"))} deep<br>Text layers (${liveTexts.length||"none"}): <b>${tnames}</b> · ${fmt(nameExt)} tall, ${fmt(above)} proud<br>Images: ${images.length||"none"} · 3D models: ${models.length||"none"}<br>Printer <b>${bed.n}</b> (${bed.x}×${bed.y} mm bed)<br><b>${parts} separate printable parts</b> — lid prints face-down`;}
@@ -1925,9 +1927,9 @@ function f3(n){return Math.round(n*1000)/1000;}
    reachable from the dev-tools console, so the only way to produce a .3mf
    is the gated window.exportPlates(), which asks the licence server first. */
 (function(){
-function partTriangles(part){
+function partTriangles(part,skipLayout){
   const clone=part.group.clone(true);
-  if(part.textPlate)layoutTextPlate(clone);
+  if(part.textPlate&&!skipLayout)layoutTextPlate(clone);
   clone.rotation.x=part.flip?Math.PI/2:-Math.PI/2;clone.position.set(0,0,0);clone.updateMatrixWorld(true);
   const v=new THREE.Vector3(),tris=[];
   clone.traverse(o=>{if(!o.isMesh||!o.geometry||(o.userData&&(o.userData.isGlow||o.userData.isPreview)))return;const ge=o.geometry,pos=ge.attributes&&ge.attributes.position;if(!pos)return;const mw=o.matrixWorld,idx=ge.index;
@@ -1974,7 +1976,8 @@ function build3MFModelXML(groups,bedX,bedY){
     grp.objects.forEach(o=>{const map=new Map(),verts=[];
       const vi=p=>{const key=p.x+","+p.y+","+p.z;let j=map.get(key);if(j===undefined){j=verts.length;verts.push(p);map.set(key,j);}return j;};
       o._idx=o.tris.map(t=>[vi(t[0]),vi(t[1]),vi(t[2])]);o._verts=verts;o.faceCount=o._idx.length;
-      let mnx=1/0,mxx=-1/0;verts.forEach(p=>{if(p.x<mnx)mnx=p.x;if(p.x>mxx)mxx=p.x;});o._w=isFinite(mnx)?(mxx-mnx):0;});
+      let mnx=1/0,mxx=-1/0,mny=1/0,mxy=-1/0;verts.forEach(p=>{if(p.x<mnx)mnx=p.x;if(p.x>mxx)mxx=p.x;if(p.y<mny)mny=p.y;if(p.y>mxy)mxy=p.y;});o._w=isFinite(mnx)?(mxx-mnx):0;o._mnx=mnx;o._mxx=mxx;o._mny=mny;o._mxy=mxy;});
+    let OVx=0,OVy=0;if(grp.overlay){let Mnx=1/0,Mxx=-1/0,Mny=1/0,Mxy=-1/0;grp.objects.forEach(o=>{if(o._mnx<Mnx)Mnx=o._mnx;if(o._mxx>Mxx)Mxx=o._mxx;if(o._mny<Mny)Mny=o._mny;if(o._mxy>Mxy)Mxy=o._mxy;});OVx=cellX-(Mnx+Mxx)/2;OVy=cellY-(Mny+Mxy)/2;}
     const totalW=grp.objects.reduce((s,o)=>s+o._w,0)+gap*(grp.objects.length-1);
     let cx=cellX-totalW/2;
     grp.objects.forEach(o=>{const meshId=2*k+1, wrapId=2*k+2;k++;
@@ -1982,7 +1985,7 @@ function build3MFModelXML(groups,bedX,bedY){
       let tx="";o._idx.forEach(t=>{tx+=`<triangle v1="${t[0]}" v2="${t[1]}" v3="${t[2]}"/>`;});
       res+=`<object id="${meshId}" type="model"><mesh><vertices>${vx}</vertices><triangles>${tx}</triangles></mesh></object>`;
       res+=`<object id="${wrapId}" type="model"><components><component objectid="${meshId}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/></components></object>`;
-      o.meshId=meshId;o.wrapId=wrapId;o.worldX=f3(cx+o._w/2);o.worldY=f3(cellY);
+      o.meshId=meshId;o.wrapId=wrapId;if(grp.overlay){o.worldX=f3(OVx);o.worldY=f3(OVy);}else{o.worldX=f3(cx+o._w/2);o.worldY=f3(cellY);}
       items+=`<item objectid="${wrapId}" transform="1 0 0 0 1 0 0 0 1 ${o.worldX} ${o.worldY} 0" printable="1"/>`;
       cx+=o._w+gap;delete o._verts;delete o._idx;});});
   return `<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021"><metadata name="Application">BambuStudio-02.07.01.57</metadata><metadata name="BambuStudio:3mfVersion">1</metadata><resources>${res}</resources><build>${items}</build></model>`;
@@ -1995,7 +1998,7 @@ function build3MFModelXML(groups,bedX,bedY){
 function buildModelSettingsXML(groups){
   let s=`<?xml version="1.0" encoding="UTF-8"?>\n<config>`;
   groups.forEach(grp=>grp.objects.forEach(o=>{const fc=o.faceCount||0;
-    s+=`<object id="${o.wrapId}"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="extruder" value="1"/><metadata face_count="${fc}"/><part id="${o.meshId}" subtype="normal_part"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/><mesh_stat face_count="${fc}" edges_fixed="0" degenerate_facets="0" facets_removed="0" facets_reversed="0" backwards_edges="0"/></part></object>`;}));
+    s+=`<object id="${o.wrapId}"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="extruder" value="${o.extruder||1}"/><metadata face_count="${fc}"/><part id="${o.meshId}" subtype="normal_part"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/><mesh_stat face_count="${fc}" edges_fixed="0" degenerate_facets="0" facets_removed="0" facets_reversed="0" backwards_edges="0"/></part></object>`;}));
   let iid=100;
   groups.forEach((grp,gi)=>{const pid=gi+1;
     s+=`<plate><metadata key="plater_id" value="${pid}"/><metadata key="plater_name" value="${xmlEsc(grp.name)}"/><metadata key="locked" value="false"/><metadata key="filament_map_mode" value="Auto For Flush"/><metadata key="filament_maps" value="1"/>`;
@@ -2013,19 +2016,10 @@ function bambuPrinterIds(p){const n=(p&&p.n)||"X1 Carbon";const model="Bambu Lab
 // Bambu's short machine code used in process/filament preset suffixes ("@BBL <code>").
 function bambuCode(n){const m={"A1 mini":"A1M","A1":"A1","P1P":"P1P","P1S":"P1S","X1 Carbon":"X1C","X1":"X1","X1E":"X1E","H2D":"H2D","H2S":"H2S"};return m[n]||(n||"X1C").replace(/\s+/g,"");}
 function buildProjectSettings(p){const b=bambuPrinterIds(p),code=bambuCode((p&&p.n)||"X1 Carbon");
-  return JSON.stringify({
-    name:"project_settings",
-    from:"project",
-    version:"02.07.01.57",
-    is_bbl_printer:"1",
-    printer_settings_id:b.settingsId,
-    printer_model:b.model,
-    printer_variant:b.variant,
-    print_settings_id:"0.20mm Standard @BBL "+code,
-    filament_settings_id:["Bambu PLA Basic @BBL "+code],
-    nozzle_diameter:["0.4"],
-    curr_bed_type:"Textured PEI Plate"
-  },null,4);
+  var pal=(typeof window!=="undefined"&&window.__amsFilaments&&window.__amsFilaments.length)?window.__amsFilaments:null;
+  var base={name:"project_settings",from:"project",version:"02.07.01.57",is_bbl_printer:"1",printer_settings_id:b.settingsId,printer_model:b.model,printer_variant:b.variant,print_settings_id:"0.20mm Standard @BBL "+code,filament_settings_id:["Bambu PLA Basic @BBL "+code],nozzle_diameter:["0.4"],curr_bed_type:"Textured PEI Plate"};
+  if(pal&&pal.length){var N=pal.length,fsid=[],ftype=[];for(var i=0;i<N;i++){fsid.push("Bambu PLA Basic @BBL "+code);ftype.push("PLA");}base.filament_settings_id=fsid;base.filament_type=ftype;base.filament_colour=pal.map(_hex6);}
+  return JSON.stringify(base,null,4);
 }
 // Redundant config-style carrier for the printer identifier (some Bambu importers inspect BBL_Config.config).
 function buildBBLConfig(p){const b=bambuPrinterIds(p);
@@ -2076,16 +2070,27 @@ async function exportPlates(deliver){deliver=deliver||"download";
     // Categorise every printable part, then enforce the STRICT 4-plate split:
     //   Plate 1 = Main Box (body) · Plate 2 = Lid · Plate 3 = ALL text layers · Plate 4 = ALL catalog models.
     // The lid is the only face-down (flip) part; text/models are detected by their flags.
-    const bucket={box:[],lid:[],text:[],model:[]};
-    PLATES.forEach((part,i)=>{const tris=partTriangles(part);if(!tris||!tris.length)return;
+    const AMS=!!window.__hasAMS;const NAMEMODE=(typeof LIDNAME!=="undefined"&&LIDNAME.trim().length>0);
+    const objs=[];
+    PLATES.forEach((part,i)=>{const keep=(AMS&&NAMEMODE&&part.textPlate);const tris=partTriangles(part,keep);if(!tris||!tris.length)return;
       const clean=(part.name||("part "+(i+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
       const cat=part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
-      bucket[cat].push({name:clean,tris});});
-    const groups=[];
-    if(bucket.box.length)groups.push({name:"Plate "+(groups.length+1)+" - Main Box",objects:bucket.box});
-    if(bucket.lid.length)groups.push({name:"Plate "+(groups.length+1)+" - Lid",objects:bucket.lid});
-    if(bucket.text.length)groups.push({name:"Plate "+(groups.length+1)+" - Text Layers",objects:bucket.text});
-    if(bucket.model.length)groups.push({name:"Plate "+(groups.length+1)+" - Catalog Models",objects:bucket.model});
+      objs.push({name:clean,tris:tris,cat:cat,color:(part.color||"#DDDDDD")});});
+    const groups=[];window.__amsFilaments=null;
+    if(AMS){
+      const pal=[];const idxOf=c=>{c=_hex6(c);var kk=pal.indexOf(c);if(kk<0){kk=pal.length;pal.push(c);}return kk+1;};
+      objs.forEach(o=>{o.extruder=idxOf(o.color);});window.__amsFilaments=pal.slice();
+      const pick=c=>objs.filter(o=>o.cat===c);const lidO=pick("lid"),boxO=pick("box"),textO=pick("text"),modelO=pick("model");
+      if(NAMEMODE&&lidO.length&&textO.length){groups.push({name:"Plate 1 - Lid + Name",overlay:true,objects:lidO.concat(textO)});if(boxO.length)groups.push({name:"Plate "+(groups.length+1)+" - Body",objects:boxO});}
+      else{if(boxO.length)groups.push({name:"Plate "+(groups.length+1)+" - Main Box",objects:boxO});if(lidO.length)groups.push({name:"Plate "+(groups.length+1)+" - Lid",objects:lidO});if(textO.length)groups.push({name:"Plate "+(groups.length+1)+" - Text",objects:textO});}
+      if(modelO.length)groups.push({name:"Plate "+(groups.length+1)+" - Models",objects:modelO});
+    } else {
+      const bucket={box:[],lid:[],text:[],model:[]};objs.forEach(o=>bucket[o.cat].push(o));
+      if(bucket.box.length)groups.push({name:"Plate "+(groups.length+1)+" - Main Box",objects:bucket.box});
+      if(bucket.lid.length)groups.push({name:"Plate "+(groups.length+1)+" - Lid",objects:bucket.lid});
+      if(bucket.text.length)groups.push({name:"Plate "+(groups.length+1)+" - Text Layers",objects:bucket.text});
+      if(bucket.model.length)groups.push({name:"Plate "+(groups.length+1)+" - Catalog Models",objects:bucket.model});
+    }
     if(!groups.length){alert("No printable geometry found to export.");return;}
     const plateCount=groups.length;
     const bed=PRINTERS[selPrinter]||{x:256,y:256};
