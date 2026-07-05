@@ -375,6 +375,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
 .texprev canvas{width:100%;height:100%;display:block}
 .texname{font-size:10px;font-weight:600;color:var(--txt2);letter-spacing:.01em;text-align:center;line-height:1.2}
 .texcard.sel .texname{color:var(--acc2)}
+.icon-grid{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}.icobtn{width:44px;height:44px;border-radius:11px;border:1px solid var(--cardline,#2a2d34);background:var(--soft,#181b21);font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .15s,box-shadow .15s}.icobtn.sel{border-color:var(--acc,#d8b877);box-shadow:0 0 0 2px rgba(216,184,119,.35)}.iside{flex:1;padding:8px 6px;border-radius:9px;border:1px solid var(--cardline,#2a2d34);background:var(--soft,#181b21);color:var(--txt2,#9aa0aa);font-size:12px;cursor:pointer;transition:all .15s}.iside.sel{border-color:var(--acc,#d8b877);color:var(--txt,#fff);background:var(--accdim,rgba(216,184,119,.12))}
 </style>
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style id="sleek">
@@ -679,6 +680,9 @@ body.ar-open #acct{display:none!important}
       <div class="hint">Turn the lid into a name plate — your name sits flat on a solid white glowing background. Uses your selected Letter font.</div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Name</span><input type="text" id="lidName" maxlength="24" placeholder="e.g. Leo" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:15px system-ui,sans-serif;box-sizing:border-box" oninput="onNameInput()"></div>
       <button class="addtext" onclick="clearName()">Clear name (back to single letter)</button>
+      <div class="sub" style="margin-top:16px">Add an icon <span style="font-weight:400;opacity:.55;font-size:11px">optional — sits by the name</span></div>
+      <div style="display:flex;gap:6px;margin:6px 0 9px"><button type="button" class="iside sel" id="isideL" onclick="setIconSide('left')">◀ Left of name</button><button type="button" class="iside" id="isideR" onclick="setIconSide('right')">Right of name ▶</button></div>
+      <div id="iconGrid" class="icon-grid"></div>
     </div>
   </div>
   <div class="acc">
@@ -1364,6 +1368,32 @@ function unionEO(subj){const cl=new ClipperLib.Clipper();cl.AddPaths(subj,Clippe
 function union2(a,b){const cl=new ClipperLib.Clipper();cl.AddPaths(a,ClipperLib.PolyType.ptSubject,true);cl.AddPaths(b,ClipperLib.PolyType.ptClip,true);const f=new ClipperLib.Paths();cl.Execute(ClipperLib.ClipType.ctUnion,f,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return f;}
 function off(filled,delta){const co=new ClipperLib.ClipperOffset(2,0.25);co.AddPaths(filled,ClipperLib.JoinType.jtRound,ClipperLib.EndType.etClosedPolygon);const sol=new ClipperLib.Paths();co.Execute(sol,delta*S);return sol;}
 function _hex6(c){c=(c==null?"#FFFFFF":c).toString().trim();if(c[0]!=="#")c="#"+c;if(c.length===4)c="#"+c[1]+c[1]+c[2]+c[2]+c[3]+c[3];return c.slice(0,7).toUpperCase();}
+/* ===== Icon library — vector silhouettes composed from primitives, unioned into the name plate ===== */
+function _circI(cx,cy,r,seg){seg=seg||44;var p=[];for(var i=0;i<seg;i++){var a=i/seg*Math.PI*2;p.push({X:Math.round((cx+r*Math.cos(a))*S),Y:Math.round((cy+r*Math.sin(a))*S)});}return p;}
+function _ellI(cx,cy,rx,ry,seg){seg=seg||44;var p=[];for(var i=0;i<seg;i++){var a=i/seg*Math.PI*2;p.push({X:Math.round((cx+rx*Math.cos(a))*S),Y:Math.round((cy+ry*Math.sin(a))*S)});}return p;}
+function _polyI(pts){return pts.map(function(p){return {X:Math.round(p[0]*S),Y:Math.round(p[1]*S)};});}
+function _uniI(list){var u=[list[0]];for(var i=1;i<list.length;i++){var r=union2(u,[list[i]]);if(r&&r.length)u=r;}return u;}
+function _pathsBB(paths){var mnx=1e18,mxx=-1e18,mny=1e18,mxy=-1e18;paths.forEach(function(p){p.forEach(function(pt){if(pt.X<mnx)mnx=pt.X;if(pt.X>mxx)mxx=pt.X;if(pt.Y<mny)mny=pt.Y;if(pt.Y>mxy)mxy=pt.Y;});});return {minX:mnx,maxX:mxx,minY:mny,maxY:mxy};}
+function _icoStar(h){var R=h/2,r=R*0.42,pts=[];for(var i=0;i<10;i++){var a=Math.PI/2-i*Math.PI/5;pts.push([( (i%2===0)?R:r)*Math.cos(a),((i%2===0)?R:r)*Math.sin(a)]);}return unionEO([_polyI(pts)]);}
+function _icoSpark(h){var R=h/2,r=R*0.16,pts=[];for(var i=0;i<8;i++){var a=Math.PI/2-i*Math.PI/4;pts.push([((i%2===0)?R:r)*Math.cos(a),((i%2===0)?R:r)*Math.sin(a)]);}return unionEO([_polyI(pts)]);}
+function _icoHeart(h){var raw=[];for(var i=0;i<=72;i++){var t=i/72*2*Math.PI;raw.push([16*Math.pow(Math.sin(t),3),13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t)]);}var mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;raw.forEach(function(p){if(p[0]<mnx)mnx=p[0];if(p[0]>mxx)mxx=p[0];if(p[1]<mny)mny=p[1];if(p[1]>mxy)mxy=p[1];});var sc=h/(mxy-mny),cx=(mnx+mxx)/2,cy=(mny+mxy)/2;return unionEO([_polyI(raw.map(function(p){return [(p[0]-cx)*sc,(p[1]-cy)*sc];}))]);}
+function _icoMoon(h){var R=h/2;return diff([_circI(0,0,R,60)],[_circI(R*0.5,R*0.14,R*0.85,60)]);}
+function _icoFlower(h){var R=h/2,pr=R*0.56,pt=R*0.42,list=[];for(var i=0;i<5;i++){var a=Math.PI/2-i*2*Math.PI/5;list.push(_circI(pr*Math.cos(a),pr*Math.sin(a),pt,30));}list.push(_circI(0,0,R*0.34,30));return _uniI(list);}
+function _icoCloud(h){var W=h*1.5;return _uniI([_ellI(0,-h*0.12,W*0.5,h*0.26,48),_circI(-W*0.28,-h*0.02,h*0.24,32),_circI(0,h*0.06,h*0.32,32),_circI(W*0.27,-h*0.02,h*0.26,32)]);}
+function _icoBolt(h){var s2=h;return unionEO([_polyI([[0.14,0.5],[-0.30,0.06],[-0.03,0.06],[-0.14,-0.5],[0.30,-0.02],[0.03,-0.02]].map(function(p){return [p[0]*s2,p[1]*s2];}))]);}
+function _icoDrop(h){var R=h*0.30;return _uniI([_circI(0,-h*0.15,R,44),_polyI([[0,h*0.5],[-R*0.95,-h*0.02],[R*0.95,-h*0.02]])]);}
+function _icoPaw(h){var R=h/2;return _uniI([_ellI(0,-R*0.30,R*0.5,R*0.42,44),_circI(-R*0.55,R*0.30,R*0.22,28),_circI(-R*0.20,R*0.56,R*0.20,28),_circI(R*0.20,R*0.56,R*0.20,28),_circI(R*0.55,R*0.30,R*0.22,28)]);}
+function _icoBunny(h){var R=h/2;return _uniI([_circI(0,-R*0.30,R*0.5,44),_ellI(-R*0.26,R*0.44,R*0.15,R*0.48,30),_ellI(R*0.26,R*0.44,R*0.15,R*0.48,30)]);}
+function _icoCat(h){var R=h/2;return _uniI([_circI(0,-R*0.15,R*0.5,44),_polyI([[-R*0.5,R*0.08],[-R*0.5,R*0.72],[-R*0.02,R*0.30]]),_polyI([[R*0.5,R*0.08],[R*0.5,R*0.72],[R*0.02,R*0.30]])]);}
+function _icoRocket(h){var R=h/2;var u=_uniI([_ellI(0,0,R*0.32,R*0.58,44),_polyI([[0,R*0.96],[-R*0.32,R*0.22],[R*0.32,R*0.22]]),_polyI([[-R*0.30,-R*0.18],[-R*0.60,-R*0.62],[-R*0.30,-R*0.52]]),_polyI([[R*0.30,-R*0.18],[R*0.60,-R*0.62],[R*0.30,-R*0.52]])]);return diff(u,[_circI(0,R*0.20,R*0.15,28)]);}
+var ICONS={star:{e:"\u2b50",build:_icoStar},heart:{e:"\u2764\ufe0f",build:_icoHeart},moon:{e:"\ud83c\udf19",build:_icoMoon},spark:{e:"\u2728",build:_icoSpark},flower:{e:"\ud83c\udf3c",build:_icoFlower},cloud:{e:"\u2601\ufe0f",build:_icoCloud},bolt:{e:"\u26a1",build:_icoBolt},drop:{e:"\ud83d\udca7",build:_icoDrop},paw:{e:"\ud83d\udc3e",build:_icoPaw},bunny:{e:"\ud83d\udc30",build:_icoBunny},cat:{e:"\ud83d\udc31",build:_icoCat},rocket:{e:"\ud83d\ude80",build:_icoRocket}};
+var LIDICON="",LIDICONSIDE="left";
+function _addIconToName(nameP,key,glyphSize,bg){try{if(!ICONS[key])return nameP;var b=_pathsBB(nameP);var nmH=(b.maxY-b.minY)/S;var icoH=Math.max(8,nmH*0.98);var ico=ICONS[key].build(icoH);if(!ico||!ico.length)return nameP;var cico=cleanPaths(ico);if(cico&&cico.length)ico=cico;var ib=_pathsBB(ico);var gap=Math.round((bg||nmH*0.1)*1.6*S);var cy=Math.round((b.minY+b.maxY)/2-(ib.minY+ib.maxY)/2);var dx=(LIDICONSIDE==="left")?(b.minX-gap-ib.maxX):(b.maxX+gap-ib.minX);var icoT=ico.map(function(p){return p.map(function(pt){return {X:pt.X+dx,Y:pt.Y+cy};});});var u=union2(nameP,icoT);return (u&&u.length)?u:nameP;}catch(e){return nameP;}}
+function refreshIconGrid(){var el=document.getElementById("iconGrid");if(!el)return;[].forEach.call(el.querySelectorAll(".icobtn"),function(b){b.classList.toggle("sel",b.getAttribute("data-k")===LIDICON);});}
+function buildIconGrid(){var el=document.getElementById("iconGrid");if(!el)return;var html='<button type="button" class="icobtn" data-k="" onclick="setIcon(\'\')" title="None">\u2205</button>';Object.keys(ICONS).forEach(function(k){html+='<button type="button" class="icobtn" data-k="'+k+'" onclick="setIcon(\''+k+'\')" title="'+k+'">'+ICONS[k].e+'</button>';});el.innerHTML=html;refreshIconGrid();}
+function setIcon(k){LIDICON=(LIDICON===k)?"":k;refreshIconGrid();if(typeof rebuild==="function")rebuild();}
+function setIconSide(sd){LIDICONSIDE=sd;var l=document.getElementById("isideL"),r=document.getElementById("isideR");if(l)l.classList.toggle("sel",sd==="left");if(r)r.classList.toggle("sel",sd==="right");if(typeof rebuild==="function")rebuild();}
+try{buildIconGrid();}catch(e){}
 function fillSolid(paths){if(!paths||!paths.length)return paths;try{var ba=0;for(var i=0;i<paths.length;i++){var a=ClipperLib.Clipper.Area(paths[i]);if(Math.abs(a)>Math.abs(ba))ba=a;}var sg=ba>0?1:-1;var out=[];for(var j=0;j<paths.length;j++){if(ClipperLib.Clipper.Area(paths[j])*sg>0)out.push(paths[j]);}return out.length?out:paths;}catch(e){return paths;}}
 function diff(a,b){const c=new ClipperLib.Clipper();c.AddPaths(a,ClipperLib.PolyType.ptSubject,true);c.AddPaths(b,ClipperLib.PolyType.ptClip,true);const s=new ClipperLib.Paths();c.Execute(ClipperLib.ClipType.ctDifference,s,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return s;}
 function intersect(a,b){const c=new ClipperLib.Clipper();c.AddPaths(a,ClipperLib.PolyType.ptSubject,true);c.AddPaths(b,ClipperLib.PolyType.ptClip,true);const s=new ClipperLib.Paths();c.Execute(ClipperLib.ClipType.ctIntersection,s,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return s;}
@@ -1736,8 +1766,11 @@ async function buildModel(){
       /* NAME MODE — the name sits FLAT on a solid white glowing background plate. Single line. */
       var _line=(LIDNAME.split(/\r?\n/)[0]||"").trim()||"Name";
       var _rc=(_line.replace(/\s/g,"")[0])||"A";var _nf0=unionEO(glyphSubj(font,_rc,lh));var _nex0=pathsExtent(_nf0,0,0);if(_nex0.H>1){var _nk=_nex0.H/lh;glyphSize=Math.max(8,lh-capMargin)/_nk;}
-      var _L=unionEO(nameGlyphSubj(font,_line,glyphSize));var _Lc=cleanPaths(_L);if(_Lc&&_Lc.length)_L=_Lc;window.__nameLetters=_L;
-      var _plate=off(_L,NAME_BG_MM);var _ps=fillSolid(_plate);if(_ps&&_ps.length)_plate=_ps;var _pcl=cleanPaths(_plate);if(_pcl&&_pcl.length)_plate=_pcl;
+      var _L=unionEO(nameGlyphSubj(font,_line,glyphSize));var _Lc=cleanPaths(_L);if(_Lc&&_Lc.length)_L=_Lc;
+      var _bg=Math.max(lh*0.07,3);   // white halo scales with letter height -> letters always fuse into ONE piece at any size
+      if(typeof LIDICON!=="undefined"&&LIDICON&&typeof ICONS!=="undefined"&&ICONS[LIDICON]){_L=_addIconToName(_L,LIDICON,glyphSize,_bg);}
+      window.__nameLetters=_L;
+      var _plate=off(_L,_bg);var _ps=fillSolid(_plate);if(_ps&&_ps.length)_plate=_ps;var _pcl=cleanPaths(_plate);if(_pcl&&_pcl.length)_plate=_pcl;
       filled=_plate;if(!filled||!filled.length)filled=_L;
       var _nc=pathsCenter(filled);cx=_nc.x;cy=_nc.y;var _nex=pathsExtent(filled,cx,cy);LW=_nex.W;LH=_nex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
     }else if(hasClip){
@@ -1906,7 +1939,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=ne
 function renderPlateList(){const el=g("platelist");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";
   el.innerHTML=`<div class="plbl">Plates</div>`+PLATES.map((p,i)=>{const extra=p.flip?" · face-down":"";const th=PLATE_THUMBS[i]?`<img src="${PLATE_THUMBS[i]}">`:"";return `<div class="pcard${i===selPlate?' sel':''}" data-i="${i}"><div class="pth">${th}</div><div><div class="pnm">Plate ${i+1}</div><div class="psub">${p.name}${extra}</div></div></div>`;}).join("");
   el.querySelectorAll(".pcard").forEach(d=>d.onclick=()=>{selPlate=+d.dataset.i;zoom=1;buildModel();});}
-function renderPrinter(){const el=g("printerbox");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";el.innerHTML=`<div class="plbl">Printer</div><select class="psel" onchange="setPrinter(this.selectedIndex)">`+PRINTERS.map((p,i)=>`<option ${i===selPrinter?"selected":""}>${p.n} · ${p.x}×${p.y}mm</option>`).join("")+`</select><div style="font-size:10.5px;opacity:.55;margin-top:8px">Multi-colour (AMS) is set in the Colour tab.</div>`;}
+function renderPrinter(){const el=g("printerbox");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";el.innerHTML=`<div class="plbl">Printer</div><select class="psel" onchange="setPrinter(this.selectedIndex)">`+PRINTERS.map((p,i)=>`<option ${i===selPrinter?"selected":""}>${p.n} · ${p.x}×${p.y}mm</option>`).join("")+`</select>`;}
 function setPrinter(i){selPrinter=i;zoom=1;buildModel();}
 
 function buildSummary(){const nameExt=mmOf("nameExt")||10;let pocket=Math.max(0,Math.min(mmOf("nameDepth")||0,nameExt));const above=Math.round((nameExt-pocket)*10)/10;const liveTexts=texts.filter(t=>(t.str||"").trim());const parts=2+liveTexts.length+images.length+models.length;const bed=PRINTERS[selPrinter];const tnames=liveTexts.map(t=>t.str.trim()).join(", ")||"—";g("summary").innerHTML=`<b>${(v("letter")||"A").toUpperCase()}</b> · ${selFont.name} · overall ${fmt(mmOf("lh"))} tall × ${fmt(mmOf("bd"))} deep<br>Text layers (${liveTexts.length||"none"}): <b>${tnames}</b> · ${fmt(nameExt)} tall, ${fmt(above)} proud<br>Images: ${images.length||"none"} · 3D models: ${models.length||"none"}<br>Printer <b>${bed.n}</b> (${bed.x}×${bed.y} mm bed)<br><b>${parts} separate printable parts</b> — lid prints face-down`;}
