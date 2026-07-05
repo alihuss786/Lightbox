@@ -126,7 +126,7 @@ Settings → Environment Variables (Production + Preview). You already have the 
 |-----|-------|-----------|
 | `OWNER_EMAIL` | `ali.hussain755@outlook.com` | inbox for job emails (comma-separate for several) |
 | `RESEND_API_KEY` | `re_...` | the email notification |
-| `FROM_EMAIL` | `orders@yourdomain.com` | verified Resend sender |
+| `FROM_EMAIL` | `orders@signaturelightboxes.com` | sender on your verified Resend domain |
 | `PRINT_BUCKET` | `print-jobs` | (optional; this is the default) |
 
 **Also update the owner email in the client:** in `lb.html`, the concierge script
@@ -135,10 +135,10 @@ sets `var OWNER_EMAIL="ali.hussain755@outlook.com";` — this controls who sees 
 
 ## 6. Email — Resend (for the notification half)
 
-1. Create a free account at resend.com.
-2. Add + verify your sending **domain** (or use `onboarding@resend.dev` for testing —
-   that’s the `FROM_EMAIL` default, fine for a quick test but not for production).
-3. Create an API key → put it in `RESEND_API_KEY` (step 5).
+1. Use your existing Resend account (the one with **signaturelightboxes.com** verified).
+2. Create an API key (API Keys → Create → name it `lightbox`) → put it in `RESEND_API_KEY` (step 5).
+3. Set `FROM_EMAIL` to any address on the verified domain, e.g. `orders@signaturelightboxes.com`
+   (no mailbox needed — a verified domain can send from any address on it).
 
 If `RESEND_API_KEY` is unset, jobs still save and appear in the in-app queue — you
 just don’t get the email. Swap Resend for SendGrid/Postmark by editing the one
