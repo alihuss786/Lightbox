@@ -750,7 +750,7 @@ const PRINTERS=[{n:"A1 mini",x:180,y:180},{n:"A1",x:256,y:256},{n:"P1P",x:256,y:
 let selPrinter=3;
 const plateOpacity=0.12;        // build-plate translucency permanently locked at its lowest level
 let __plateMats=[];             // live references to the current plate's materials for instant opacity updates
-function maybeExitNameMode(){try{if(typeof LIDNAME==="undefined"||!LIDNAME.trim().length)return;var wrap=document.querySelector(".controls");if(!wrap)return;var openAcc=wrap.querySelector(".acc.open");if(!openAcc)return;var hd=openAcc.querySelector(".acc-h");var nm="";if(hd)[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)nm+=n.textContent;});nm=nm.trim().toLowerCase();if(nm==="letter"){LIDNAME="";var ta=document.getElementById("lidName");if(ta)ta.value="";if(typeof rebuild==="function")rebuild();}}catch(e){}}
+function maybeExitNameMode(){try{var wrap=document.querySelector(".controls");if(!wrap)return;var openAcc=wrap.querySelector(".acc.open");if(!openAcc)return;var hd=openAcc.querySelector(".acc-h");var nm="";if(hd)[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)nm+=n.textContent;});nm=nm.trim().toLowerCase();if(nm==="letter"){if(typeof LIDNAME!=="undefined"&&LIDNAME.trim().length){LIDNAME="";var ta=document.getElementById("lidName");if(ta)ta.value="";if(typeof rebuild==="function")rebuild();}}else if(nm==="name"){if(typeof clearNameTexts==="function")clearNameTexts();}}catch(e){}}
 function accT(h){const acc=h.parentElement;const open=acc.classList.contains("open");document.querySelectorAll(".controls .acc.open").forEach(a=>a.classList.remove("open"));if(!open)acc.classList.add("open");maybeExitNameMode();setTimeout(()=>{try{drawPad();}catch(e){}},0);}
 const FB="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/fonts/";
 const FONTS=[{name:"Sans",url:FB+"helvetiker_bold.typeface.json",css:"Arial Black,sans-serif"},{name:"Serif",url:FB+"optimer_bold.typeface.json",css:"Georgia,serif"},{name:"Soft",url:FB+"gentilis_bold.typeface.json",css:"Trebuchet MS,sans-serif"}];
@@ -1216,6 +1216,7 @@ function onTextFont(id,url){const t=texts.find(x=>x.id===id);if(!t)return;t.font
 function refreshTextWarnings(){texts.forEach(t=>{const el=g("tlwarn_"+t.id);if(!el)return;const d=t._dropped;if(d){el.textContent="⚠ This font has no: "+d.split("").join(" ")+" — those characters are skipped.";el.style.display="";}else el.style.display="none";});}
 function deleteText(id){const i=texts.findIndex(t=>t.id===id);if(i<0)return;texts.splice(i,1);if(selText>=texts.length)selText=texts.length-1;renderTextList();drawTextPad();scheduleBuild();}
 function onTextStr(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.str=val;drawTextPad();scheduleBuild();}
+function clearNameTexts(){try{var ch=false;texts.forEach(function(t){if(t.str){t.str="";ch=true;}});if(ch){if(typeof renderTextList==="function")renderTextList();drawTextPad();scheduleBuild();}}catch(e){}}
 function nudgeText(id,dir){const t=texts.find(t=>t.id===id);if(!t)return;const nv=Math.round(((+t.size||22)+dir)*2)/2;onTextSize(id,nv);const sl=g("tlsr_"+id);if(sl)sl.value=Math.max(2,Math.min(120,nv));}
 function onTextSize(id,val){const t=texts.find(t=>t.id===id);if(!t)return;t.size=Math.max(2,Math.min(160,+val||22));const lab=g("tlsz_"+id);if(lab)lab.textContent=tidy(t.size*(UNIT==="cm"?0.1:1))+(UNIT==="cm"?" cm":" mm");drawTextPad();scheduleBuild();}
 // Line Thickness / Boldness: stroke offset (mm) added outward to this layer's letters before extrusion, so
@@ -1304,7 +1305,7 @@ function nameGlyphSubj(font,text,size){
   /* Natural letter spacing: lay out each line with the font's own advance widths
      (generateShapes on the whole line), centre it, and stack lines top-to-bottom.
      Letters stay legible; the connect-border (off) fuses them into one piece. */
-  var lines=String(text).split(/\r?\n/).slice(0,3);var lineH=size*0.78;var out=[];var k=0;
+  var lines=String(text).split(/\r?\n/).slice(0,3);var lineH=size*1.15;var out=[];var k=0;
   for(var li=0;li<lines.length;li++){var line=lines[li];if(!line.trim().length)continue;
     var shapes=font.generateShapes(line,size);var mnX=1e9,mxX=-1e9;
     shapes.forEach(function(sh){sh.getPoints(4).forEach(function(pt){if(pt.x<mnX)mnX=pt.x;if(pt.x>mxX)mxX=pt.x;});
@@ -1314,6 +1315,38 @@ function nameGlyphSubj(font,text,size){
       (sh.holes||[]).forEach(function(h){out.push(h.getPoints(12).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));});});
     k++;}
   return out;}
+/* Multi-line name -> a clean rectangular BORDER around the whole name, with the
+   letters connected into that border so it prints as ONE piece. The frame is the
+   "border around the whole name"; the letters glow (same body+lid logic). */
+function nameFramedFilled(font,text,size,borderMm){
+  var lines=String(text).split(/\r?\n/).slice(0,3).filter(function(l){return l.trim().length;});
+  if(!lines.length)return null;
+  var lineH=size*1.15,glyphAll=[],lineBounds=[];
+  for(var li=0;li<lines.length;li++){
+    var shapes=font.generateShapes(lines[li],size);var mnX=1e9,mxX=-1e9;
+    shapes.forEach(function(sh){sh.getPoints(4).forEach(function(pt){if(pt.x<mnX)mnX=pt.x;if(pt.x>mxX)mxX=pt.x;});});
+    var cxL=(mnX+mxX)/2,oY=-li*lineH,subj=[];
+    shapes.forEach(function(sh){subj.push(sh.getPoints(12).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));
+      (sh.holes||[]).forEach(function(h){subj.push(h.getPoints(12).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));});});
+    var bx0=1e18,by0=1e18,bx1=-1e18,by1=-1e18;
+    subj.forEach(function(p){p.forEach(function(pt){if(pt.X<bx0)bx0=pt.X;if(pt.X>bx1)bx1=pt.X;if(pt.Y<by0)by0=pt.Y;if(pt.Y>by1)by1=pt.Y;});});
+    lineBounds.push({x0:bx0,y0:by0,x1:bx1,y1:by1});subj.forEach(function(p){glyphAll.push(p);});
+  }
+  var letters=unionEO(glyphAll);var lettersC=off(letters,Math.max(borderMm*0.4,0.8));if(!lettersC||!lettersC.length)lettersC=letters;
+  var GX0=1e18,GY0=1e18,GX1=-1e18,GY1=-1e18;
+  lettersC.forEach(function(p){p.forEach(function(pt){if(pt.X<GX0)GX0=pt.X;if(pt.X>GX1)GX1=pt.X;if(pt.Y<GY0)GY0=pt.Y;if(pt.Y>GY1)GY1=pt.Y;});});
+  var pad=Math.round(size*0.3*S),thick=Math.round(Math.max(borderMm,3.5)*S);
+  var IX0=GX0-pad,IY0=GY0-pad,IX1=GX1+pad,IY1=GY1+pad,OX0=IX0-thick,OY0=IY0-thick,OX1=IX1+thick,OY1=IY1+thick;
+  var R=function(x0,y0,x1,y1){return [{X:x0,Y:y0},{X:x1,Y:y0},{X:x1,Y:y1},{X:x0,Y:y1}];};
+  var parts=[R(OX0,IY1,OX1,OY1),R(OX0,OY0,OX1,IY0),R(OX0,IY0,IX0,IY1),R(IX1,IY0,OX1,IY1)];
+  var bh=Math.round(size*0.1*S);
+  lineBounds.forEach(function(b){parts.push(R(OX0,b.y0,OX1,b.y0+bh));});   /* baseline bar links every letter of a line to both frame sides */
+  var solid=[parts[0]];for(var pi=1;pi<parts.length;pi++){var u=union2(solid,[parts[pi]]);if(u&&u.length)solid=u;}
+  var filled=union2(lettersC,solid);if(!filled||!filled.length)filled=lettersC;
+  /* morphological close: welds point/edge contacts into real overlaps and re-traces clean, manifold-safe outlines */
+  var fc=off(filled,0.25);fc=off(fc,-0.25);if(fc&&fc.length)filled=fc;var cp=cleanPaths(filled);if(cp&&cp.length)filled=cp;
+  return filled;
+}
 function cb(p0,p1,p2,p3,t){const u=1-t;return u*u*u*p0+3*u*u*t*p1+3*u*t*t*p2+t*t*t*p3;}function qb(p0,p1,p2,t){const u=1-t;return u*u*p0+2*u*t*p1+t*t*p2;}
 function nameSubjOT(otf,text,size){const path=otf.getPath(text,0,0,size);const seg=10;const cs=[];let cur=null,px=0,py=0;path.commands.forEach(c=>{if(c.type==="M"){if(cur&&cur.length>2)cs.push(cur);cur=[{x:c.x,y:c.y}];px=c.x;py=c.y;}else if(c.type==="L"){cur.push({x:c.x,y:c.y});px=c.x;py=c.y;}else if(c.type==="C"){for(let i=1;i<=seg;i++){const t=i/seg;cur.push({x:cb(px,c.x1,c.x2,c.x,t),y:cb(py,c.y1,c.y2,c.y,t)});}px=c.x;py=c.y;}else if(c.type==="Q"){for(let i=1;i<=seg;i++){const t=i/seg;cur.push({x:qb(px,c.x1,c.x,t),y:qb(py,c.y1,c.y,t)});}px=c.x;py=c.y;}else if(c.type==="Z"){if(cur&&cur.length>2)cs.push(cur);cur=null;}});if(cur&&cur.length>2)cs.push(cur);return cs.map(ct=>ct.map(p=>({X:Math.round(p.x*S),Y:Math.round(-p.y*S)})));}
 function unionFilled(subj){const cl=new ClipperLib.Clipper();cl.AddPaths(subj,ClipperLib.PolyType.ptSubject,true);const f=new ClipperLib.Paths();cl.Execute(ClipperLib.ClipType.ctUnion,f,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return f;}
@@ -1687,7 +1720,7 @@ async function buildModel(){
     if(hasClip&&nameMode){
       /* NAME MODE — fuse a multi-line name with the connect border into one lid shape */
       var _rc=(LIDNAME.replace(/\s/g,"")[0])||"A";var _nlines=LIDNAME.split(/\r?\n/).filter(function(l){return l.trim().length;}).length||1;var _nf0=unionEO(glyphSubj(font,_rc,lh));var _nex0=pathsExtent(_nf0,0,0);if(_nex0.H>1){var _nk=_nex0.H/lh;glyphSize=Math.max(8,(lh-capMargin)/_nlines)/_nk;}
-      var _uni=unionEO(nameGlyphSubj(font,LIDNAME,glyphSize));var _eb=Math.max(nameBorderVal()/_nlines,1.2);filled=off(_uni,_eb);if(!filled||!filled.length)filled=_uni;var _nc=pathsCenter(filled);cx=_nc.x;cy=_nc.y;var _nex=pathsExtent(filled,cx,cy);LW=_nex.W;LH=_nex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
+      var _uni=unionEO(nameGlyphSubj(font,LIDNAME,glyphSize));var _eb=Math.max(nameBorderVal()/_nlines,1.2);if(_nlines>1){var _fr=nameFramedFilled(font,LIDNAME,glyphSize,nameBorderVal());filled=(_fr&&_fr.length)?_fr:off(_uni,_eb);}else{filled=off(_uni,_eb);}if(!filled||!filled.length)filled=_uni;var _nc=pathsCenter(filled);cx=_nc.x;cy=_nc.y;var _nex=pathsExtent(filled,cx,cy);LW=_nex.W;LH=_nex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
     }else if(hasClip){
       // Build the capital-letter silhouette with the EVEN-ODD fill rule (unionEO), not non-zero. Non-zero
       // depends on the glyph's hole contour winding being correct; on the first font parse (before the glyph
