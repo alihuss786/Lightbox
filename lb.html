@@ -1985,7 +1985,7 @@ async function buildModel(){
 
     const capGroup=new THREE.Group();window.__capGroup=capGroup;const nameGroups=[];const imgGroups=[];let stlParts=[];
     if(hasClip&&filled){try{
-      const A=off(filled,clearance),B=off(filled,clearance+capW);   // skirt is now folded into the single manifold lid mesh (buildLidSlabs), so no separate skirt extrude here.
+      const A=off(filled,logoMode?-wall:clearance),B=logoMode?filled:off(filled,clearance+capW);   // logos: lid = EXACT traced silhouette (no cap dilation) so thin line-art gold stays thin, never fattened into a blob. skirt is folded into the single manifold lid mesh.
       // ---- Gather pocket features. Name + images share the name pocket depth; each STL gets its own. ----
       const inlays=[];                 // solids that fill name/image pockets and stand proud
       if(nameMode&&window.__nameLetters&&window.__nameLetters.length){inlays.push({p:window.__nameLetters,kind:"name",depth:0.4,color:COLORS.front,ext:NAME_TEXT_MM+0.4,nameInk:true});}
