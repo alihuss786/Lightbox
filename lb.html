@@ -1404,73 +1404,65 @@ function _svgToClipper(svgText,heightMm){
   }catch(e){try{if(holder&&holder.parentNode)holder.parentNode.removeChild(holder);}catch(_){}return null;}
 }
 function _logoUIsync(){var info=document.getElementById("logoInfo"),cl=document.getElementById("logoClear");var on=!!LOGO;if(info)info.style.display=on?"":"none";if(cl)cl.style.display=on?"":"none";}
-function onLogoUpload(inp){var f=inp&&inp.files&&inp.files[0];if(!f)return;var nm=(f.name||"").toLowerCase(),isSvg=/svg/.test(f.type||"")||/\.svg$/.test(nm);var rd=new FileReader();rd.onload=function(){try{if(isSvg){_logoLoaded(_svgToClipper(String(rd.result||""),100));}else{var img=new Image();img.onload=function(){try{_logoLoaded(_rasterToClipper(img,100));}catch(e){uiAlert("Couldn\u2019t trace that image.");}};img.onerror=function(){uiAlert("Couldn\u2019t read that image.");};img.src=String(rd.result||"");}}catch(e){uiAlert("Couldn\u2019t read that file.");}};if(isSvg){rd.readAsText(f);}else{rd.readAsDataURL(f);}if(inp)inp.value="";}
+function _prepSvg(txt){try{var m=/<svg[^>]*viewBox=["\x27]([-\d.eE ,]+)["\x27]/i.exec(txt);var vb=m?m[1].split(/[ ,]+/).map(Number):null;var w=(vb&&vb[2])?vb[2]:512,h=(vb&&vb[3])?vb[3]:512,scale=Math.max(1,900/Math.max(w,h));return txt.replace(/<svg([^>]*)>/i,function(all,at){at=at.replace(/\s(width|height)=["\x27][^"\x27]*["\x27]/gi,"");return "<svg"+at+" width=\""+Math.round(w*scale)+"\" height=\""+Math.round(h*scale)+"\">";});}catch(e){return txt;}}
+function onLogoUpload(inp){var f=inp&&inp.files&&inp.files[0];if(!f)return;var nm=(f.name||"").toLowerCase(),isSvg=/svg/.test(f.type||"")||/\.svg$/.test(nm);var rd=new FileReader();rd.onload=function(){try{var res=String(rd.result||"");var img=new Image();img.onload=function(){try{var paths=_imgToClipper(img,100);if((!paths||!paths.length)&&isSvg){paths=_svgToClipper(res,100);}_logoLoaded(paths);}catch(e){if(isSvg){try{_logoLoaded(_svgToClipper(res,100));}catch(_){uiAlert("Couldn\u2019t read that logo.");}}else uiAlert("Couldn\u2019t trace that image.");}};img.onerror=function(){if(isSvg){try{_logoLoaded(_svgToClipper(res,100));}catch(_){uiAlert("Couldn\u2019t read that SVG.");}}else uiAlert("Couldn\u2019t read that image.");};img.src=isSvg?("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(_prepSvg(res))):res;}catch(e){uiAlert("Couldn\u2019t read that file.");}};if(isSvg){rd.readAsText(f);}else{rd.readAsDataURL(f);}if(inp)inp.value="";}
 function clearLogo(){LOGO=null;window.__logoSvg=null;_logoUIsync();if(typeof rebuild==="function")rebuild();}
 function _dp(pts,eps){ if(pts.length<3)return pts;
   var d2=function(p,a,b){var dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy;if(!L)return (p[0]-a[0])*(p[0]-a[0])+(p[1]-a[1])*(p[1]-a[1]);var t=((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L;t=t<0?0:t>1?1:t;var px=a[0]+t*dx,py=a[1]+t*dy;return (p[0]-px)*(p[0]-px)+(p[1]-py)*(p[1]-py);};
   var keep=new Array(pts.length).fill(false);keep[0]=keep[pts.length-1]=true;var st=[[0,pts.length-1]],e2=eps*eps;
-  while(st.length){var seg=st.pop(),a=seg[0],b=seg[1],idx=-1,mx=e2;for(var k=a+1;k<b;k++){var dd=d2(pts[k],pts[a],pts[b]);if(dd>mx){mx=dd;idx=k;}}if(idx>=0){keep[idx]=true;st.push([a,idx],[idx,b]);}}
+  while(st.length){var sg=st.pop(),a=sg[0],b=sg[1],idx=-1,mx=e2;for(var k=a+1;k<b;k++){var dd=d2(pts[k],pts[a],pts[b]);if(dd>mx){mx=dd;idx=k;}}if(idx>=0){keep[idx]=true;st.push([a,idx],[idx,b]);}}
   return pts.filter(function(_,k){return keep[k];});
 }
-function _chaikin(pts,iter){ // closed-polygon corner cutting -> smooth rounded curves
-  for(var t=0;t<iter;t++){ if(pts.length<4)break; var out=[],n=pts.length;
-    for(var i=0;i<n;i++){var a=pts[i],b=pts[(i+1)%n];out.push([a[0]*0.75+b[0]*0.25,a[1]*0.75+b[1]*0.25]);out.push([a[0]*0.25+b[0]*0.75,a[1]*0.25+b[1]*0.75]);}
-    pts=out; }
-  return pts;
+function _chaikin(pts,iter){for(var t=0;t<iter;t++){if(pts.length<4)break;var out=[],n=pts.length;for(var i=0;i<n;i++){var a=pts[i],b=pts[(i+1)%n];out.push([a[0]*0.75+b[0]*0.25,a[1]*0.75+b[1]*0.25]);out.push([a[0]*0.25+b[0]*0.75,a[1]*0.25+b[1]*0.75]);}pts=out;}return pts;}
+function _msLoops(f,W2,H2){   // interpolated marching squares on a continuous field, iso=0.5 -> smooth loops (field coords)
+  var iso=0.5,ecoord={},seg={};
+  function hE(gx,gy){var k="h"+gx+"_"+gy;if(ecoord[k])return k;var a=f[gy*W2+gx],b=f[gy*W2+gx+1],t=(a===b)?0.5:(iso-a)/(b-a);t=t<0?0:t>1?1:t;ecoord[k]=[gx+t,gy];return k;}
+  function vE(gx,gy){var k="v"+gx+"_"+gy;if(ecoord[k])return k;var a=f[gy*W2+gx],b=f[(gy+1)*W2+gx],t=(a===b)?0.5:(iso-a)/(b-a);t=t<0?0:t>1?1:t;ecoord[k]=[gx,gy+t];return k;}
+  for(var cy=0;cy<H2-1;cy++)for(var cx=0;cx<W2-1;cx++){
+    var TL=f[cy*W2+cx],TR=f[cy*W2+cx+1],BR=f[(cy+1)*W2+cx+1],BL=f[(cy+1)*W2+cx];
+    var cc=(TL>iso?8:0)+(TR>iso?4:0)+(BR>iso?2:0)+(BL>iso?1:0);if(cc===0||cc===15)continue;
+    switch(cc){case 1:seg[hE(cx,cy+1)]=vE(cx,cy);break;case 2:seg[vE(cx+1,cy)]=hE(cx,cy+1);break;case 3:seg[vE(cx+1,cy)]=vE(cx,cy);break;case 4:seg[hE(cx,cy)]=vE(cx+1,cy);break;case 5:seg[hE(cx,cy)]=vE(cx+1,cy);seg[hE(cx,cy+1)]=vE(cx,cy);break;case 6:seg[hE(cx,cy)]=hE(cx,cy+1);break;case 7:seg[hE(cx,cy)]=vE(cx,cy);break;case 8:seg[vE(cx,cy)]=hE(cx,cy);break;case 9:seg[hE(cx,cy+1)]=hE(cx,cy);break;case 10:seg[vE(cx,cy)]=hE(cx,cy);seg[vE(cx+1,cy)]=hE(cx,cy+1);break;case 11:seg[vE(cx+1,cy)]=hE(cx,cy);break;case 12:seg[vE(cx,cy)]=vE(cx+1,cy);break;case 13:seg[hE(cx,cy+1)]=vE(cx+1,cy);break;case 14:seg[vE(cx,cy)]=hE(cx,cy+1);break;}
+  }
+  var visited={},loops=[];
+  for(var k in seg){if(visited[k])continue;var lp=[],cur=k,guard=0;while(cur!==undefined&&seg[cur]!==undefined&&!visited[cur]&&guard++<8e6){visited[cur]=1;lp.push(ecoord[cur]);cur=seg[cur];}if(lp.length>3)loops.push(lp);}
+  return loops;
 }
-function _rasterToClipper(img,heightMm){
+function _fieldToClipper(f,W2,H2,heightMm){
+  var S=1000,loops=_msLoops(f,W2,H2);if(!loops.length)return null;
+  var clip=[];loops.forEach(function(lp){var sm=_chaikin(lp,2),s2=_dp(sm,0.55);if(s2.length>3){var area=0;for(var j=0;j<s2.length;j++){var p1=s2[j],p2=s2[(j+1)%s2.length];area+=p1[0]*p2[1]-p2[0]*p1[1];}if(Math.abs(area)>14)clip.push(s2.map(function(p){return {X:Math.round(p[0]*S),Y:Math.round(p[1]*S)};}));}});
+  if(!clip.length)return null;
+  var total=_uniNZ(clip);if(!total||!total.length)return null;
+  var bb={mnx:1e18,mxx:-1e18,mny:1e18,mxy:-1e18};total.forEach(function(p){p.forEach(function(pt){if(pt.X<bb.mnx)bb.mnx=pt.X;if(pt.X>bb.mxx)bb.mxx=pt.X;if(pt.Y<bb.mny)bb.mny=pt.Y;if(pt.Y>bb.mxy)bb.mxy=pt.Y;});});
+  var hh=(bb.mxy-bb.mny)||1,kk=(heightMm*S)/hh,mcx=(bb.mnx+bb.mxx)/2,mcy=(bb.mny+bb.mxy)/2;
+  var outp=total.map(function(p){return p.map(function(pt){return {X:Math.round((pt.X-mcx)*kk),Y:Math.round(-(pt.Y-mcy)*kk)};});});
+  try{var cl=cleanPaths(outp);if(cl&&cl.length)outp=cl;}catch(e){}return outp;
+}
+// Robust, universal logo tracer: rasterise ANY logo (SVG rendered by the browser, or PNG/JPG) then trace the
+// coloured "ink" (excluding light cut-outs and the background) into a smooth silhouette with holes.
+function _imgToClipper(img,heightMm){
   try{
-    var S=1000, maxd=900;
-    var iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height; if(!iw||!ih)return null;
-    var sc=maxd/Math.max(iw,ih); if(!(sc>0))sc=1;                       // upscale small logos for smoother edges
+    var maxd=1000, iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height; if(!iw||!ih){iw=iw||512;ih=ih||512;}
+    var sc=maxd/Math.max(iw,ih); if(!(sc>0))sc=1;
     var W=Math.max(2,Math.round(iw*sc)), H=Math.max(2,Math.round(ih*sc));
     var cv=document.createElement("canvas");cv.width=W;cv.height=H;var ctx=cv.getContext("2d");
-    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";ctx.drawImage(img,0,0,W,H);
+    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";ctx.clearRect(0,0,W,H);ctx.drawImage(img,0,0,W,H);
     var data=ctx.getImageData(0,0,W,H).data;
     var transp=0;for(var i=3;i<data.length;i+=4){if(data[i]<250)transp++;}
     var useAlpha=transp>(W*H*0.02);
     function px(x,y){var o=(y*W+x)*4;return [data[o],data[o+1],data[o+2]];}
     var cs4=[px(0,0),px(W-1,0),px(0,H-1),px(W-1,H-1)],bg=[0,0,0];cs4.forEach(function(c){bg[0]+=c[0];bg[1]+=c[1];bg[2]+=c[2];});bg=[bg[0]/4,bg[1]/4,bg[2]/4];
-    // continuous field f in [0,1]; the shape boundary is the iso=0.5 contour (sub-pixel, from anti-aliasing)
-    var W2=W+2,H2=H+2, f=new Float32Array(W2*H2);
-    for(var y=0;y<H;y++)for(var x=0;x<W;x++){var o=(y*W+x)*4,a=data[o+3],v;
-      if(useAlpha){v=a/255;}
-      else{var d=(Math.abs(data[o]-bg[0])+Math.abs(data[o+1]-bg[1])+Math.abs(data[o+2]-bg[2]))/255;v=(a>128)?Math.min(1,d/0.45):0;}
-      f[(y+1)*W2+(x+1)]=v;}
-    var iso=0.5, ecoord={}, seg={};
-    function hE(gx,gy){var k="h"+gx+"_"+gy;if(ecoord[k])return k;var a=f[gy*W2+gx],b=f[gy*W2+gx+1],t=(a===b)?0.5:(iso-a)/(b-a);t=t<0?0:t>1?1:t;ecoord[k]=[gx+t,gy];return k;}
-    function vE(gx,gy){var k="v"+gx+"_"+gy;if(ecoord[k])return k;var a=f[gy*W2+gx],b=f[(gy+1)*W2+gx],t=(a===b)?0.5:(iso-a)/(b-a);t=t<0?0:t>1?1:t;ecoord[k]=[gx,gy+t];return k;}
-    for(var cy=0;cy<H2-1;cy++)for(var cx=0;cx<W2-1;cx++){
-      var TL=f[cy*W2+cx],TR=f[cy*W2+cx+1],BR=f[(cy+1)*W2+cx+1],BL=f[(cy+1)*W2+cx];
-      var cc=(TL>iso?8:0)+(TR>iso?4:0)+(BR>iso?2:0)+(BL>iso?1:0); if(cc===0||cc===15)continue;
-      switch(cc){
-        case 1:seg[hE(cx,cy+1)]=vE(cx,cy);break;
-        case 2:seg[vE(cx+1,cy)]=hE(cx,cy+1);break;
-        case 3:seg[vE(cx+1,cy)]=vE(cx,cy);break;
-        case 4:seg[hE(cx,cy)]=vE(cx+1,cy);break;
-        case 5:seg[hE(cx,cy)]=vE(cx+1,cy);seg[hE(cx,cy+1)]=vE(cx,cy);break;
-        case 6:seg[hE(cx,cy)]=hE(cx,cy+1);break;
-        case 7:seg[hE(cx,cy)]=vE(cx,cy);break;
-        case 8:seg[vE(cx,cy)]=hE(cx,cy);break;
-        case 9:seg[hE(cx,cy+1)]=hE(cx,cy);break;
-        case 10:seg[vE(cx,cy)]=hE(cx,cy);seg[vE(cx+1,cy)]=hE(cx,cy+1);break;
-        case 11:seg[vE(cx+1,cy)]=hE(cx,cy);break;
-        case 12:seg[vE(cx,cy)]=vE(cx+1,cy);break;
-        case 13:seg[hE(cx,cy+1)]=vE(cx+1,cy);break;
-        case 14:seg[vE(cx,cy)]=hE(cx,cy+1);break;
-      }
+    var W2=W+2,H2=H+2;
+    function buildField(inkOnly){
+      var f=new Float32Array(W2*H2);
+      for(var y=0;y<H;y++)for(var x=0;x<W;x++){var o=(y*W+x)*4,a=data[o+3]/255,lum=(0.299*data[o]+0.587*data[o+1]+0.114*data[o+2])/255;
+        var vis; if(useAlpha){vis=a;} else {var d=(Math.abs(data[o]-bg[0])+Math.abs(data[o+1]-bg[1])+Math.abs(data[o+2]-bg[2]))/255; vis=Math.max(0,Math.min(1,(d-0.12)/0.12+0.5));}
+        var val; if(inkOnly){var ink=Math.max(0,Math.min(1,(0.82-lum)/0.14+0.5)); val=vis*ink;} else {val=vis;}
+        f[(y+1)*W2+(x+1)]=val;}
+      return f;
     }
-    var visited={},loops=[];
-    for(var k in seg){if(visited[k])continue;var loop=[],cur=k,guard=0;while(cur!==undefined&&seg[cur]!==undefined&&!visited[cur]&&guard++<6e6){visited[cur]=1;loop.push(ecoord[cur]);cur=seg[cur];}if(loop.length>3)loops.push(loop);}
-    if(!loops.length)return null;
-    var clip=[];loops.forEach(function(lp){var sm=_chaikin(lp,2);var s2=_dp(sm,0.55);if(s2.length>3){var area=0;for(var j=0;j<s2.length;j++){var p1=s2[j],p2=s2[(j+1)%s2.length];area+=p1[0]*p2[1]-p2[0]*p1[1];}if(Math.abs(area)>12)clip.push(s2.map(function(p){return {X:Math.round(p[0]*S),Y:Math.round(p[1]*S)};}));}});
-    if(!clip.length)return null;
-    var total=_uniNZ(clip);if(!total||!total.length)return null;
-    var bb={mnx:1e18,mxx:-1e18,mny:1e18,mxy:-1e18};total.forEach(function(p){p.forEach(function(pt){if(pt.X<bb.mnx)bb.mnx=pt.X;if(pt.X>bb.mxx)bb.mxx=pt.X;if(pt.Y<bb.mny)bb.mny=pt.Y;if(pt.Y>bb.mxy)bb.mxy=pt.Y;});});
-    var hh=(bb.mxy-bb.mny)||1,kk=(heightMm*S)/hh,mcx=(bb.mnx+bb.mxx)/2,mcy=(bb.mny+bb.mxy)/2;
-    var outp=total.map(function(p){return p.map(function(pt){return {X:Math.round((pt.X-mcx)*kk),Y:Math.round(-(pt.Y-mcy)*kk)};});});
-    try{var cl=cleanPaths(outp);if(cl&&cl.length)outp=cl;}catch(e){}
-    return outp;
+    var out=_fieldToClipper(buildField(true),W2,H2,heightMm);      // coloured ink (detail + box outline, cut-outs preserved)
+    if(out&&out.length)return out;
+    return _fieldToClipper(buildField(false),W2,H2,heightMm);       // fallback: whole silhouette (e.g. an all-white logo)
   }catch(e){return null;}
 }
 function _logoLoaded(paths){if(!paths||!paths.length){uiAlert("Couldn\u2019t trace that logo \u2014 use a clear image, or an SVG/PNG with a solid shape.");return;}LOGO=paths;window.__logoSvg=null;if(typeof LIDNAME!=="undefined"&&LIDNAME){LIDNAME="";var na=document.getElementById("lidName");if(na)na.value="";}var info=document.getElementById("logoInfo");if(info)info.innerHTML="Logo loaded \u2014 it now drives the lightbox. Set the size with <b>Letter height</b>.";_logoUIsync();if(typeof rebuild==="function")rebuild();}
