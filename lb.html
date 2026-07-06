@@ -1969,7 +1969,8 @@ async function buildModel(){
         const shellGeo=buildBodyShell(filled,inner,depth,wall,cx,cy);   // name mode honours the full Light box depth (no 16mm cap)
         bodyGroup.add(new THREE.Mesh(shellGeo,MATS.body));builtHollow=true;}
     }catch(e){}}
-    if(!builtHollow){const geo=new THREE.TextGeometry(letter,{font,size:glyphSize,height:depth,curveSegments:8,bevelEnabled:false});geo.computeBoundingBox();const bb=geo.boundingBox;geo.translate(-(bb.max.x+bb.min.x)/2,-(bb.max.y+bb.min.y)/2,0);const body=new THREE.Mesh(geo,MATS.body);body.position.z=-depth;bodyGroup.add(body);}
+    if(!builtHollow&&hasClip&&filled&&(logoMode||nameMode)){try{var _fsh=shapesFromPaths(filled);if(_fsh&&_fsh.length){var _ge=new THREE.ExtrudeGeometry(_fsh,{depth:depth,bevelEnabled:false,curveSegments:6});_ge.translate(-cx,-cy,0);var _bm=new THREE.Mesh(_ge,MATS.body);_bm.position.z=-depth;bodyGroup.add(_bm);builtHollow=true;}}catch(e){}}   // logo/name: if the hollow shell can't build (thin/complex), extrude the silhouette solid — never fall back to the letter
+    if(!builtHollow&&!logoMode&&!nameMode){const geo=new THREE.TextGeometry(letter,{font,size:glyphSize,height:depth,curveSegments:8,bevelEnabled:false});geo.computeBoundingBox();const bb=geo.boundingBox;geo.translate(-(bb.max.x+bb.min.x)/2,-(bb.max.y+bb.min.y)/2,0);const body=new THREE.Mesh(geo,MATS.body);body.position.z=-depth;bodyGroup.add(body);}
 
     if(mode==="render"){
       // Build the glowing front face from the SAME even-odd silhouette as the body (winding-independent), so
