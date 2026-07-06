@@ -1905,7 +1905,7 @@ function buildBodyShell(filled,inner,depth,wall,cx,cy){
 let PLATES=[],PLATE_THUMBS=[];
 async function buildModel(){
   if(!renderer||!pivot)return;clearPivot();glowFace=null;glowSpot=null;floorPlane=null;DIM=null;
-  const letter=(v("letter")||"A").toUpperCase()[0];if(featState("textures")!=="on"){LIDTEX=null;window.__lidTexId="none";}const logoMode=(featState("logo")==="on")&&(typeof LOGO!=="undefined")&&LOGO&&LOGO.length>0;const nameMode=!logoMode&&(featState("name")==="on")&&(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;window.__nameFlat=nameMode;window.__plateFoot=null;try{var _skRow=document.getElementById("dimrow_skirt");if(_skRow)_skRow.style.display="none";}catch(e){}   // single depth control everywhere: Light box depth drives the skirt (hidden on every build path)
+  const letter=(v("letter")||"A").toUpperCase()[0];if(featState("textures")!=="on"){LIDTEX=null;window.__lidTexId="none";}const logoMode=(featState("logo")==="on")&&(typeof LOGO!=="undefined")&&LOGO&&LOGO.length>0;const nameMode=!logoMode&&(featState("name")==="on")&&(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;window.__nameFlat=nameMode||logoMode;window.__logoInk=null;window.__plateFoot=null;try{var _skRow=document.getElementById("dimrow_skirt");if(_skRow)_skRow.style.display="none";}catch(e){}   // single depth control everywhere: Light box depth drives the skirt (hidden on every build path)
       const name=texts.map(t=>(t.str||"").trim()).filter(Boolean).join(" ");
   const lh=mmOf("lh")||140,depth=mmOf("bd")||40,wall=mmOf("wall")||3;
   const topT=mmOf("topT")||3,capW=mmOf("capW")||3,skirtD=mmOf("skirt")||14,clearance=0.4;
@@ -1935,8 +1935,11 @@ async function buildModel(){
   try{
     const font=await loadFont(selFont.url);let cx=0,cy=0,filled=null,glyphSize=lh;
     if(hasClip&&logoMode){
-      /* LOGO MODE \u2014 an uploaded SVG silhouette IS the lightbox (same hollow-glow build as a letter). */
-      var _lk=lh/100;filled=LOGO.map(function(p){return p.map(function(pt){return {X:Math.round(pt.X*_lk),Y:Math.round(pt.Y*_lk)};});});var _lcl=cleanPaths(filled);if(_lcl&&_lcl.length)filled=_lcl;
+      /* LOGO MODE \u2014 trace the outline into a SOLID box; the traced image detail sits proud ON TOP, like a name. */
+      var _lk=lh/100;var _lw=LOGO.map(function(p){return p.map(function(pt){return {X:Math.round(pt.X*_lk),Y:Math.round(pt.Y*_lk)};});});var _lwc=cleanPaths(_lw);if(_lwc&&_lwc.length)_lw=_lwc;
+      window.__logoInk=_lw;                                   // the image detail, raised on the front face
+      var _out=fillSolid(_lw);var _oc=cleanPaths(_out);if(_oc&&_oc.length)_out=_oc;   // solid outline (holes dropped) = the box
+      filled=(_out&&_out.length)?_out:_lw;
       var _lc=pathsCenter(filled);cx=_lc.x;cy=_lc.y;var _lex=pathsExtent(filled,cx,cy);LW=_lex.W;LH=_lex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;window.__plateFoot={w:LW,h:LH};drawPad();
     }else if(hasClip&&nameMode){
       /* NAME MODE — the name sits FLAT on a solid white glowing background plate. Single line. */
@@ -1991,6 +1994,7 @@ async function buildModel(){
       if(nameMode&&window.__nameLetters&&window.__nameLetters.length){inlays.push({p:window.__nameLetters,kind:"name",depth:0.4,color:COLORS.front,ext:NAME_TEXT_MM+0.4,nameInk:true});}
       if(nameMode&&window.__nameGraphicRegions){window.__nameGraphicRegions.forEach(function(_r){inlays.push({p:_r.p,kind:"name",depth:0.4,color:_r.c,ext:NAME_TEXT_MM+0.4});});}  // name = thin coloured layer on the white plate (flat)
       if(nameMode&&window.__nameGraphicLinework&&window.__nameGraphicLinework.length){inlays.push({p:window.__nameGraphicLinework,kind:"name",depth:0.4,color:COLORS.front,ext:NAME_TEXT_MM+0.4,nameInk:true});}  // traced graphic outline, live name colour
+      if(logoMode&&window.__logoInk&&window.__logoInk.length){inlays.push({p:window.__logoInk,kind:"name",depth:0.4,color:COLORS.front,ext:NAME_TEXT_MM+0.4,nameInk:true});}  // logo: traced image detail raised on the solid box
       const slabFeatures=[];           // every pocket carved into the lid top: {p, depth}
       // Every independent text layer becomes its own inlay + pocket, placed at its own x/y, with its OWN colour.
       for(const t of texts){const raw=(t.str||"").trim();if(!raw){t._dropped="";continue;}
@@ -2042,7 +2046,7 @@ async function buildModel(){
       var _panelPaths=null,_panelZ=0;
       if(typeof PHOTO!=="undefined"&&PHOTO){try{_panelPaths=off(B,-3.5);}catch(e){_panelPaths=null;}
         if(_panelPaths&&_panelPaths.length){var _wd=Math.max(0,TT-FLOOR_MIN);slabFeatures.push({p:_panelPaths,depth:_wd});_panelZ=TT-_wd;}else{_panelPaths=null;}}
-buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new THREE.Mesh(s.geo,nameMode?MATS.name:lidMat);m.position.z=s.z;capGroup.add(m);});   // skirt always spans the full Light box depth (single depth control, name + single letter)
+buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new THREE.Mesh(s.geo,(nameMode||logoMode)?MATS.name:lidMat);m.position.z=s.z;capGroup.add(m);});   // skirt always spans the full Light box depth (single depth control, name + single letter)
       // ---- Flat photo panel: its own watertight, printable part (true flat lithophane; the geometry colour needs) ----
       var photoPanelGroup=null;
       if(_panelPaths){try{
