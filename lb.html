@@ -1389,7 +1389,26 @@ function _icoPaw(h){var R=h/2;return _uniI([_ellI(0,-R*0.30,R*0.5,R*0.42,44),_ci
 function _icoBunny(h){var R=h/2;return _uniI([_circI(0,-R*0.30,R*0.5,44),_ellI(-R*0.26,R*0.44,R*0.15,R*0.48,30),_ellI(R*0.26,R*0.44,R*0.15,R*0.48,30)]);}
 function _icoCat(h){var R=h/2;return _uniI([_circI(0,-R*0.15,R*0.5,44),_polyI([[-R*0.5,R*0.08],[-R*0.5,R*0.72],[-R*0.02,R*0.30]]),_polyI([[R*0.5,R*0.08],[R*0.5,R*0.72],[R*0.02,R*0.30]])]);}
 function _icoRocket(h){var R=h/2;var u=_uniI([_ellI(0,0,R*0.32,R*0.58,44),_polyI([[0,R*0.96],[-R*0.32,R*0.22],[R*0.32,R*0.22]]),_polyI([[-R*0.30,-R*0.18],[-R*0.60,-R*0.62],[-R*0.30,-R*0.52]]),_polyI([[R*0.30,-R*0.18],[R*0.60,-R*0.62],[R*0.30,-R*0.52]])]);return diff(u,[_circI(0,R*0.20,R*0.15,28)]);}
-var ICONS={star:{e:"\u2b50",build:_icoStar},heart:{e:"\u2764\ufe0f",build:_icoHeart},moon:{e:"\ud83c\udf19",build:_icoMoon},spark:{e:"\u2728",build:_icoSpark},flower:{e:"\ud83c\udf3c",build:_icoFlower},cloud:{e:"\u2601\ufe0f",build:_icoCloud},bolt:{e:"\u26a1",build:_icoBolt},drop:{e:"\ud83d\udca7",build:_icoDrop},paw:{e:"\ud83d\udc3e",build:_icoPaw},bunny:{e:"\ud83d\udc30",build:_icoBunny},cat:{e:"\ud83d\udc31",build:_icoCat},rocket:{e:"\ud83d\ude80",build:_icoRocket}};
+/* Multi-colour cartoon graphics: each returns coloured regions {p,c}. They share the name plate; each
+   colour prints as its own region (its own AMS filament on export). c=null means "use the name colour". */
+function _gRocket(h){var R=h/2;var bodyU=_uniI([_ellI(0,R*0.05,R*0.30,R*0.55,40),_polyI([[0,R*0.92],[-R*0.30,R*0.30],[R*0.30,R*0.30]]),_polyI([[-R*0.28,-R*0.18],[-R*0.56,-R*0.55],[-R*0.28,-R*0.48]]),_polyI([[R*0.28,-R*0.18],[R*0.56,-R*0.55],[R*0.28,-R*0.48]])]);var body=diff(bodyU,[_circI(0,R*0.22,R*0.14,26)]);var flame=_uniI([_polyI([[-R*0.15,-R*0.42],[R*0.15,-R*0.42],[0,-R*0.9]])]);return {regions:[{p:flame,c:"#F2933B"},{p:body,c:"#E24B3B"}]};}
+function _gFlower(h){var R=h/2,pr=R*0.56,petR=R*0.42,list=[];for(var i=0;i<5;i++){var a=Math.PI/2-i*2*Math.PI/5;list.push(_circI(pr*Math.cos(a),pr*Math.sin(a),petR,30));}var pet=_uniI(list);var ctr=_circI(0,0,R*0.3,30);return {regions:[{p:pet,c:"#E86AA6"},{p:ctr,c:"#F5C542"}]};}
+function _gBalloon(h){var R=h/2;var bal=_ellI(0,R*0.22,R*0.40,R*0.50,40);var knot=_polyI([[-R*0.07,-R*0.26],[R*0.07,-R*0.26],[0,-R*0.36]]);var balloon=_uniI([bal,knot]);var strg=_polyI([[-R*0.035,-R*0.34],[R*0.035,-R*0.34],[R*0.10,-R*0.7],[0,-R*0.98],[-R*0.02,-R*0.7]]);return {regions:[{p:balloon,c:"#E24B3B"},{p:strg,c:"#3A3A3A"}]};}
+function _placeGraphic(nameP,key,glyphSize,bg){var out={ink:nameP,sil:nameP,regions:[]};try{if(!ICONS[key])return out;
+  var b=_pathsBB(nameP);var nmH=(b.maxY-b.minY)/S;var icoH=Math.max(8,nmH*0.98);var raw=ICONS[key].build(icoH);if(!raw)return out;
+  var regs=raw.regions?raw.regions:[{p:raw,c:null}];regs=regs.filter(function(r){return r&&r.p&&r.p.length;});if(!regs.length)return out;
+  var allSil=regs[0].p;for(var i=1;i<regs.length;i++){var uu=union2(allSil,regs[i].p);if(uu&&uu.length)allSil=uu;}
+  var ib=_pathsBB(allSil);var gap=Math.round((bg||nmH*0.1)*S);var cy=Math.round((b.minY+b.maxY)/2-(ib.minY+ib.maxY)/2);
+  var dx=(LIDICONSIDE==="left")?(b.minX-gap-ib.maxX):(b.maxX+gap-ib.minX);
+  var tr=function(paths){return paths.map(function(p){return p.map(function(pt){return {X:pt.X+dx,Y:pt.Y+cy};});});};
+  var silT=tr(allSil);var ibt=_pathsBB(silT);
+  var ncx=Math.round((b.minX+b.maxX)/2),icx=Math.round((ibt.minX+ibt.maxX)/2),by=Math.round((b.minY+b.maxY)/2),bh=Math.round(Math.min(nmH,icoH)*0.11*S);
+  var bar=[{X:Math.min(ncx,icx),Y:by-bh},{X:Math.max(ncx,icx),Y:by-bh},{X:Math.max(ncx,icx),Y:by+bh},{X:Math.min(ncx,icx),Y:by+bh}];
+  var ink=nameP,sil=nameP;
+  regs.forEach(function(r){var rp=tr(r.p);var cp=cleanPaths(rp);if(cp&&cp.length)rp=cp;var su=union2(sil,rp);if(su&&su.length)sil=su;if(r.c==null){var iu=union2(ink,rp);if(iu&&iu.length)ink=iu;}else{out.regions.push({p:rp,c:r.c});}});
+  var sb=union2(sil,[bar]);if(sb&&sb.length)sil=sb;
+  out.ink=ink;out.sil=sil;}catch(e){}return out;}
+var ICONS={star:{e:"\u2b50",build:_icoStar},heart:{e:"\u2764\ufe0f",build:_icoHeart},moon:{e:"\ud83c\udf19",build:_icoMoon},spark:{e:"\u2728",build:_icoSpark},flower:{e:"\ud83c\udf3c",build:_gFlower},cloud:{e:"\u2601\ufe0f",build:_icoCloud},bolt:{e:"\u26a1",build:_icoBolt},drop:{e:"\ud83d\udca7",build:_icoDrop},paw:{e:"\ud83d\udc3e",build:_icoPaw},bunny:{e:"\ud83d\udc30",build:_icoBunny},cat:{e:"\ud83d\udc31",build:_icoCat},rocket:{e:"\ud83d\ude80",build:_gRocket},balloon:{e:"\ud83c\udf88",build:_gBalloon}};
 var LIDICON="",LIDICONSIDE="left";
 function _addIconToName(nameP,key,glyphSize,bg){try{if(!ICONS[key])return nameP;var b=_pathsBB(nameP);var nmH=(b.maxY-b.minY)/S;var icoH=Math.max(8,nmH*0.98);var ico=ICONS[key].build(icoH);if(!ico||!ico.length)return nameP;var cico=cleanPaths(ico);if(cico&&cico.length)ico=cico;var ib=_pathsBB(ico);var gap=Math.round((bg||nmH*0.1)*S);var cy=Math.round((b.minY+b.maxY)/2-(ib.minY+ib.maxY)/2);var dx=(LIDICONSIDE==="left")?(b.minX-gap-ib.maxX):(b.maxX+gap-ib.minX);var icoT=ico.map(function(p){return p.map(function(pt){return {X:pt.X+dx,Y:pt.Y+cy};});});var ibt=_pathsBB(icoT);var ncx=Math.round((b.minX+b.maxX)/2),icx=Math.round((ibt.minX+ibt.maxX)/2),by=Math.round((b.minY+b.maxY)/2),bh=Math.round(Math.min(nmH,icoH)*0.11*S);var bar=[{X:Math.min(ncx,icx),Y:by-bh},{X:Math.max(ncx,icx),Y:by-bh},{X:Math.max(ncx,icx),Y:by+bh},{X:Math.min(ncx,icx),Y:by+bh}];var u=union2(union2(nameP,icoT),[bar]);return (u&&u.length)?u:nameP;}catch(e){return nameP;}}
 function refreshIconGrid(){var el=document.getElementById("iconGrid");if(!el)return;[].forEach.call(el.querySelectorAll(".icobtn"),function(b){b.classList.toggle("sel",b.getAttribute("data-k")===LIDICON);});}
@@ -1771,9 +1790,10 @@ async function buildModel(){
       var _rc=(_line.replace(/\s/g,"")[0])||"A";var _nf0=unionEO(glyphSubj(font,_rc,lh));var _nex0=pathsExtent(_nf0,0,0);if(_nex0.H>1){var _nk=_nex0.H/lh;glyphSize=Math.max(8,lh-capMargin)/_nk;}
       var _L=unionEO(nameGlyphSubj(font,_line,glyphSize));var _Lc=cleanPaths(_L);if(_Lc&&_Lc.length)_L=_Lc;
       var _bg=Math.max(lh*0.07,3);   // white halo scales with letter height -> letters always fuse into ONE piece at any size
-      if(typeof LIDICON!=="undefined"&&LIDICON&&typeof ICONS!=="undefined"&&ICONS[LIDICON]){_L=_addIconToName(_L,LIDICON,glyphSize,_bg);}
+      window.__nameGraphicRegions=null;var _sil=_L;
+      if(typeof LIDICON!=="undefined"&&LIDICON&&typeof ICONS!=="undefined"&&ICONS[LIDICON]){var _g=_placeGraphic(_L,LIDICON,glyphSize,_bg);_L=_g.ink;_sil=_g.sil;window.__nameGraphicRegions=(_g.regions&&_g.regions.length)?_g.regions:null;}
       window.__nameLetters=_L;
-      var _plate=off(_L,_bg);var _ps=fillSolid(_plate);if(_ps&&_ps.length)_plate=_ps;var _pcl=cleanPaths(_plate);if(_pcl&&_pcl.length)_plate=_pcl;
+      var _plate=off(_sil,_bg);var _ps=fillSolid(_plate);if(_ps&&_ps.length)_plate=_ps;var _pcl=cleanPaths(_plate);if(_pcl&&_pcl.length)_plate=_pcl;
       filled=_plate;if(!filled||!filled.length)filled=_L;
       var _nc=pathsCenter(filled);cx=_nc.x;cy=_nc.y;var _nex=pathsExtent(filled,cx,cy);LW=_nex.W;LH=_nex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;window.__plateFoot={w:LW,h:LH};drawPad();
     }else if(hasClip){
@@ -1813,7 +1833,8 @@ async function buildModel(){
       const A=off(filled,clearance),B=off(filled,clearance+capW);   // skirt is now folded into the single manifold lid mesh (buildLidSlabs), so no separate skirt extrude here.
       // ---- Gather pocket features. Name + images share the name pocket depth; each STL gets its own. ----
       const inlays=[];                 // solids that fill name/image pockets and stand proud
-      if(nameMode&&window.__nameLetters&&window.__nameLetters.length){inlays.push({p:window.__nameLetters,kind:"name",depth:0,color:COLORS.front,ext:NAME_TEXT_MM,nameInk:true});}  // name = thin coloured layer on the white plate (flat)
+      if(nameMode&&window.__nameLetters&&window.__nameLetters.length){inlays.push({p:window.__nameLetters,kind:"name",depth:0,color:COLORS.front,ext:NAME_TEXT_MM,nameInk:true});}
+      if(nameMode&&window.__nameGraphicRegions){window.__nameGraphicRegions.forEach(function(_r){inlays.push({p:_r.p,kind:"name",depth:0,color:_r.c,ext:NAME_TEXT_MM});});}  // name = thin coloured layer on the white plate (flat)
       const slabFeatures=[];           // every pocket carved into the lid top: {p, depth}
       // Every independent text layer becomes its own inlay + pocket, placed at its own x/y, with its OWN colour.
       for(const t of texts){const raw=(t.str||"").trim();if(!raw){t._dropped="";continue;}
