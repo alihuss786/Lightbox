@@ -1402,15 +1402,14 @@ function _placeGraphic(nameP,key,glyphSize,bg){var out={ink:nameP,sil:nameP,regi
   var dx=(LIDICONSIDE==="left")?(b.minX-gap-ib.maxX):(b.maxX+gap-ib.minX);
   var tr=function(paths){return paths.map(function(p){return p.map(function(pt){return {X:pt.X+dx,Y:pt.Y+cy};});});};
   var silT=tr(allSil);var ibt=_pathsBB(silT);
-  var ncx=Math.round((b.minX+b.maxX)/2),icx=Math.round((ibt.minX+ibt.maxX)/2),by=Math.round((b.minY+b.maxY)/2),bh=Math.round(Math.min(nmH,icoH)*0.11*S);
-  var bar=[{X:Math.min(ncx,icx),Y:by-bh},{X:Math.max(ncx,icx),Y:by-bh},{X:Math.max(ncx,icx),Y:by+bh},{X:Math.min(ncx,icx),Y:by+bh}];
+  var by=Math.round((b.minY+b.maxY)/2),bh=Math.round(Math.min(nmH,icoH)*0.10*S),band=bh*2,over=Math.round((bg||3)*S*1.3);var _eAt=function(paths,yc,bnd,side){var v=(side>0)?-1e18:1e18;paths.forEach(function(p){p.forEach(function(pt){if(Math.abs(pt.Y-yc)<=bnd){if(side>0){if(pt.X>v)v=pt.X;}else{if(pt.X<v)v=pt.X;}}});});return v;};var _ne,_ge;if(LIDICONSIDE==="left"){_ne=_eAt(nameP,by,band,-1);_ge=_eAt(silT,by,band,1);}else{_ne=_eAt(nameP,by,band,1);_ge=_eAt(silT,by,band,-1);}
+  var bar=null;if(isFinite(_ne)&&isFinite(_ge)&&Math.abs(_ne)<1e17&&Math.abs(_ge)<1e17){var _x0=Math.min(_ne,_ge)-over,_x1=Math.max(_ne,_ge)+over;bar=[{X:_x0,Y:by-bh},{X:_x1,Y:by-bh},{X:_x1,Y:by+bh},{X:_x0,Y:by+bh}];}
   var ink=nameP,sil=nameP;
   regs.forEach(function(r){var rp=tr(r.p);var cp=cleanPaths(rp);if(cp&&cp.length)rp=cp;var su=union2(sil,rp);if(su&&su.length)sil=su;if(r.c==null){var iu=union2(ink,rp);if(iu&&iu.length)ink=iu;}else{out.regions.push({p:rp,c:r.c});}});
-  var sb=union2(sil,[bar]);if(sb&&sb.length)sil=sb;
+  if(bar){var sb=union2(sil,[bar]);if(sb&&sb.length)sil=sb;}
   out.ink=ink;out.sil=sil;}catch(e){}return out;}
 var ICONS={star:{e:"\u2b50",build:_icoStar},heart:{e:"\u2764\ufe0f",build:_icoHeart},moon:{e:"\ud83c\udf19",build:_icoMoon},spark:{e:"\u2728",build:_icoSpark},flower:{e:"\ud83c\udf3c",build:_gFlower},cloud:{e:"\u2601\ufe0f",build:_icoCloud},bolt:{e:"\u26a1",build:_icoBolt},drop:{e:"\ud83d\udca7",build:_icoDrop},paw:{e:"\ud83d\udc3e",build:_icoPaw},bunny:{e:"\ud83d\udc30",build:_icoBunny},cat:{e:"\ud83d\udc31",build:_icoCat},rocket:{e:"\ud83d\ude80",build:_gRocket},balloon:{e:"\ud83c\udf88",build:_gBalloon}};
 var LIDICON="",LIDICONSIDE="left";
-function _addIconToName(nameP,key,glyphSize,bg){try{if(!ICONS[key])return nameP;var b=_pathsBB(nameP);var nmH=(b.maxY-b.minY)/S;var icoH=Math.max(8,nmH*0.98);var ico=ICONS[key].build(icoH);if(!ico||!ico.length)return nameP;var cico=cleanPaths(ico);if(cico&&cico.length)ico=cico;var ib=_pathsBB(ico);var gap=Math.round((bg||nmH*0.1)*S);var cy=Math.round((b.minY+b.maxY)/2-(ib.minY+ib.maxY)/2);var dx=(LIDICONSIDE==="left")?(b.minX-gap-ib.maxX):(b.maxX+gap-ib.minX);var icoT=ico.map(function(p){return p.map(function(pt){return {X:pt.X+dx,Y:pt.Y+cy};});});var ibt=_pathsBB(icoT);var ncx=Math.round((b.minX+b.maxX)/2),icx=Math.round((ibt.minX+ibt.maxX)/2),by=Math.round((b.minY+b.maxY)/2),bh=Math.round(Math.min(nmH,icoH)*0.11*S);var bar=[{X:Math.min(ncx,icx),Y:by-bh},{X:Math.max(ncx,icx),Y:by-bh},{X:Math.max(ncx,icx),Y:by+bh},{X:Math.min(ncx,icx),Y:by+bh}];var u=union2(union2(nameP,icoT),[bar]);return (u&&u.length)?u:nameP;}catch(e){return nameP;}}
 function refreshIconGrid(){var el=document.getElementById("iconGrid");if(!el)return;[].forEach.call(el.querySelectorAll(".icobtn"),function(b){b.classList.toggle("sel",b.getAttribute("data-k")===LIDICON);});}
 function buildIconGrid(){var el=document.getElementById("iconGrid");if(!el)return;var html='<button type="button" class="icobtn" data-k="" onclick="setIcon(\'\')" title="None">\u2205</button>';Object.keys(ICONS).forEach(function(k){html+='<button type="button" class="icobtn" data-k="'+k+'" onclick="setIcon(\''+k+'\')" title="'+k+'">'+ICONS[k].e+'</button>';});el.innerHTML=html;refreshIconGrid();}
 function setIcon(k){LIDICON=(LIDICON===k)?"":k;refreshIconGrid();if(typeof rebuild==="function")rebuild();}
@@ -1623,7 +1622,7 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
   const cuts=[...new Set(groups.map(g=>+floorZ(g).toFixed(3)))].filter(z=>z>BOT+eps&&z<TT-eps).sort((a,b)=>a-b);
   const bounds=[BOT].concat(cuts,[TT]);
   var _texOn=(typeof LIDTEX!=="undefined"&&LIDTEX&&LIDTEX.fn&&!window.__nameFlat),_texD=_texOn?(LIDTEX.grid||1.3):0;for(let k=0;k<bounds.length-1;k++){if(_texOn&&k===bounds.length-2)addWallTexTop(crossFrom(bounds[k]),bounds[k],bounds[k+1],_texD);else addWalls(crossFrom(bounds[k]),bounds[k],bounds[k+1]);}  // banded outer + recess walls
-  var _topReg=crossFrom(bounds[bounds.length-2]);if(typeof LIDTEX!=="undefined"&&LIDTEX&&LIDTEX.fn){try{addCapTextured(_topReg,TT,LIDTEX);}catch(e){addCap(_topReg,TT,true);}}else if(typeof LIDTEX!=="undefined"&&LIDTEX&&LIDTEX.gen){try{var _mnx=1e9,_mny=1e9,_mxx=-1e9,_mxy=-1e9;_topReg.forEach(function(cc){cc.forEach(function(pp){var X=pp.X/S,Y=pp.Y/S;if(X<_mnx)_mnx=X;if(X>_mxx)_mxx=X;if(Y<_mny)_mny=Y;if(Y>_mxy)_mxy=Y;});});var _cells=LIDTEX.gen(_mnx,_mny,_mxx,_mxy);var _Rin=off(_topReg,-1.5);var _tiles=intersect(_cells,(_Rin&&_Rin.length)?_Rin:_topReg);var _grout=diff(_topReg,_tiles);var _hh=LIDTEX.relief||0.9;var _did=false;if(_grout&&_grout.length){addCap(_grout,TT,true);_did=true;}if(_tiles&&_tiles.length){if(LIDTEX.dome){addDome(_tiles,TT,_hh,8,LIDTEX.domeMin||0.2);}else{addCap(_tiles,TT+_hh,true);addWalls(_tiles,TT,TT+_hh);}_did=true;}if(!_did)addCap(_topReg,TT,true);}catch(e){addCap(_topReg,TT,true);}}else{addCap(_topReg,TT,true);}   // top face = B minus every pocket
+  var _topReg=crossFrom(bounds[bounds.length-2]);if(typeof LIDTEX!=="undefined"&&LIDTEX&&LIDTEX.fn&&!window.__nameFlat){try{addCapTextured(_topReg,TT,LIDTEX);}catch(e){addCap(_topReg,TT,true);}}else if(typeof LIDTEX!=="undefined"&&LIDTEX&&LIDTEX.gen&&!window.__nameFlat){try{var _mnx=1e9,_mny=1e9,_mxx=-1e9,_mxy=-1e9;_topReg.forEach(function(cc){cc.forEach(function(pp){var X=pp.X/S,Y=pp.Y/S;if(X<_mnx)_mnx=X;if(X>_mxx)_mxx=X;if(Y<_mny)_mny=Y;if(Y>_mxy)_mxy=Y;});});var _cells=LIDTEX.gen(_mnx,_mny,_mxx,_mxy);var _Rin=off(_topReg,-1.5);var _tiles=intersect(_cells,(_Rin&&_Rin.length)?_Rin:_topReg);var _grout=diff(_topReg,_tiles);var _hh=LIDTEX.relief||0.9;var _did=false;if(_grout&&_grout.length){addCap(_grout,TT,true);_did=true;}if(_tiles&&_tiles.length){if(LIDTEX.dome){addDome(_tiles,TT,_hh,8,LIDTEX.domeMin||0.2);}else{addCap(_tiles,TT+_hh,true);addWalls(_tiles,TT,TT+_hh);}_did=true;}if(!_did)addCap(_topReg,TT,true);}catch(e){addCap(_topReg,TT,true);}}else{addCap(_topReg,TT,true);}   // top face = B minus every pocket
   groups.forEach(g=>addCap(g.regClip,floorZ(g),true));   // pocket floors (clipped to lid, face up)
   if(useSkirt){
     addCap(band,BOT,false);    // skirt flange underside
@@ -1833,8 +1832,8 @@ async function buildModel(){
       const A=off(filled,clearance),B=off(filled,clearance+capW);   // skirt is now folded into the single manifold lid mesh (buildLidSlabs), so no separate skirt extrude here.
       // ---- Gather pocket features. Name + images share the name pocket depth; each STL gets its own. ----
       const inlays=[];                 // solids that fill name/image pockets and stand proud
-      if(nameMode&&window.__nameLetters&&window.__nameLetters.length){inlays.push({p:window.__nameLetters,kind:"name",depth:0,color:COLORS.front,ext:NAME_TEXT_MM,nameInk:true});}
-      if(nameMode&&window.__nameGraphicRegions){window.__nameGraphicRegions.forEach(function(_r){inlays.push({p:_r.p,kind:"name",depth:0,color:_r.c,ext:NAME_TEXT_MM});});}  // name = thin coloured layer on the white plate (flat)
+      if(nameMode&&window.__nameLetters&&window.__nameLetters.length){inlays.push({p:window.__nameLetters,kind:"name",depth:0.4,color:COLORS.front,ext:NAME_TEXT_MM+0.4,nameInk:true});}
+      if(nameMode&&window.__nameGraphicRegions){window.__nameGraphicRegions.forEach(function(_r){inlays.push({p:_r.p,kind:"name",depth:0.4,color:_r.c,ext:NAME_TEXT_MM+0.4});});}  // name = thin coloured layer on the white plate (flat)
       const slabFeatures=[];           // every pocket carved into the lid top: {p, depth}
       // Every independent text layer becomes its own inlay + pocket, placed at its own x/y, with its OWN colour.
       for(const t of texts){const raw=(t.str||"").trim();if(!raw){t._dropped="";continue;}
@@ -1957,6 +1956,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=ne
   }catch(e){}
   applyColors();applyLight();
   try{if(typeof updatePhotoPreview==="function")updatePhotoPreview();}catch(e){}
+  try{updateFitWarn();}catch(e){}
 }
 function renderPlateList(){const el=g("platelist");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";
   el.innerHTML=`<div class="plbl">Plates</div>`+PLATES.map((p,i)=>{const extra=p.flip?" · face-down":"";const th=PLATE_THUMBS[i]?`<img src="${PLATE_THUMBS[i]}">`:"";return `<div class="pcard${i===selPlate?' sel':''}" data-i="${i}"><div class="pth">${th}</div><div><div class="pnm">Plate ${i+1}</div><div class="psub">${p.name}${extra}</div></div></div>`;}).join("");
