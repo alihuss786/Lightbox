@@ -1775,7 +1775,8 @@ function buildBodyShell(filled,inner,depth,wall,cx,cy){
 let PLATES=[],PLATE_THUMBS=[];
 async function buildModel(){
   if(!renderer||!pivot)return;clearPivot();glowFace=null;glowSpot=null;floorPlane=null;DIM=null;
-  const letter=(v("letter")||"A").toUpperCase()[0];const nameMode=(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;window.__nameFlat=nameMode;window.__plateFoot=null;const name=texts.map(t=>(t.str||"").trim()).filter(Boolean).join(" ");
+  const letter=(v("letter")||"A").toUpperCase()[0];const nameMode=(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;window.__nameFlat=nameMode;window.__plateFoot=null;try{var _skRow=document.getElementById("dimrow_skirt");if(_skRow)_skRow.style.display=nameMode?"none":"";}catch(e){}   // name plate = single depth control; hide Skirt depth on every build (covers load/restore)
+      const name=texts.map(t=>(t.str||"").trim()).filter(Boolean).join(" ");
   const lh=mmOf("lh")||140,depth=mmOf("bd")||40,wall=mmOf("wall")||3;
   const topT=mmOf("topT")||3,capW=mmOf("capW")||3,skirtD=mmOf("skirt")||14,clearance=0.4;
   const nameExt=mmOf("nameExt")||10;
