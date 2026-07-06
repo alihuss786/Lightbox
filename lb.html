@@ -690,6 +690,15 @@ body.ar-open #acct{display:none!important}
       <div id="iconGrid" class="icon-grid"></div>
     </div>
   </div>
+  <div class="acc" data-feat="logo">
+    <div class="acc-h" onclick="accT(this)">Logo <i class="chev">⌄</i></div>
+    <div class="acc-b">
+      <div class="hint">Turn a logo into a lightbox. Upload an <b>SVG</b> — its shape becomes the glowing light, holes and all.</div>
+      <label class="upfont" style="cursor:pointer">⬆ Upload SVG logo<input type="file" id="logoFile" accept=".svg,image/svg+xml" hidden onchange="onLogoUpload(this)"></label>
+      <div id="logoInfo" class="hint" style="display:none;margin-top:8px"></div>
+      <button class="addtext" id="logoClear" style="display:none;margin-top:8px" onclick="clearLogo()">Clear logo</button>
+    </div>
+  </div>
   <div class="acc">
     <div class="acc-h" onclick="accT(this)">Images &amp; 3D models <i class="chev">⌄</i></div>
     <div class="acc-b">
@@ -792,7 +801,7 @@ let UNIT="mm";
    "soon" shows a greyed Coming-soon tab whose real controls are removed. The config is frozen and read only
    through featState() from this closure, so it cannot be flipped from the console. Default everything to
    "on" -> no change until launch. ===== */
-const _FEATURES=Object.freeze({textures:"on",name:"on"});
+const _FEATURES=Object.freeze({textures:"on",name:"on",logo:"on"});
 function featState(k){var s=_FEATURES[k];return (s==="soon"||s==="hidden")?s:"on";}
 function applyFeatureGates(){try{[].forEach.call(document.querySelectorAll(".controls .acc[data-feat]"),function(acc){var st=featState(acc.getAttribute("data-feat"));if(st==="hidden"){if(acc.parentNode)acc.parentNode.removeChild(acc);}else if(st==="soon"){acc.classList.add("feat-soon");var body=acc.querySelector(".acc-b");if(body)body.innerHTML='<div class="soon-card"><div class="soon-badge">Coming soon</div><div class="soon-txt">This feature isn\u2019t available yet \u2014 it\u2019s on the roadmap.</div></div>';}});}catch(e){}}
 const MEAS=[["lh",50,400,1],["bd",15,150,1],["wall",1.5,8,.5],["topT",1,12,.5],["capW",1.5,8,.5],["skirt",3,120,1],["nameDepth",0,30,.5],["nameExt",1,30,.5],["imgSize",10,250,1]];
@@ -1019,7 +1028,7 @@ function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");cons
 function setMode(m){mode=m;zoom=1;try{document.body.classList.toggle("plates-mode",m==="plates");}catch(e){}paintSeg();g("platelist").style.display=m==="plates"?"flex":"none";g("printerbox").style.display=m==="plates"?"flex":"none";g("zoomhint").style.display="block";clearTimeout(zhT);zhT=setTimeout(()=>g("zoomhint").style.display="none",1900);if(m==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}buildModel();buildSummary();}
 function toggleLight(){lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plTab(i){var wrap=document.querySelector(".controls");if(!wrap)return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));accs.forEach(function(a,j){a.classList.toggle("open",j===i);});maybeExitNameMode();var tabs=[].slice.call(wrap.querySelectorAll(".pl-tab"));tabs.forEach(function(t,j){t.classList.toggle("active",j===i);});var at=tabs[i];if(at&&at.scrollIntoView){try{at.scrollIntoView({inline:"center",block:"nearest"});}catch(e){}}try{wrap.scrollTop=0;}catch(e){}}
 function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export|lithophane)$/i.test(name))return;var t=document.createElement("button");t.className="pl-tab"+(acc.classList.contains("feat-soon")?" pl-soon":"");t.textContent=name;t.setAttribute("data-i",i);t.onclick=function(){plTab(i);};bar.appendChild(t);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
-function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Letter"],name:["\u270e","Name"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
+function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Letter"],name:["\u270e","Name"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"],logo:["\u25a3","Logo"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
 function applyLight(){{var _lbl=g("lightLbl");if(_lbl)_lbl.textContent=lightOn?"Turn off lamp":"Turn on lamp";}
   g("lightPill").classList.toggle("on",lightOn);
@@ -1324,8 +1333,58 @@ var LIDNAME="";
 function nameBorderVal(){return 7;}
 function onNameBorderLabel(){var el=document.getElementById("nameBorder"),l=document.getElementById("nameBorderLbl");if(el&&l)l.textContent=parseFloat(el.value).toFixed(1);}
 function nudgeNameBorder(d){var el=document.getElementById("nameBorder");if(!el)return;el.value=Math.max(0.5,Math.min(8,(parseFloat(el.value)+d*0.5)));onNameBorderLabel();if(typeof rebuild==="function")rebuild();}
-function onNameInput(){var el=document.getElementById("lidName");var v=el?el.value:"";v=v.replace(/[\r\n]+/g," ").slice(0,24);if(el&&el.value!==v)el.value=v;LIDNAME=v;if(typeof rebuild==="function")rebuild();}
+function onNameInput(){var el=document.getElementById("lidName");var v=el?el.value:"";v=v.replace(/[\r\n]+/g," ").slice(0,24);if(el&&el.value!==v)el.value=v;LIDNAME=v;if(v&&typeof LOGO!=="undefined"&&LOGO){LOGO=null;window.__logoSvg=null;try{_logoUIsync();}catch(e){}}if(typeof rebuild==="function")rebuild();}
 function clearName(){LIDNAME="";var el=document.getElementById("lidName");if(el)el.value="";if(typeof rebuild==="function")rebuild();}
+var LOGO=null;window.__logoSvg=null;
+function _uniNZ(paths){try{var c=new ClipperLib.Clipper();c.AddPaths(paths,ClipperLib.PolyType.ptSubject,true);var sol=new ClipperLib.Paths();c.Execute(ClipperLib.ClipType.ctUnion,sol,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return sol;}catch(e){return paths;}}
+function _svgToClipper(svgText,heightMm){
+  var holder=null;
+  try{
+    var S=1000;
+    var doc=new DOMParser().parseFromString(svgText,"image/svg+xml");
+    var svg=doc.documentElement;
+    if(!svg||String(svg.nodeName).toLowerCase()!=="svg")return null;
+    holder=document.createElement("div");
+    holder.setAttribute("style","position:absolute;left:-99999px;top:-99999px;width:0;height:0;overflow:hidden;opacity:0");
+    try{[].slice.call(svg.querySelectorAll("script,foreignObject,image,a,use,iframe,animate,set")).forEach(function(n){if(n.parentNode)n.parentNode.removeChild(n);});(function walk(n){if(n&&n.attributes){for(var i=n.attributes.length-1;i>=0;i--){var an=n.attributes[i].name||"";if(/^on/i.test(an)||/href$/i.test(an)||/^xlink:/i.test(an))n.removeAttribute(n.attributes[i].name);}}var ch=n&&n.children?[].slice.call(n.children):[];ch.forEach(walk);})(svg);}catch(e){}   /* SECURITY: strip scripts/handlers/external refs from untrusted logo SVGs before they touch the DOM */
+    document.body.appendChild(holder);holder.appendChild(svg);
+    var els=[].slice.call(svg.querySelectorAll("path,rect,circle,ellipse,polygon,polyline,line"));
+    function ctm(el){try{return el.getCTM()||null;}catch(e){return null;}}
+    function fillRule(el){try{var fr=getComputedStyle(el).fillRule;if(fr)return fr;}catch(e){}return el.getAttribute("fill-rule")||"nonzero";}
+    function isFilled(el){try{var f=getComputedStyle(el).fill;if(f==="none"||f==="rgba(0, 0, 0, 0)"||f==="transparent")return false;if(f)return true;}catch(e){}return el.getAttribute("fill")!=="none";}
+    function sample(el){
+      var len=0;try{len=el.getTotalLength();}catch(e){return[];}
+      if(!len||!isFinite(len))return[];
+      var m=ctm(el),step=Math.max(len/700,0.35),out=[],cur=[],prev=null;
+      for(var d=0;d<=len+1e-6;d+=step){var dd=d<len?d:len;var p;try{p=el.getPointAtLength(dd);}catch(e){continue;}
+        var x=p.x,y=p.y;if(m){var X=m.a*x+m.c*y+m.e,Y=m.b*x+m.d*y+m.f;x=X;y=Y;}
+        if(prev){var j=Math.hypot(x-prev[0],y-prev[1]);if(j>step*6){if(cur.length>2)out.push(cur);cur=[];}}
+        cur.push([x,y]);prev=[x,y];}
+      if(cur.length>2)out.push(cur);return out;
+    }
+    function toClip(cs){return cs.map(function(c){return c.map(function(p){return {X:Math.round(p[0]*S),Y:Math.round(p[1]*S)};});});}
+    var total=null;
+    els.forEach(function(el){
+      if(!isFilled(el))return;
+      var cs=sample(el);if(!cs.length)return;
+      var cp=toClip(cs);
+      var region=(fillRule(el)==="evenodd")?unionEO(cp):_uniNZ(cp);
+      if(!region||!region.length)return;
+      total=total?union2(total,region):region;
+    });
+    if(holder.parentNode)holder.parentNode.removeChild(holder);holder=null;
+    if(!total||!total.length)return null;
+    var bb={mnx:1e18,mxx:-1e18,mny:1e18,mxy:-1e18};
+    total.forEach(function(p){p.forEach(function(pt){if(pt.X<bb.mnx)bb.mnx=pt.X;if(pt.X>bb.mxx)bb.mxx=pt.X;if(pt.Y<bb.mny)bb.mny=pt.Y;if(pt.Y>bb.mxy)bb.mxy=pt.Y;});});
+    var hh=(bb.mxy-bb.mny)||1,k=(heightMm*S)/hh,mcx=(bb.mnx+bb.mxx)/2,mcy=(bb.mny+bb.mxy)/2;
+    var outp=total.map(function(p){return p.map(function(pt){return {X:Math.round((pt.X-mcx)*k),Y:Math.round(-(pt.Y-mcy)*k)};});});
+    try{var cl=cleanPaths(outp);if(cl&&cl.length)outp=cl;}catch(e){}
+    return outp;
+  }catch(e){try{if(holder&&holder.parentNode)holder.parentNode.removeChild(holder);}catch(_){}return null;}
+}
+function _logoUIsync(){var info=document.getElementById("logoInfo"),cl=document.getElementById("logoClear");var on=!!LOGO;if(info)info.style.display=on?"":"none";if(cl)cl.style.display=on?"":"none";}
+function onLogoUpload(inp){var f=inp&&inp.files&&inp.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var txt=String(rd.result||"");var paths=_svgToClipper(txt,100);if(!paths||!paths.length){alert("Couldn\u2019t read that SVG \u2014 use a flattened logo made of filled shapes.");return;}LOGO=paths;window.__logoSvg=txt;if(typeof LIDNAME!=="undefined"&&LIDNAME){LIDNAME="";var na=document.getElementById("lidName");if(na)na.value="";}var info=document.getElementById("logoInfo");if(info)info.innerHTML="Logo loaded \u2014 it now drives the lightbox. Set the size with <b>Letter height</b>.";_logoUIsync();if(typeof rebuild==="function")rebuild();}catch(e){alert("Couldn\u2019t read that SVG.");}};rd.readAsText(f);if(inp)inp.value="";}
+function clearLogo(){LOGO=null;window.__logoSvg=null;_logoUIsync();if(typeof rebuild==="function")rebuild();}
 /* Multi-line name -> Clipper subject paths. Each glyph is placed individually with
    tight tracking (bounding boxes overlap slightly) so a small connect-border fuses
    adjacent letters into one piece. Lines are centred and stacked top-to-bottom. */
@@ -1785,7 +1844,7 @@ function buildBodyShell(filled,inner,depth,wall,cx,cy){
 let PLATES=[],PLATE_THUMBS=[];
 async function buildModel(){
   if(!renderer||!pivot)return;clearPivot();glowFace=null;glowSpot=null;floorPlane=null;DIM=null;
-  const letter=(v("letter")||"A").toUpperCase()[0];if(featState("textures")!=="on"){LIDTEX=null;window.__lidTexId="none";}const nameMode=(featState("name")==="on")&&(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;window.__nameFlat=nameMode;window.__plateFoot=null;try{var _skRow=document.getElementById("dimrow_skirt");if(_skRow)_skRow.style.display="none";}catch(e){}   // single depth control everywhere: Light box depth drives the skirt (hidden on every build path)
+  const letter=(v("letter")||"A").toUpperCase()[0];if(featState("textures")!=="on"){LIDTEX=null;window.__lidTexId="none";}const logoMode=(featState("logo")==="on")&&(typeof LOGO!=="undefined")&&LOGO&&LOGO.length>0;const nameMode=!logoMode&&(featState("name")==="on")&&(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;window.__nameFlat=nameMode;window.__plateFoot=null;try{var _skRow=document.getElementById("dimrow_skirt");if(_skRow)_skRow.style.display="none";}catch(e){}   // single depth control everywhere: Light box depth drives the skirt (hidden on every build path)
       const name=texts.map(t=>(t.str||"").trim()).filter(Boolean).join(" ");
   const lh=mmOf("lh")||140,depth=mmOf("bd")||40,wall=mmOf("wall")||3;
   const topT=mmOf("topT")||3,capW=mmOf("capW")||3,skirtD=mmOf("skirt")||14,clearance=0.4;
@@ -1814,7 +1873,11 @@ async function buildModel(){
   let LW=lh*0.7,LH=lh;
   try{
     const font=await loadFont(selFont.url);let cx=0,cy=0,filled=null,glyphSize=lh;
-    if(hasClip&&nameMode){
+    if(hasClip&&logoMode){
+      /* LOGO MODE \u2014 an uploaded SVG silhouette IS the lightbox (same hollow-glow build as a letter). */
+      var _lk=lh/100;filled=LOGO.map(function(p){return p.map(function(pt){return {X:Math.round(pt.X*_lk),Y:Math.round(pt.Y*_lk)};});});var _lcl=cleanPaths(filled);if(_lcl&&_lcl.length)filled=_lcl;
+      var _lc=pathsCenter(filled);cx=_lc.x;cy=_lc.y;var _lex=pathsExtent(filled,cx,cy);LW=_lex.W;LH=_lex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;window.__plateFoot={w:LW,h:LH};drawPad();
+    }else if(hasClip&&nameMode){
       /* NAME MODE — the name sits FLAT on a solid white glowing background plate. Single line. */
       var _line=(LIDNAME.split(/\r?\n/)[0]||"").trim()||"Name";
       var _rc=(_line.replace(/\s/g,"")[0])||"A";var _nf0=unionEO(glyphSubj(font,_rc,lh));var _nex0=pathsExtent(_nf0,0,0);if(_nex0.H>1){var _nk=_nex0.H/lh;glyphSize=Math.max(8,lh-capMargin)/_nk;}
@@ -2297,7 +2360,7 @@ loadFont(selFont.url).then(bootGeometry,()=>bootGeometry(null));
 // Belt-and-suspenders: once the window + any web fonts are fully ready, queue one more clean pass.
 /* ===== Design persistence: snapshot the whole design + auto-restore on reload (never lose work) ===== */
 function serializeDesign(){var d={v:1};try{
-  d.letter=(v("letter")||"A");d.printer=selPrinter;d.unit=UNIT;d.font=(selNameFont&&selNameFont.url)||"";d.texture=window.__lidTexId||"none";
+  d.letter=(v("letter")||"A");d.printer=selPrinter;d.unit=UNIT;d.font=(selNameFont&&selNameFont.url)||"";d.texture=window.__lidTexId||"none";d.logoSvg=(featState("logo")==="on"&&window.__logoSvg)?window.__logoSvg:"";
   d.colors={};["front","name","image","model","body"].forEach(function(k){d.colors[k]=COLORS[k];});
   d.dims={};MEAS.forEach(function(m){if(m[0]!=="imgSize")d.dims[m[0]]=mmOf(m[0]);});
   d.texts=texts.map(function(t){return {str:t.str,size:t.size,x:t.x,y:t.y,color:t.color,bold:t.bold||0,font:t.font||d.font};});
@@ -2315,6 +2378,7 @@ function applyDesign(d){if(!d||d.v!==1)return false;try{
   if(d.font){var f=NAME_FONTS.find(function(x){return x.url===d.font;});if(f){selNameFont=f;try{renderNameGrid();}catch(e){}}}
   if(Array.isArray(d.texts)){texts=d.texts.map(function(t){return {id:uid++,str:t.str||"",size:t.size||22,x:t.x||0,y:t.y||0,color:t.color||"#FFFFFF",bold:t.bold||0,font:t.font};});selText=texts.length?0:-1;try{renderTextList();}catch(e){}}
   if(d.texture&&featState("textures")==="on"){try{selectTexture(d.texture);}catch(e){}}
+  if(d.logoSvg&&featState("logo")==="on"){try{LOGO=_svgToClipper(d.logoSvg,100);if(LOGO&&LOGO.length){window.__logoSvg=d.logoSvg;LIDNAME="";var _lna=document.getElementById("lidName");if(_lna)_lna.value="";try{_logoUIsync();}catch(e){}}}catch(e){}}
   images=[];selImg=-1;
   var imgs=Array.isArray(d.images)?d.images:[];
   var done=function(){if(images.length)selImg=0;try{renderImgList();}catch(e){}try{drawPad();}catch(e){}try{drawTextPad();}catch(e){}try{rebuild();}catch(e){}};
