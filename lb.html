@@ -892,7 +892,7 @@ dbAllFonts().then(recs=>{recs.forEach(r=>{if(r&&r.id&&r.buf){if(r.kind==="letter
 const DIMS=[{id:"lh",l:"Letter height",min:50,max:400,st:1,val:140},{id:"bd",l:"Light box depth",min:15,max:150,st:1,val:40},{id:"wall",l:"Wall thickness",min:1.5,max:8,st:.5,val:3},{id:"topT",l:"Lid top thickness",min:1,max:12,st:.5,val:3},{id:"capW",l:"Cap wall",min:1.5,max:8,st:.5,val:3},{id:"skirt",l:"Skirt depth",min:3,max:120,st:1,val:14}];
 const dr=g("dimRows");
 const ut=document.createElement("div");ut.className="srow";ut.style.cssText="justify-content:flex-end;gap:10px;margin-bottom:2px";ut.innerHTML='<span class="lbl" style="margin-right:auto">Units</span><div class="useg"><button class="uchip" id="u_mm" onclick="setUnit(\'mm\')">mm</button><button class="uchip" id="u_cm" onclick="setUnit(\'cm\')">cm</button></div>';dr.appendChild(ut);
-DIMS.forEach(d=>{const row=document.createElement("div");row.className="row";row.innerHTML=`<span class="lbl">${d.l}</span><div class="srow"><input type="range" id="${d.id}R" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><div class="numbox wide"><input type="number" id="${d.id}" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><span class="u">mm</span></div></div>`;dr.appendChild(row);const R=g(d.id+"R"),N=g(d.id);R.oninput=()=>{N.value=UNIT==="cm"?tidy(R.value/10):R.value;rebuild();};N.oninput=()=>{R.value=UNIT==="cm"?Math.round(N.value*10):N.value;rebuild();};});
+DIMS.forEach(d=>{const row=document.createElement("div");row.className="row";row.id="dimrow_"+d.id;row.innerHTML=`<span class="lbl">${d.l}</span><div class="srow"><input type="range" id="${d.id}R" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><div class="numbox wide"><input type="number" id="${d.id}" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><span class="u">mm</span></div></div>`;dr.appendChild(row);const R=g(d.id+"R"),N=g(d.id);R.oninput=()=>{N.value=UNIT==="cm"?tidy(R.value/10):R.value;rebuild();};N.oninput=()=>{R.value=UNIT==="cm"?Math.round(N.value*10):N.value;rebuild();};});
 
 let images=[],selImg=-1,models=[],selModel=-1,uid=1,t1=null,mode="render",lightOn=true,diffOn=false,selPlate=0,DIM=null;
 // Dynamic, independent text layers on the lid. Each: {id, str, size(mm), x, y}. selText = active layer.
@@ -987,7 +987,8 @@ function applyEnv(k){if(!ENVS[k])k="studio";currentEnv=k;var e=ENVS[k];try{local
 function renderEnvBar(){var el=document.getElementById("envbar");if(!el)return;el.innerHTML=Object.keys(ENVS).map(function(k){var e=ENVS[k];return "<button class=\"envchip"+(k===currentEnv?" sel":"")+"\" data-env=\""+k+"\" title=\""+e.name+"\"><span class=\"eci\">"+e.icon+"</span><span class=\"ecl\">"+e.name+"</span></button>";}).join("");el.querySelectorAll(".envchip").forEach(function(c){c.onclick=function(){applyEnv(c.getAttribute("data-env"));};});}
 function initEnv(){try{var s=localStorage.getItem("sl_env");if(s&&ENVS[s])currentEnv=s;}catch(_){}renderEnvBar();applyEnv(currentEnv);}
 function scheduleBuild(){clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},100);if(typeof autosave==="function")autosave();}
-function rebuild(){updatePad();clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},150);if(typeof autosave==="function")autosave();}
+function syncDepthUI(){try{var nameOn=(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;var sk=document.getElementById("dimrow_skirt");if(sk)sk.style.display=nameOn?"none":"";}catch(e){}}   // name plate = one depth control (Light box depth); skirt follows it
+function rebuild(){syncDepthUI();updatePad();clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},150);if(typeof autosave==="function")autosave();}
 
 const PRESETS=["#FFFFFF","#F4E9D8","#E8C99B","#C9A36A","#B0B5BB","#7E848B","#3A3F44","#15171A","#E23B3B","#E2663B","#E2A93B","#7FB23B","#2FB273","#3B9AE2","#3B57E2","#7A3BE2","#E23B86","#10100F","#F7C0D1","#9FE1CB","#FAC775","#B5D4F4","#CECBF6","#888780"];
 let palTarget=null;
@@ -1905,7 +1906,7 @@ async function buildModel(){
       var _panelPaths=null,_panelZ=0;
       if(typeof PHOTO!=="undefined"&&PHOTO){try{_panelPaths=off(B,-3.5);}catch(e){_panelPaths=null;}
         if(_panelPaths&&_panelPaths.length){var _wd=Math.max(0,TT-FLOOR_MIN);slabFeatures.push({p:_panelPaths,depth:_wd});_panelZ=TT-_wd;}else{_panelPaths=null;}}
-buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,(nameMode?Math.min(skirtD,depth):skirtD)).forEach(s=>{const m=new THREE.Mesh(s.geo,nameMode?MATS.name:lidMat);m.position.z=s.z;capGroup.add(m);});   // skirt is a lid lip: never deeper than the box
+buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,(nameMode?depth:skirtD)).forEach(s=>{const m=new THREE.Mesh(s.geo,nameMode?MATS.name:lidMat);m.position.z=s.z;capGroup.add(m);});   // name plate: skirt spans the full Light box depth (single depth control)
       // ---- Flat photo panel: its own watertight, printable part (true flat lithophane; the geometry colour needs) ----
       var photoPanelGroup=null;
       if(_panelPaths){try{
