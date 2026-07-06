@@ -892,7 +892,7 @@ dbAllFonts().then(recs=>{recs.forEach(r=>{if(r&&r.id&&r.buf){if(r.kind==="letter
 const DIMS=[{id:"lh",l:"Letter height",min:50,max:400,st:1,val:140},{id:"bd",l:"Light box depth",min:15,max:150,st:1,val:40},{id:"wall",l:"Wall thickness",min:1.5,max:8,st:.5,val:3},{id:"topT",l:"Lid top thickness",min:1,max:12,st:.5,val:3},{id:"capW",l:"Cap wall",min:1.5,max:8,st:.5,val:3},{id:"skirt",l:"Skirt depth",min:3,max:120,st:1,val:14}];
 const dr=g("dimRows");
 const ut=document.createElement("div");ut.className="srow";ut.style.cssText="justify-content:flex-end;gap:10px;margin-bottom:2px";ut.innerHTML='<span class="lbl" style="margin-right:auto">Units</span><div class="useg"><button class="uchip" id="u_mm" onclick="setUnit(\'mm\')">mm</button><button class="uchip" id="u_cm" onclick="setUnit(\'cm\')">cm</button></div>';dr.appendChild(ut);
-DIMS.forEach(d=>{const row=document.createElement("div");row.className="row";row.id="dimrow_"+d.id;row.innerHTML=`<span class="lbl">${d.l}</span><div class="srow"><input type="range" id="${d.id}R" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><div class="numbox wide"><input type="number" id="${d.id}" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><span class="u">mm</span></div></div>`;dr.appendChild(row);const R=g(d.id+"R"),N=g(d.id);R.oninput=()=>{N.value=UNIT==="cm"?tidy(R.value/10):R.value;rebuild();};N.oninput=()=>{R.value=UNIT==="cm"?Math.round(N.value*10):N.value;rebuild();};});
+DIMS.forEach(d=>{const row=document.createElement("div");row.className="row";row.id="dimrow_"+d.id;if(d.id==="skirt")row.style.display="none";row.innerHTML=`<span class="lbl">${d.l}</span><div class="srow"><input type="range" id="${d.id}R" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><div class="numbox wide"><input type="number" id="${d.id}" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><span class="u">mm</span></div></div>`;dr.appendChild(row);const R=g(d.id+"R"),N=g(d.id);R.oninput=()=>{N.value=UNIT==="cm"?tidy(R.value/10):R.value;rebuild();};N.oninput=()=>{R.value=UNIT==="cm"?Math.round(N.value*10):N.value;rebuild();};});
 
 let images=[],selImg=-1,models=[],selModel=-1,uid=1,t1=null,mode="render",lightOn=true,diffOn=false,selPlate=0,DIM=null;
 // Dynamic, independent text layers on the lid. Each: {id, str, size(mm), x, y}. selText = active layer.
@@ -2299,7 +2299,8 @@ function applyDesign(d){if(!d||d.v!==1)return false;try{
   if(g("letter"))g("letter").value=(d.letter||"A");
   if(typeof d.printer==="number")selPrinter=d.printer;
   if(d.unit==="mm"||d.unit==="cm"){UNIT=d.unit;try{paintUnitSeg();}catch(e){}}
-  if(d.dims){Object.keys(d.dims).forEach(function(id){var el=g(id);if(el){var mm=+d.dims[id]||0;el.value=(UNIT==="cm"?(Math.round(mm/10*100)/100):Math.round(mm));}});}
+  try{var _toU=(UNIT==="cm"?0.1:1);MEAS.forEach(function(m){var el=g(m[0]);if(!el)return;el.min=m[1]*_toU;el.max=m[2]*_toU;el.step=(UNIT==="cm")?Math.max(0.1,Math.round(m[3])/10):m[3];});document.querySelectorAll(".numbox .u").forEach(function(s){s.textContent=UNIT;});}catch(e){}   // restore must also flip the unit labels + slider ranges, not just the value
+  if(d.dims){Object.keys(d.dims).forEach(function(id){var el=g(id);if(el){var mm=+d.dims[id]||0;el.value=(UNIT==="cm"?(Math.round(mm/10*100)/100):Math.round(mm));var R=g(id+"R");if(R)R.value=mm;}});}
   if(d.colors){Object.keys(d.colors).forEach(function(k){if(d.colors[k])COLORS[k]=d.colors[k];});try{refreshSwatches();}catch(e){}}
   if(d.font){var f=NAME_FONTS.find(function(x){return x.url===d.font;});if(f){selNameFont=f;try{renderNameGrid();}catch(e){}}}
   if(Array.isArray(d.texts)){texts=d.texts.map(function(t){return {id:uid++,str:t.str||"",size:t.size||22,x:t.x||0,y:t.y||0,color:t.color||"#FFFFFF",bold:t.bold||0,font:t.font};});selText=texts.length?0:-1;try{renderTextList();}catch(e){}}
@@ -3337,6 +3338,8 @@ window.USDZExporter=USDZExporter;})();
   // Inject the trigger button into the top bar once it exists.
   function injectBtn(){
     var tb=document.querySelector(".topbar");if(!tb||tb.querySelector(".arbtn"))return true;
+    var _ua=navigator.userAgent||"";var _isMobile=/Android|iPhone|iPad|iPod|Mobile|Silk/i.test(_ua)||((navigator.maxTouchPoints||0)>1&&window.matchMedia&&matchMedia("(pointer:coarse)").matches);
+    if(!_isMobile)return true;   // AR (Scene Viewer / Quick Look) is mobile-only — never show the button on desktop
     var b=document.createElement("button");b.className="arbtn";b.type="button";b.setAttribute("onclick","openAR()");
     b.innerHTML='<span class="ari">◈</span><span>View in AR</span>';
     tb.appendChild(b);return true;
