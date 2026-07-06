@@ -1380,15 +1380,19 @@ function _svgToClipper(svgText,heightMm){
       if(cur.length>2)out.push(cur);return out;
     }
     function toClip(cs){return cs.map(function(c){return c.map(function(p){return {X:Math.round(p[0]*S),Y:Math.round(p[1]*S)};});});}
-    var total=null;
+    function _fillLum(el){try{var c=getComputedStyle(el).fill;var m=/rgba?\(([^)]+)\)/.exec(c);if(m){var p=m[1].split(",").map(parseFloat);return (0.299*p[0]+0.587*p[1]+0.114*p[2])/255;}if(/^#/.test(c)){var h=c.slice(1);if(h.length===3)h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];return (0.299*parseInt(h.slice(0,2),16)+0.587*parseInt(h.slice(2,4),16)+0.114*parseInt(h.slice(4,6),16))/255;}}catch(e){}return 0;}
+    var total=null,_holes=[];
     els.forEach(function(el){
       if(!isFilled(el))return;
       var cs=sample(el);if(!cs.length)return;
       var cp=toClip(cs);
       var region=(fillRule(el)==="evenodd")?unionEO(cp):_uniNZ(cp);
       if(!region||!region.length)return;
-      total=total?union2(total,region):region;
+      if(_fillLum(el)>0.82){_holes.push(region);}          /* near-white fill = a cut-out (e.g. the YouTube play triangle) */
+      else{total=total?union2(total,region):region;}
     });
+    if(!total&&_holes.length){total=_holes[0];for(var _hi=1;_hi<_holes.length;_hi++){var _u=union2(total,_holes[_hi]);if(_u&&_u.length)total=_u;}_holes=[];}   /* all-light logo: use the light shapes as the design */
+    if(total&&_holes.length){_holes.forEach(function(h){var d=diff(total,h);if(d&&d.length)total=d;});}   /* punch the cut-outs */
     if(holder.parentNode)holder.parentNode.removeChild(holder);holder=null;
     if(!total||!total.length)return null;
     var bb={mnx:1e18,mxx:-1e18,mny:1e18,mxy:-1e18};
