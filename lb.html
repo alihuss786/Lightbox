@@ -1813,7 +1813,12 @@ async function buildModel(){
       window.__nameGraphicRegions=null;window.__nameGraphicLinework=null;var _sil=_L;
       if(typeof LIDICON!=="undefined"&&LIDICON&&typeof ICONS!=="undefined"&&ICONS[LIDICON]){var _g=_placeGraphic(_L,LIDICON,glyphSize,_bg);_L=_g.ink;_sil=_g.sil;window.__nameGraphicRegions=(_g.regions&&_g.regions.length)?_g.regions:null;window.__nameGraphicLinework=(_g.linework&&_g.linework.length)?_g.linework:null;}
       window.__nameLetters=_L;
-      var _plate=off(_sil,_bg);var _ps=fillSolid(_plate);if(_ps&&_ps.length)_plate=_ps;var _pcl=cleanPaths(_plate);if(_pcl&&_pcl.length)_plate=_pcl;
+      var _plate=off(_sil,_bg);var _ps=fillSolid(_plate);if(_ps&&_ps.length)_plate=_ps;
+      // Smooth the plate's outer profile: a morphological close (dilate then erode) fills the deep valleys
+      // the halo leaves between letters / between strokes (the I, the H), so the plaque reads as one rounded
+      // shape instead of dipping into every gap. Only affects the outer boundary (plate is already solid).
+      try{var _cR=(typeof window.__pcR==="number"?window.__pcR:Math.max(lh*0.32,_bg*3));if(_cR>0.1){var _pd=off(_plate,_cR);if(_pd&&_pd.length){var _pe=off(_pd,-_cR);if(_pe&&_pe.length){var _pcs=fillSolid(_pe);_plate=(_pcs&&_pcs.length)?_pcs:_pe;}}}}catch(e){}
+      var _pcl=cleanPaths(_plate);if(_pcl&&_pcl.length)_plate=_pcl;
       filled=_plate;if(!filled||!filled.length)filled=_L;
       var _nc=pathsCenter(filled);cx=_nc.x;cy=_nc.y;var _nex=pathsExtent(filled,cx,cy);LW=_nex.W;LH=_nex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;window.__plateFoot={w:LW,h:LH};drawPad();
     }else if(hasClip){
