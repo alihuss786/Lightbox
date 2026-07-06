@@ -336,6 +336,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
 .pl-tab:hover{color:var(--txt)}
 .pl-tab.active{color:var(--acc)}
 .pl-tab.active::after{content:"";position:absolute;left:11px;right:11px;bottom:-1px;height:2px;background:var(--acc);border-radius:2px}
+.controls .pl-tab.pl-soon{opacity:.5}.controls .pl-tab.pl-soon .ptlbl::after{content:" \00b7 soon";font-size:9px;font-weight:600;letter-spacing:.02em;opacity:.9}
+.soon-card{padding:24px 18px;text-align:center}.soon-badge{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--acc);border:1px solid rgba(201,163,106,.4);border-radius:999px;padding:6px 13px;margin-bottom:12px}.soon-txt{font-size:12.5px;color:var(--txt3);line-height:1.5;max-width:240px;margin:0 auto}
 /* light on/off button as a POP LAMP pill, bottom-right */
 #lightPill.lightbtn{position:absolute;right:16px;bottom:16px;width:auto;height:46px;padding:0 20px;gap:10px;border-radius:24px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;background:#141821;border:1px solid var(--line2);color:#fff;backdrop-filter:blur(8px);box-shadow:0 16px 32px -14px rgba(0,0,0,.75);z-index:7}
 #lightPill .lb-ic{font-size:15px;line-height:1}
@@ -627,7 +629,7 @@ body.ar-open #acct{display:none!important}
       <div class="hint">Background is the white plate behind a name; Name/letter is the glowing text. When lit, the front glows and casts colour forward.</div>
     </div>
   </div>
-  <div class="acc">
+  <div class="acc" data-feat="textures">
     <div class="acc-h" onclick="accT(this)">Textures <i class="chev">⌄</i></div>
     <div class="acc-b">
       <div class="hint">Surface relief on the lid front — prints as real texture. Lid only.</div>
@@ -677,7 +679,7 @@ body.ar-open #acct{display:none!important}
       </div>
     </div>
   </div>
-  <div class="acc">
+  <div class="acc" data-feat="name">
     <div class="acc-h" onclick="accT(this)">Name <i class="chev">⌄</i></div>
     <div class="acc-b">
       <div class="hint">Turn the lid into a name plate — your name sits flat on a solid white glowing background. Uses your selected Letter font.</div>
@@ -785,6 +787,14 @@ async function loadOT(u){if(otCache[u])return otCache[u];if(typeof opentype==="u
 function g(i){return document.getElementById(i);}function v(i){return g(i).value;}
 
 let UNIT="mm";
+/* ===== Feature flags: "on" | "soon" | "hidden".  "hidden" is stripped from the DOM AND gated in the
+   geometry/export so it cannot be revealed (devtools) or triggered (console, crafted localStorage, restore).
+   "soon" shows a greyed Coming-soon tab whose real controls are removed. The config is frozen and read only
+   through featState() from this closure, so it cannot be flipped from the console. Default everything to
+   "on" -> no change until launch. ===== */
+const _FEATURES=Object.freeze({textures:"on",name:"on"});
+function featState(k){var s=_FEATURES[k];return (s==="soon"||s==="hidden")?s:"on";}
+function applyFeatureGates(){try{[].forEach.call(document.querySelectorAll(".controls .acc[data-feat]"),function(acc){var st=featState(acc.getAttribute("data-feat"));if(st==="hidden"){if(acc.parentNode)acc.parentNode.removeChild(acc);}else if(st==="soon"){acc.classList.add("feat-soon");var body=acc.querySelector(".acc-b");if(body)body.innerHTML='<div class="soon-card"><div class="soon-badge">Coming soon</div><div class="soon-txt">This feature isn\u2019t available yet \u2014 it\u2019s on the roadmap.</div></div>';}});}catch(e){}}
 const MEAS=[["lh",50,400,1],["bd",15,150,1],["wall",1.5,8,.5],["topT",1,12,.5],["capW",1.5,8,.5],["skirt",3,120,1],["nameDepth",0,30,.5],["nameExt",1,30,.5],["imgSize",10,250,1]];
 function mmOf(id){const raw=+v(id);if(isNaN(raw))return 0;return UNIT==="cm"?raw*10:raw;}
 function tidy(n){return (Math.round(n*100)/100).toString();}
@@ -931,7 +941,7 @@ var TEXTURES=[
 ];
 var TEXFN={};TEXTURES.forEach(function(t){TEXFN[t.id]=t;});
 var LIDTEX=null;
-function selectTexture(id){var t=(id&&id!=="none")?TEXFN[id]:null;LIDTEX=(t&&(t.gen||t.fn))?{gen:t.gen,fn:t.fn,grid:t.grid,amp:t.amp,relief:t.relief||0.9,dome:t.dome,domeMin:t.domeMin}:null;window.__lidTexId=id||"none";if(id&&id!=="none"&&typeof PHOTO!=="undefined"&&PHOTO){PHOTO=null;photoLitPreview=false;window.__photoCap=null;var _lt=document.getElementById("tg_photoLit");if(_lt)_lt.classList.remove("on");var _pc=document.getElementById("photoControls");if(_pc)_pc.style.display="none";}try{renderTexList();}catch(e){}if(typeof scheduleBuild==="function")scheduleBuild();}
+function selectTexture(id){if(featState("textures")!=="on"){LIDTEX=null;window.__lidTexId="none";return;}var t=(id&&id!=="none")?TEXFN[id]:null;LIDTEX=(t&&(t.gen||t.fn))?{gen:t.gen,fn:t.fn,grid:t.grid,amp:t.amp,relief:t.relief||0.9,dome:t.dome,domeMin:t.domeMin}:null;window.__lidTexId=id||"none";if(id&&id!=="none"&&typeof PHOTO!=="undefined"&&PHOTO){PHOTO=null;photoLitPreview=false;window.__photoCap=null;var _lt=document.getElementById("tg_photoLit");if(_lt)_lt.classList.remove("on");var _pc=document.getElementById("photoControls");if(_pc)_pc.style.display="none";}try{renderTexList();}catch(e){}if(typeof scheduleBuild==="function")scheduleBuild();}
 
 /* ===== Photo -> lithophane relief on the lid front (uses the addCapTextured fn path) ===== */
 var PHOTO=null, photoInvert=false, photoOffset={x:0,y:0};
@@ -1008,7 +1018,7 @@ function applyColors(){refreshSwatches();if(MATS.front)MATS.front.color.set(COLO
 function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");const lt=document.documentElement.getAttribute("data-theme")==="light";const onBg=lt?"#ffffff":"rgba(255,255,255,.12)";const onCol=lt?"#1d1d1f":"#fff";const offCol=lt?"#8a8a8f":"rgba(255,255,255,.55)";const onSh=lt?"0 1px 4px rgba(0,0,0,.12)":"none";R.style.background=r?onBg:"transparent";R.style.color=r?onCol:offCol;R.style.boxShadow=r?onSh:"none";P.style.background=!r?onBg:"transparent";P.style.color=!r?onCol:offCol;P.style.boxShadow=!r?onSh:"none";}
 function setMode(m){mode=m;zoom=1;try{document.body.classList.toggle("plates-mode",m==="plates");}catch(e){}paintSeg();g("platelist").style.display=m==="plates"?"flex":"none";g("printerbox").style.display=m==="plates"?"flex":"none";g("zoomhint").style.display="block";clearTimeout(zhT);zhT=setTimeout(()=>g("zoomhint").style.display="none",1900);if(m==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}buildModel();buildSummary();}
 function toggleLight(){lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plTab(i){var wrap=document.querySelector(".controls");if(!wrap)return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));accs.forEach(function(a,j){a.classList.toggle("open",j===i);});maybeExitNameMode();var tabs=[].slice.call(wrap.querySelectorAll(".pl-tab"));tabs.forEach(function(t,j){t.classList.toggle("active",j===i);});var at=tabs[i];if(at&&at.scrollIntoView){try{at.scrollIntoView({inline:"center",block:"nearest"});}catch(e){}}try{wrap.scrollTop=0;}catch(e){}}
-function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export|lithophane)$/i.test(name))return;var t=document.createElement("button");t.className="pl-tab";t.textContent=name;t.setAttribute("data-i",i);t.onclick=function(){plTab(i);};bar.appendChild(t);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
+function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export|lithophane)$/i.test(name))return;var t=document.createElement("button");t.className="pl-tab"+(acc.classList.contains("feat-soon")?" pl-soon":"");t.textContent=name;t.setAttribute("data-i",i);t.onclick=function(){plTab(i);};bar.appendChild(t);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
 function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Letter"],name:["\u270e","Name"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
 function applyLight(){{var _lbl=g("lightLbl");if(_lbl)_lbl.textContent=lightOn?"Turn off lamp":"Turn on lamp";}
@@ -1775,7 +1785,7 @@ function buildBodyShell(filled,inner,depth,wall,cx,cy){
 let PLATES=[],PLATE_THUMBS=[];
 async function buildModel(){
   if(!renderer||!pivot)return;clearPivot();glowFace=null;glowSpot=null;floorPlane=null;DIM=null;
-  const letter=(v("letter")||"A").toUpperCase()[0];const nameMode=(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;window.__nameFlat=nameMode;window.__plateFoot=null;try{var _skRow=document.getElementById("dimrow_skirt");if(_skRow)_skRow.style.display="none";}catch(e){}   // single depth control everywhere: Light box depth drives the skirt (hidden on every build path)
+  const letter=(v("letter")||"A").toUpperCase()[0];if(featState("textures")!=="on"){LIDTEX=null;window.__lidTexId="none";}const nameMode=(featState("name")==="on")&&(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;window.__nameFlat=nameMode;window.__plateFoot=null;try{var _skRow=document.getElementById("dimrow_skirt");if(_skRow)_skRow.style.display="none";}catch(e){}   // single depth control everywhere: Light box depth drives the skirt (hidden on every build path)
       const name=texts.map(t=>(t.str||"").trim()).filter(Boolean).join(" ");
   const lh=mmOf("lh")||140,depth=mmOf("bd")||40,wall=mmOf("wall")||3;
   const topT=mmOf("topT")||3,capW=mmOf("capW")||3,skirtD=mmOf("skirt")||14,clearance=0.4;
@@ -2245,7 +2255,7 @@ async function exportPlates(deliver){deliver=deliver||"download";
 window.exportPlates=exportPlates;   // the ONLY export entry point exposed globally (gated inside)
 })();
 
-paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();try{plBuildTabs();}catch(e){}try{renderTexList();}catch(e){}try{immersiveInit();}catch(e){}try{initEnv();}catch(e){}
+paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();try{applyFeatureGates();}catch(e){}try{plBuildTabs();}catch(e){}try{renderTexList();}catch(e){}try{immersiveInit();}catch(e){}try{initEnv();}catch(e){}
 // Warm the whole model catalog in the background a few seconds after first paint, so cold-cache machines
 // have the geometry ready before the user opens the catalog. Delayed so it never competes with the splash
 // image / library load on the initial paint.
@@ -2304,7 +2314,7 @@ function applyDesign(d){if(!d||d.v!==1)return false;try{
   if(d.colors){Object.keys(d.colors).forEach(function(k){if(d.colors[k])COLORS[k]=d.colors[k];});try{refreshSwatches();}catch(e){}}
   if(d.font){var f=NAME_FONTS.find(function(x){return x.url===d.font;});if(f){selNameFont=f;try{renderNameGrid();}catch(e){}}}
   if(Array.isArray(d.texts)){texts=d.texts.map(function(t){return {id:uid++,str:t.str||"",size:t.size||22,x:t.x||0,y:t.y||0,color:t.color||"#FFFFFF",bold:t.bold||0,font:t.font};});selText=texts.length?0:-1;try{renderTextList();}catch(e){}}
-  if(d.texture){try{selectTexture(d.texture);}catch(e){}}
+  if(d.texture&&featState("textures")==="on"){try{selectTexture(d.texture);}catch(e){}}
   images=[];selImg=-1;
   var imgs=Array.isArray(d.images)?d.images:[];
   var done=function(){if(images.length)selImg=0;try{renderImgList();}catch(e){}try{drawPad();}catch(e){}try{drawTextPad();}catch(e){}try{rebuild();}catch(e){}};
