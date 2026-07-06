@@ -1394,13 +1394,21 @@ function _icoRocket(h){var R=h/2;var u=_uniI([_ellI(0,0,R*0.32,R*0.58,44),_polyI
 function _gRocket(h){var R=h/2;var bodyU=_uniI([_ellI(0,R*0.05,R*0.30,R*0.55,40),_polyI([[0,R*0.92],[-R*0.30,R*0.30],[R*0.30,R*0.30]]),_polyI([[-R*0.28,-R*0.18],[-R*0.56,-R*0.55],[-R*0.28,-R*0.48]]),_polyI([[R*0.28,-R*0.18],[R*0.56,-R*0.55],[R*0.28,-R*0.48]])]);var body=diff(bodyU,[_circI(0,R*0.22,R*0.14,26)]);var flame=_uniI([_polyI([[-R*0.15,-R*0.42],[R*0.15,-R*0.42],[0,-R*0.9]])]);return {regions:[{p:flame,c:"#F2933B"},{p:body,c:"#E24B3B"}]};}
 function _gFlower(h){var R=h/2,pr=R*0.56,petR=R*0.42,list=[];for(var i=0;i<5;i++){var a=Math.PI/2-i*2*Math.PI/5;list.push(_circI(pr*Math.cos(a),pr*Math.sin(a),petR,30));}var pet=_uniI(list);var ctr=_circI(0,0,R*0.3,30);return {regions:[{p:pet,c:"#E86AA6"},{p:ctr,c:"#F5C542"}]};}
 function _gBalloon(h){var R=h/2;var bal=_ellI(0,R*0.22,R*0.40,R*0.50,40);var knot=_polyI([[-R*0.07,-R*0.26],[R*0.07,-R*0.26],[0,-R*0.36]]);var balloon=_uniI([bal,knot]);var strg=_polyI([[-R*0.035,-R*0.34],[R*0.035,-R*0.34],[R*0.10,-R*0.7],[0,-R*0.98],[-R*0.02,-R*0.7]]);return {regions:[{p:balloon,c:"#E24B3B"},{p:strg,c:"#3A3A3A"}]};}
+function _paOverlap(a,b){try{var c=new ClipperLib.Clipper();c.AddPaths(a,ClipperLib.PolyType.ptSubject,true);c.AddPaths(b,ClipperLib.PolyType.ptClip,true);var sol=new ClipperLib.Paths();c.Execute(ClipperLib.ClipType.ctIntersection,sol,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);return !!(sol&&sol.length);}catch(e){return false;}}
 function _placeGraphic(nameP,key,glyphSize,bg){var out={ink:nameP,sil:nameP,regions:[]};try{if(!ICONS[key])return out;
   var b=_pathsBB(nameP);var nmH=(b.maxY-b.minY)/S;var icoH=Math.max(8,nmH*0.98);var raw=ICONS[key].build(icoH);if(!raw)return out;
   var regs=raw.regions?raw.regions:[{p:raw,c:null}];regs=regs.filter(function(r){return r&&r.p&&r.p.length;});if(!regs.length)return out;
   var allSil=regs[0].p;for(var i=1;i<regs.length;i++){var uu=union2(allSil,regs[i].p);if(uu&&uu.length)allSil=uu;}
-  var ib=_pathsBB(allSil);var gap=-Math.round((bg||nmH*0.1)*1.6*S);var cy=Math.round((b.minY+b.maxY)/2-(ib.minY+ib.maxY)/2);
-  var dx=(LIDICONSIDE==="left")?(b.minX-gap-ib.maxX):(b.maxX+gap-ib.minX);
-  var tr=function(paths){return paths.map(function(p){return p.map(function(pt){return {X:pt.X+dx,Y:pt.Y+cy};});});};
+  var ib=_pathsBB(allSil);var cy=Math.round((b.minY+b.maxY)/2-(ib.minY+ib.maxY)/2);
+  var _bgm=bg||nmH*0.1;var sep=Math.max(_bgm*0.6,2.5);         // mm: minimum white gap between graphic ink and the letters
+  var side=(LIDICONSIDE==="left")?-1:1;                        // direction that moves the graphic AWAY from the name
+  var nameGrown=off(nameP,sep);if(!nameGrown||!nameGrown.length)nameGrown=nameP;
+  var base=(LIDICONSIDE==="left")?(b.minX-ib.maxX):(b.maxX-ib.minX);   // bboxes just touching
+  var dx=base-side*Math.round(_bgm*1.2*S);                     // start overlapped, so we approach the clear point from inside
+  var step=Math.max(Math.round(_bgm*0.12*S),40);
+  var trAt=function(paths,ddx){return paths.map(function(p){return p.map(function(pt){return {X:pt.X+ddx,Y:pt.Y+cy};});});};
+  for(var _it=0;_it<120;_it++){if(!_paOverlap(trAt(allSil,dx),nameGrown))break;dx+=side*step;}
+  var tr=function(paths){return trAt(paths,dx);};
   var ink=nameP,sil=nameP;
   regs.forEach(function(r){var rp=tr(r.p);var cp=cleanPaths(rp);if(cp&&cp.length)rp=cp;var su=union2(sil,rp);if(su&&su.length)sil=su;if(r.c==null){var iu=union2(ink,rp);if(iu&&iu.length)ink=iu;}else{out.regions.push({p:rp,c:r.c});}});
   /* blend name + graphic into ONE plate via a morphological close (smooth fillet, no visible connector stick) */
