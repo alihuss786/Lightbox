@@ -2059,7 +2059,10 @@ function build3MFModelXML(groups,bedX,bedY){
   // Grid reconstructed from the reference HeartDog_split.3mf: 2 columns, gap ~40mm in X and ~64mm in Y (the
   // Y gap is larger for Bambu's per-plate title strip). Centring on the same bed collapsed everything to
   // plate 1; flinging them to an arbitrary stride left them floating off-plate — this matches Bambu exactly.
-  const GAPX=40, GAPY=64, COLS=2;
+  // Bambu arranges plates in a grid whose column count grows with the plate count (cols = ceil(sqrt(N))):
+  // 2 cols for 2-4 plates, 3 cols for 5-9, 4 for 10-16 … Hardcoding 2 put the 5th+ plate's objects into the
+  // wrong grid cell (text on the image plate, last model floating off-bed). Match Bambu's own rule exactly.
+  const GAPX=40, GAPY=64, COLS=Math.max(1,Math.ceil(Math.sqrt(groups.length)));
   let res="",items="",k=0;
   groups.forEach((grp,gi)=>{
     const col=gi%COLS, row=Math.floor(gi/COLS);
