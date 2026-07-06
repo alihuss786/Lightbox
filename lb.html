@@ -356,6 +356,11 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
 #lightPill .lb-tx{white-space:nowrap}
 #lightPill.lightbtn.on{background:var(--acc);border-color:var(--acc);color:#241d12;box-shadow:0 0 26px -6px rgba(201,163,106,.7)}
 @media(min-width:980px){#lightPill.lightbtn{right:16px;bottom:16px}}
+#rgbPill.lightbtn{position:absolute;right:16px;bottom:70px;width:auto;height:42px;padding:0 16px;gap:8px;border-radius:22px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;background:#141821;border:1px solid var(--line2);color:#fff;backdrop-filter:blur(8px);box-shadow:0 16px 32px -14px rgba(0,0,0,.75);z-index:7}
+#rgbPill .lb-ic{font-size:15px;line-height:1}#rgbPill .lb-tx{white-space:nowrap}
+#rgbPill.lightbtn.on{background:linear-gradient(90deg,#ff2d55,#ff9500,#ffe000,#34c759,#32ade6,#af52de,#ff2d55);background-size:300% 100%;animation:rgbslide 3.4s linear infinite;border-color:transparent;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.55);box-shadow:0 0 26px -6px rgba(120,120,255,.6)}
+@keyframes rgbslide{from{background-position:0 0}to{background-position:300% 0}}
+@media(min-width:980px){#rgbPill.lightbtn{right:16px;bottom:70px}}
 /* ===== Mobile: tighten the top row (account pill handled in the auth stylesheet) ===== */
 @media (max-width:979px){
   .topbar{gap:7px}
@@ -424,6 +429,7 @@ input[type=text]:focus,input[type=number]:focus{border-color:var(--acc)}
 .pl-tab{font-size:11px;letter-spacing:.06em}
 .iconbtn{border-radius:9px}
 #lightPill.lightbtn{height:40px;border-radius:12px;font-size:11px;letter-spacing:.05em;box-shadow:0 6px 18px -10px rgba(0,0,0,.6)}
+#rgbPill.lightbtn{height:36px;border-radius:12px;font-size:10px;letter-spacing:.04em;box-shadow:0 6px 18px -10px rgba(0,0,0,.6)}
 .dimlbl{border-radius:7px;font-size:10.5px;padding:2px 8px}
 /* theme-aware fixes so light mode reads correctly */
 .fbtn .fs,.nbtn .ns{color:var(--txt)}
@@ -460,6 +466,7 @@ body.plates-mode .envbar{display:none}
   .envbar{top:auto;bottom:46px;left:12px;right:auto;transform:none;gap:2px;padding:3px}
   .envchip{padding:7px 9px;font-size:11px}.envchip .ecl{display:none}
   #lightPill.lightbtn{bottom:46px!important}
+  #rgbPill.lightbtn{bottom:90px!important}
 }
 /* View-in-AR button + fullscreen model-viewer modal */
 .arbtn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--cardline);background:var(--soft);color:var(--txt);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s}
@@ -559,6 +566,7 @@ body.ar-open #acct{display:none!important}
 
   /* lamp bottom-right (panel is on the left now) */
   #lightPill.lightbtn{right:22px!important;left:auto!important;bottom:22px!important}
+  #rgbPill.lightbtn{right:22px!important;left:auto!important;bottom:72px!important}
 
   /* Plates mode: printer + plate list dock on the right, clear of the left
      panel, the top bar and the lamp (never over the controls) */
@@ -606,6 +614,7 @@ body.ar-open #acct{display:none!important}
       <button class="exportbtn" id="exportBtn" onclick="exportPlates()" title="Export every build plate as a Bambu Studio-ready 3D project (one object per plate)">⬇ Export STL</button>
     </div>
     <button class="lightbtn on" id="lightPill" onclick="toggleLight()"><span class="lb-ic">🌙</span><span class="lb-tx" id="lightLbl">Turn off lamp</span></button>
+    <button class="lightbtn" id="rgbPill" onclick="toggleRGB()" title="RGB mode cycles the glow through the rainbow — like an RGB LED strip. Off = solid front colour."><span class="lb-ic">🌈</span><span class="lb-tx" id="rgbLbl">RGB</span></button>
     <div class="zoomhint" id="zoomhint">drag to orbit · pinch to zoom</div>
     <div class="fitwarn" id="fitWarn" style="display:none"></div>
     <div class="envbar" id="envbar"></div>
@@ -1047,6 +1056,8 @@ function toggleLight(){lightOn=!lightOn;g("lightPill").classList.toggle("on",lig
 function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export|lithophane)$/i.test(name))return;var t=document.createElement("button");t.className="pl-tab"+(acc.classList.contains("feat-soon")?" pl-soon":"");t.textContent=name;t.setAttribute("data-i",i);t.onclick=function(){plTab(i);};bar.appendChild(t);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
 function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Letter"],name:["\u270e","Name"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"],logo:["\u25a3","Logo"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
+function toggleRGB(){window.__rgbMode=!window.__rgbMode;var b=g("rgbPill");if(b)b.classList.toggle("on",window.__rgbMode);applyLight();}
+function _rgbTick(){if(!window.__rgbMode||!lightOn||mode!=="render")return;var h=(performance.now()*0.00006)%1;var c=new THREE.Color().setHSL(h,0.95,0.55);(window.__glowSpots||[]).forEach(function(s){s.color.copy(c);});if(typeof glowFace!=="undefined"&&glowFace)glowFace.material.color.copy(c.clone().lerp(new THREE.Color(0xffffff),0.06));var eg=c.clone().multiplyScalar(0.6);if(MATS.front)MATS.front.emissive.copy(eg);if(MATS.name)MATS.name.emissive.copy(eg);if(MATS.image)MATS.image.emissive.copy(eg);if(pivot)pivot.traverse(function(o){if(o.userData&&o.userData.textId!=null)o.traverse(function(m){if(m.isMesh&&m.material&&m.material.emissive)m.material.emissive.copy(eg);});});}
 function applyLight(){{var _lbl=g("lightLbl");if(_lbl)_lbl.textContent=lightOn?"Turn off lamp":"Turn on lamp";}
   g("lightPill").classList.toggle("on",lightOn);
   if(mode!=="render"){[MATS.front,MATS.name,MATS.image,MATS.body].forEach(m=>{if(m)m.emissive.setHex(0);});(window.__glowSpots||[]).forEach(function(g){g.intensity=0;});return;}
@@ -1334,7 +1345,7 @@ function initThree(){const cv=g("cv");if(renderer){resize();return;}const W=cv.p
   cv.addEventListener("mousemove",mv);
   cv.addEventListener("touchmove",e=>{if(pinch&&e.touches.length===2){e.preventDefault();const d=tdist(e.touches);if(pStart>0){zoom=Math.max(0.4,Math.min(3.2,pZoom*pStart/d));applyZoom();}}else if(drag){e.preventDefault();mv(e);}},{passive:false});
   cv.addEventListener("wheel",e=>{e.preventDefault();zoom=Math.max(0.4,Math.min(3.2,zoom*(1+(e.deltaY>0?0.1:-0.1))));applyZoom();},{passive:false});
-  if(!started){started=true;(function loop(){requestAnimationFrame(loop);if(window.__arPaused)return;if(pivot)pivot.rotation.set(rotX,rotY,0);renderer.render(scene,camera);updateDimLabels();})();}window.addEventListener("resize",()=>{resize();drawPad();});}
+  if(!started){started=true;(function loop(){requestAnimationFrame(loop);if(window.__arPaused)return;_rgbTick();if(pivot)pivot.rotation.set(rotX,rotY,0);renderer.render(scene,camera);updateDimLabels();})();}window.addEventListener("resize",()=>{resize();drawPad();});}
 function resize(){const cv=g("cv");const W=cv.parentElement.clientWidth,H=cv.parentElement.clientHeight||330;renderer.setSize(W,H);camera.aspect=W/H;camera.updateProjectionMatrix();applyZoom();}
 
 function clearPivot(){while(pivot&&pivot.children.length)pivot.remove(pivot.children[0]);}
