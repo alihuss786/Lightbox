@@ -80,7 +80,7 @@ input,button,select,textarea{font-family:inherit}
 /* ----- plates + printer panels ----- */
 .platelist{position:absolute;top:62px;left:14px;display:none;flex-direction:column;gap:8px;width:188px;max-height:calc(var(--vh) - 96px);overflow:auto;z-index:6}
 .printerbox{position:absolute;top:62px;right:14px;display:none;flex-direction:column;width:172px;z-index:7}
-.psel{flex:none;width:100%;padding:10px 11px;border:1px solid var(--line2);border-radius:10px;background:rgba(16,19,26,.96);color:var(--txt);font-size:12px;font-weight:600;outline:none}
+.psel option{color:#eef0f3;background:#1a1d24}.psel optgroup{color:#eef0f3;background:#1a1d24}.psel{flex:none;width:100%;padding:10px 11px;border:1px solid var(--line2);border-radius:10px;background:rgba(16,19,26,.96);color:var(--txt);font-size:12px;font-weight:600;outline:none}
 .plbl{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt2);font-weight:700;margin:0 0 6px 2px;text-shadow:0 1px 4px #000}
 .pcard{display:flex;align-items:center;gap:10px;background:rgba(16,19,26,.92);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:11px;padding:8px;cursor:pointer;transition:border-color .15s,background .15s}
 .pcard:hover{border-color:var(--line2)}
@@ -375,6 +375,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
 .texprev canvas{width:100%;height:100%;display:block}
 .texname{font-size:10px;font-weight:600;color:var(--txt2);letter-spacing:.01em;text-align:center;line-height:1.2}
 .texcard.sel .texname{color:var(--acc2)}
+.fitwarn{position:absolute;top:74px;left:50%;transform:translateX(-50%);max-width:62%;background:linear-gradient(180deg,#7a3320,#5e2618);color:#ffeede;padding:9px 15px;border-radius:11px;font-size:12.5px;line-height:1.35;z-index:9;box-shadow:0 10px 28px -12px rgba(0,0,0,.7);text-align:center;border:1px solid rgba(255,180,140,.25)}.fitwarn b{color:#ffd9b0}
+@media(min-width:980px){.fitwarn{left:calc(50% + 188px)}}
 .icon-grid{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}.icobtn{width:44px;height:44px;border-radius:11px;border:1px solid var(--cardline,#2a2d34);background:var(--soft,#181b21);font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .15s,box-shadow .15s}.icobtn.sel{border-color:var(--acc,#d8b877);box-shadow:0 0 0 2px rgba(216,184,119,.35)}.iside{flex:1;padding:8px 6px;border-radius:9px;border:1px solid var(--cardline,#2a2d34);background:var(--soft,#181b21);color:var(--txt2,#9aa0aa);font-size:12px;cursor:pointer;transition:all .15s}.iside.sel{border-color:var(--acc,#d8b877);color:var(--txt,#fff);background:var(--accdim,rgba(216,184,119,.12))}
 </style>
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -591,6 +593,7 @@ body.ar-open #acct{display:none!important}
     </div>
     <button class="lightbtn on" id="lightPill" onclick="toggleLight()"><span class="lb-ic">🌙</span><span class="lb-tx" id="lightLbl">Turn off lamp</span></button>
     <div class="zoomhint" id="zoomhint">drag to orbit · pinch to zoom</div>
+    <div class="fitwarn" id="fitWarn" style="display:none"></div>
     <div class="envbar" id="envbar"></div>
     <div class="dimlbl" id="dimX">—</div><div class="dimlbl" id="dimY">—</div><div class="dimlbl" id="dimZ">—</div>
     <div class="tag" id="aboveTag">—</div>
@@ -1009,7 +1012,7 @@ function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
 function applyLight(){{var _lbl=g("lightLbl");if(_lbl)_lbl.textContent=lightOn?"Turn off lamp":"Turn on lamp";}
   g("lightPill").classList.toggle("on",lightOn);
-  if(mode!=="render"){[MATS.front,MATS.name,MATS.image,MATS.body].forEach(m=>{if(m)m.emissive.setHex(0);});if(glowSpot)glowSpot.intensity=0;return;}
+  if(mode!=="render"){[MATS.front,MATS.name,MATS.image,MATS.body].forEach(m=>{if(m)m.emissive.setHex(0);});(window.__glowSpots||[]).forEach(function(g){g.intensity=0;});return;}
   const fc=new THREE.Color(COLORS.front);
   function em(mat,hex,frac){if(!mat)return;mat.emissive.copy(lightOn?new THREE.Color(hex).multiplyScalar(frac):new THREE.Color(0));}
   em(MATS.front,COLORS.front,0.55);em(MATS.name,COLORS.name,0.65);em(MATS.image,COLORS.image,0.65);
@@ -1017,7 +1020,7 @@ function applyLight(){{var _lbl=g("lightLbl");if(_lbl)_lbl.textContent=lightOn?"
   // each text layer keeps its own colour, so give each its own matching emissive glow when lit
   if(pivot)pivot.traverse(o=>{if(o.userData&&o.userData.textId!=null)o.traverse(m=>{if(m.isMesh&&m.material&&m.material.emissive)m.material.emissive.copy(lightOn?new THREE.Color(m.material.color.getHex()).multiplyScalar(0.65):new THREE.Color(0));});});
   if(glowFace){glowFace.visible=lightOn;glowFace.material.color.copy(fc.clone().lerp(new THREE.Color(0xffffff),0.06));glowFace.material.opacity=diffOn?0.8:0.92;}
-  if(glowSpot){glowSpot.color.copy(fc);glowSpot.intensity=lightOn?13:0;}
+  (window.__glowSpots||[]).forEach(function(g){g.color.copy(fc);g.intensity=lightOn?(g.userData.baseI||13):0;});
 }
 
 function handleUpload(inp){const files=inp.files;if(!files||!files.length)return;Array.from(files).forEach(file=>{const ext=(file.name.split(".").pop()||"").toLowerCase();if(ext==="stl"||ext==="3mf"){alert("Custom 3D uploads have been replaced by the Model catalog below — pick a model from there.");return;}loadImage(file);});inp.value="";}
@@ -1325,8 +1328,8 @@ function nameGlyphSubj(font,text,size){
     shapes.forEach(function(sh){sh.getPoints(4).forEach(function(pt){if(pt.x<mnX)mnX=pt.x;if(pt.x>mxX)mxX=pt.x;});
       (sh.holes||[]).forEach(function(h){h.getPoints(4).forEach(function(pt){if(pt.x<mnX)mnX=pt.x;if(pt.x>mxX)mxX=pt.x;});});});
     var cxL=(mnX+mxX)/2,oY=-k*lineH;
-    shapes.forEach(function(sh){out.push(sh.getPoints(12).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));
-      (sh.holes||[]).forEach(function(h){out.push(h.getPoints(12).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));});});
+    shapes.forEach(function(sh){out.push(sh.getPoints(8).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));
+      (sh.holes||[]).forEach(function(h){out.push(h.getPoints(8).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));});});
     k++;}
   return out;}
 /* Multi-line name -> a clean rectangular BORDER around the whole name, with the
@@ -1340,8 +1343,8 @@ function nameFramedFilled(font,text,size,borderMm){
     var shapes=font.generateShapes(lines[li],size);var mnX=1e9,mxX=-1e9;
     shapes.forEach(function(sh){sh.getPoints(4).forEach(function(pt){if(pt.x<mnX)mnX=pt.x;if(pt.x>mxX)mxX=pt.x;});});
     var cxL=(mnX+mxX)/2,oY=-li*lineH,subj=[];
-    shapes.forEach(function(sh){subj.push(sh.getPoints(12).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));
-      (sh.holes||[]).forEach(function(h){subj.push(h.getPoints(12).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));});});
+    shapes.forEach(function(sh){subj.push(sh.getPoints(8).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));
+      (sh.holes||[]).forEach(function(h){subj.push(h.getPoints(8).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));});});
     var bx0=1e18,by0=1e18,bx1=-1e18,by1=-1e18;
     subj.forEach(function(p){p.forEach(function(pt){if(pt.X<bx0)bx0=pt.X;if(pt.X>bx1)bx1=pt.X;if(pt.Y<by0)by0=pt.Y;if(pt.Y>by1)by1=pt.Y;});});
     lineBounds.push({x0:bx0,y0:by0,x1:bx1,y1:by1});subj.forEach(function(p){glyphAll.push(p);});
@@ -1388,7 +1391,7 @@ function _icoCat(h){var R=h/2;return _uniI([_circI(0,-R*0.15,R*0.5,44),_polyI([[
 function _icoRocket(h){var R=h/2;var u=_uniI([_ellI(0,0,R*0.32,R*0.58,44),_polyI([[0,R*0.96],[-R*0.32,R*0.22],[R*0.32,R*0.22]]),_polyI([[-R*0.30,-R*0.18],[-R*0.60,-R*0.62],[-R*0.30,-R*0.52]]),_polyI([[R*0.30,-R*0.18],[R*0.60,-R*0.62],[R*0.30,-R*0.52]])]);return diff(u,[_circI(0,R*0.20,R*0.15,28)]);}
 var ICONS={star:{e:"\u2b50",build:_icoStar},heart:{e:"\u2764\ufe0f",build:_icoHeart},moon:{e:"\ud83c\udf19",build:_icoMoon},spark:{e:"\u2728",build:_icoSpark},flower:{e:"\ud83c\udf3c",build:_icoFlower},cloud:{e:"\u2601\ufe0f",build:_icoCloud},bolt:{e:"\u26a1",build:_icoBolt},drop:{e:"\ud83d\udca7",build:_icoDrop},paw:{e:"\ud83d\udc3e",build:_icoPaw},bunny:{e:"\ud83d\udc30",build:_icoBunny},cat:{e:"\ud83d\udc31",build:_icoCat},rocket:{e:"\ud83d\ude80",build:_icoRocket}};
 var LIDICON="",LIDICONSIDE="left";
-function _addIconToName(nameP,key,glyphSize,bg){try{if(!ICONS[key])return nameP;var b=_pathsBB(nameP);var nmH=(b.maxY-b.minY)/S;var icoH=Math.max(8,nmH*0.98);var ico=ICONS[key].build(icoH);if(!ico||!ico.length)return nameP;var cico=cleanPaths(ico);if(cico&&cico.length)ico=cico;var ib=_pathsBB(ico);var gap=Math.round((bg||nmH*0.1)*1.6*S);var cy=Math.round((b.minY+b.maxY)/2-(ib.minY+ib.maxY)/2);var dx=(LIDICONSIDE==="left")?(b.minX-gap-ib.maxX):(b.maxX+gap-ib.minX);var icoT=ico.map(function(p){return p.map(function(pt){return {X:pt.X+dx,Y:pt.Y+cy};});});var u=union2(nameP,icoT);return (u&&u.length)?u:nameP;}catch(e){return nameP;}}
+function _addIconToName(nameP,key,glyphSize,bg){try{if(!ICONS[key])return nameP;var b=_pathsBB(nameP);var nmH=(b.maxY-b.minY)/S;var icoH=Math.max(8,nmH*0.98);var ico=ICONS[key].build(icoH);if(!ico||!ico.length)return nameP;var cico=cleanPaths(ico);if(cico&&cico.length)ico=cico;var ib=_pathsBB(ico);var gap=Math.round((bg||nmH*0.1)*S);var cy=Math.round((b.minY+b.maxY)/2-(ib.minY+ib.maxY)/2);var dx=(LIDICONSIDE==="left")?(b.minX-gap-ib.maxX):(b.maxX+gap-ib.minX);var icoT=ico.map(function(p){return p.map(function(pt){return {X:pt.X+dx,Y:pt.Y+cy};});});var ibt=_pathsBB(icoT);var ncx=Math.round((b.minX+b.maxX)/2),icx=Math.round((ibt.minX+ibt.maxX)/2),by=Math.round((b.minY+b.maxY)/2),bh=Math.round(Math.min(nmH,icoH)*0.11*S);var bar=[{X:Math.min(ncx,icx),Y:by-bh},{X:Math.max(ncx,icx),Y:by-bh},{X:Math.max(ncx,icx),Y:by+bh},{X:Math.min(ncx,icx),Y:by+bh}];var u=union2(union2(nameP,icoT),[bar]);return (u&&u.length)?u:nameP;}catch(e){return nameP;}}
 function refreshIconGrid(){var el=document.getElementById("iconGrid");if(!el)return;[].forEach.call(el.querySelectorAll(".icobtn"),function(b){b.classList.toggle("sel",b.getAttribute("data-k")===LIDICON);});}
 function buildIconGrid(){var el=document.getElementById("iconGrid");if(!el)return;var html='<button type="button" class="icobtn" data-k="" onclick="setIcon(\'\')" title="None">\u2205</button>';Object.keys(ICONS).forEach(function(k){html+='<button type="button" class="icobtn" data-k="'+k+'" onclick="setIcon(\''+k+'\')" title="'+k+'">'+ICONS[k].e+'</button>';});el.innerHTML=html;refreshIconGrid();}
 function setIcon(k){LIDICON=(LIDICON===k)?"":k;refreshIconGrid();if(typeof rebuild==="function")rebuild();}
@@ -1600,7 +1603,7 @@ function buildLidSlabs(B,cx,cy,features,TT,floorMin,inner,skirtD){
   const crossFrom=(z)=>{const v=voidUpTo(z);return (v&&v.length)?diff(B,v):B;};   // no clean: keep B's outline exact
   const cuts=[...new Set(groups.map(g=>+floorZ(g).toFixed(3)))].filter(z=>z>BOT+eps&&z<TT-eps).sort((a,b)=>a-b);
   const bounds=[BOT].concat(cuts,[TT]);
-  var _texOn=(typeof LIDTEX!=="undefined"&&LIDTEX&&LIDTEX.fn),_texD=_texOn?(LIDTEX.grid||1.3):0;for(let k=0;k<bounds.length-1;k++){if(_texOn&&k===bounds.length-2)addWallTexTop(crossFrom(bounds[k]),bounds[k],bounds[k+1],_texD);else addWalls(crossFrom(bounds[k]),bounds[k],bounds[k+1]);}  // banded outer + recess walls
+  var _texOn=(typeof LIDTEX!=="undefined"&&LIDTEX&&LIDTEX.fn&&!window.__nameFlat),_texD=_texOn?(LIDTEX.grid||1.3):0;for(let k=0;k<bounds.length-1;k++){if(_texOn&&k===bounds.length-2)addWallTexTop(crossFrom(bounds[k]),bounds[k],bounds[k+1],_texD);else addWalls(crossFrom(bounds[k]),bounds[k],bounds[k+1]);}  // banded outer + recess walls
   var _topReg=crossFrom(bounds[bounds.length-2]);if(typeof LIDTEX!=="undefined"&&LIDTEX&&LIDTEX.fn){try{addCapTextured(_topReg,TT,LIDTEX);}catch(e){addCap(_topReg,TT,true);}}else if(typeof LIDTEX!=="undefined"&&LIDTEX&&LIDTEX.gen){try{var _mnx=1e9,_mny=1e9,_mxx=-1e9,_mxy=-1e9;_topReg.forEach(function(cc){cc.forEach(function(pp){var X=pp.X/S,Y=pp.Y/S;if(X<_mnx)_mnx=X;if(X>_mxx)_mxx=X;if(Y<_mny)_mny=Y;if(Y>_mxy)_mxy=Y;});});var _cells=LIDTEX.gen(_mnx,_mny,_mxx,_mxy);var _Rin=off(_topReg,-1.5);var _tiles=intersect(_cells,(_Rin&&_Rin.length)?_Rin:_topReg);var _grout=diff(_topReg,_tiles);var _hh=LIDTEX.relief||0.9;var _did=false;if(_grout&&_grout.length){addCap(_grout,TT,true);_did=true;}if(_tiles&&_tiles.length){if(LIDTEX.dome){addDome(_tiles,TT,_hh,8,LIDTEX.domeMin||0.2);}else{addCap(_tiles,TT+_hh,true);addWalls(_tiles,TT,TT+_hh);}_did=true;}if(!_did)addCap(_topReg,TT,true);}catch(e){addCap(_topReg,TT,true);}}else{addCap(_topReg,TT,true);}   // top face = B minus every pocket
   groups.forEach(g=>addCap(g.regClip,floorZ(g),true));   // pocket floors (clipped to lid, face up)
   if(useSkirt){
@@ -1734,7 +1737,7 @@ function buildBodyShell(filled,inner,depth,wall,cx,cy){
 let PLATES=[],PLATE_THUMBS=[];
 async function buildModel(){
   if(!renderer||!pivot)return;clearPivot();glowFace=null;glowSpot=null;floorPlane=null;DIM=null;
-  const letter=(v("letter")||"A").toUpperCase()[0];const nameMode=(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;const name=texts.map(t=>(t.str||"").trim()).filter(Boolean).join(" ");
+  const letter=(v("letter")||"A").toUpperCase()[0];const nameMode=(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;window.__nameFlat=nameMode;window.__plateFoot=null;const name=texts.map(t=>(t.str||"").trim()).filter(Boolean).join(" ");
   const lh=mmOf("lh")||140,depth=mmOf("bd")||40,wall=mmOf("wall")||3;
   const topT=mmOf("topT")||3,capW=mmOf("capW")||3,skirtD=mmOf("skirt")||14,clearance=0.4;
   const nameExt=mmOf("nameExt")||10;
@@ -1772,7 +1775,7 @@ async function buildModel(){
       window.__nameLetters=_L;
       var _plate=off(_L,_bg);var _ps=fillSolid(_plate);if(_ps&&_ps.length)_plate=_ps;var _pcl=cleanPaths(_plate);if(_pcl&&_pcl.length)_plate=_pcl;
       filled=_plate;if(!filled||!filled.length)filled=_L;
-      var _nc=pathsCenter(filled);cx=_nc.x;cy=_nc.y;var _nex=pathsExtent(filled,cx,cy);LW=_nex.W;LH=_nex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;drawPad();
+      var _nc=pathsCenter(filled);cx=_nc.x;cy=_nc.y;var _nex=pathsExtent(filled,cx,cy);LW=_nex.W;LH=_nex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;window.__plateFoot={w:LW,h:LH};drawPad();
     }else if(hasClip){
       // Build the capital-letter silhouette with the EVEN-ODD fill rule (unionEO), not non-zero. Non-zero
       // depends on the glyph's hole contour winding being correct; on the first font parse (before the glyph
@@ -1908,11 +1911,9 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=ne
       const box=new THREE.Box3().setFromObject(pivot);const ctr=box.getCenter(new THREE.Vector3());const sz=box.getSize(new THREE.Vector3());
       floorPlane=new THREE.Mesh(new THREE.PlaneGeometry(8000,8000),new THREE.MeshStandardMaterial({color:floorHex(),roughness:0.92,metalness:0}));floorPlane.name="arSkip";floorPlane.rotation.x=-Math.PI/2;floorPlane.position.y=box.min.y-0.5;floorPlane.receiveShadow=true;pivot.add(floorPlane);
       const dmax=Math.max(LW,LH);
-      glowSpot=new THREE.SpotLight(new THREE.Color(COLORS.front),13,dmax*7,0.95,0.92,1.2);
-      glowSpot.position.set(0,box.min.y+sz.y*0.85,box.max.z+sz.y*0.08);
-      glowSpot.target.position.set(0,box.min.y-1,box.max.z+sz.y*0.45);
-      glowSpot.castShadow=false;
-      pivot.add(glowSpot);pivot.add(glowSpot.target);
+      var _asp=sz.x/Math.max(1,sz.y),_nG=(_asp>1.7)?Math.min(4,Math.round(_asp)):1;window.__glowSpots=[];
+      for(let _gi=0;_gi<_nG;_gi++){var _gx=(_nG===1)?0:(_gi/(_nG-1)-0.5)*sz.x*0.66,_bi=13/Math.sqrt(_nG)*1.1;var _gs=new THREE.SpotLight(new THREE.Color(COLORS.front),_bi,dmax*7,0.95,0.92,1.2);_gs.position.set(_gx,box.min.y+sz.y*0.85,box.max.z+sz.y*0.08);_gs.target.position.set(_gx,box.min.y-1,box.max.z+sz.y*0.45);_gs.castShadow=false;_gs.userData.baseI=_bi;pivot.add(_gs);pivot.add(_gs.target);window.__glowSpots.push(_gs);}
+      glowSpot=window.__glowSpots[0];
       DIM={hx:sz.x/2,hy:sz.y/2,hz:sz.z/2,x:Math.round(sz.x),y:Math.round(sz.y),z:Math.round(sz.z)};
       g("dims").style.display="none";
       pivot.position.set(-ctr.x,-ctr.y,-ctr.z);
@@ -1942,7 +1943,8 @@ function renderPlateList(){const el=g("platelist");if(!el)return;if(mode!=="plat
 function renderPrinter(){const el=g("printerbox");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";el.innerHTML=`<div class="plbl">Printer</div><select class="psel" onchange="setPrinter(this.selectedIndex)">`+PRINTERS.map((p,i)=>`<option ${i===selPrinter?"selected":""}>${p.n} · ${p.x}×${p.y}mm</option>`).join("")+`</select>`;}
 function setPrinter(i){selPrinter=i;zoom=1;buildModel();}
 
-function buildSummary(){const nameExt=mmOf("nameExt")||10;let pocket=Math.max(0,Math.min(mmOf("nameDepth")||0,nameExt));const above=Math.round((nameExt-pocket)*10)/10;const liveTexts=texts.filter(t=>(t.str||"").trim());const parts=2+liveTexts.length+images.length+models.length;const bed=PRINTERS[selPrinter];const tnames=liveTexts.map(t=>t.str.trim()).join(", ")||"—";g("summary").innerHTML=`<b>${(v("letter")||"A").toUpperCase()}</b> · ${selFont.name} · overall ${fmt(mmOf("lh"))} tall × ${fmt(mmOf("bd"))} deep<br>Text layers (${liveTexts.length||"none"}): <b>${tnames}</b> · ${fmt(nameExt)} tall, ${fmt(above)} proud<br>Images: ${images.length||"none"} · 3D models: ${models.length||"none"}<br>Printer <b>${bed.n}</b> (${bed.x}×${bed.y} mm bed)<br><b>${parts} separate printable parts</b> — lid prints face-down`;}
+function updateFitWarn(){try{var fw=document.getElementById("fitWarn");if(!fw)return;var pf=window.__plateFoot,bed=(typeof PRINTERS!=="undefined"&&PRINTERS[selPrinter])||{x:256,y:256};if(!pf||!pf.w){fw.style.display="none";return;}var pw=pf.w,ph=pf.h,fits=(pw<=bed.x&&ph<=bed.y)||(pw<=bed.y&&ph<=bed.x);if(fits){fw.style.display="none";return;}fw.innerHTML="\u26a0 This name is <b>"+(pw/10).toFixed(0)+"\u00d7"+(ph/10).toFixed(0)+" cm</b> \u2014 too big for your "+(bed.x/10)+"\u00d7"+(bed.y/10)+" cm printer. Lower <b>Letter height</b> in the Size tab, or pick a larger printer.";fw.style.display="block";}catch(e){}}
+function buildSummary(){try{updateFitWarn();}catch(e){}const nameExt=mmOf("nameExt")||10;let pocket=Math.max(0,Math.min(mmOf("nameDepth")||0,nameExt));const above=Math.round((nameExt-pocket)*10)/10;const liveTexts=texts.filter(t=>(t.str||"").trim());const parts=2+liveTexts.length+images.length+models.length;const bed=PRINTERS[selPrinter];const tnames=liveTexts.map(t=>t.str.trim()).join(", ")||"—";g("summary").innerHTML=`<b>${(v("letter")||"A").toUpperCase()}</b> · ${selFont.name} · overall ${fmt(mmOf("lh"))} tall × ${fmt(mmOf("bd"))} deep<br>Text layers (${liveTexts.length||"none"}): <b>${tnames}</b> · ${fmt(nameExt)} tall, ${fmt(above)} proud<br>Images: ${images.length||"none"} · 3D models: ${models.length||"none"}<br>Printer <b>${bed.n}</b> (${bed.x}×${bed.y} mm bed)<br><b>${parts} separate printable parts</b> — lid prints face-down`;}
 
 /* ---------- Combined text plate: pack each layer into a non-overlapping row on the shared plate ---------- */
 function layoutTextPlate(group){
