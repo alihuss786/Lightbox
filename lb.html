@@ -1830,7 +1830,7 @@ async function buildModel(){
     if(hasClip&&filled){try{
       const inner=off(filled,-wall);
       if(inner&&inner.length){
-        const shellGeo=buildBodyShell(filled,inner,nameMode?Math.min(depth,16):depth,wall,cx,cy);
+        const shellGeo=buildBodyShell(filled,inner,depth,wall,cx,cy);   // name mode honours the full Light box depth (no 16mm cap)
         bodyGroup.add(new THREE.Mesh(shellGeo,MATS.body));builtHollow=true;}
     }catch(e){}}
     if(!builtHollow){const geo=new THREE.TextGeometry(letter,{font,size:glyphSize,height:depth,curveSegments:8,bevelEnabled:false});geo.computeBoundingBox();const bb=geo.boundingBox;geo.translate(-(bb.max.x+bb.min.x)/2,-(bb.max.y+bb.min.y)/2,0);const body=new THREE.Mesh(geo,MATS.body);body.position.z=-depth;bodyGroup.add(body);}
@@ -1905,7 +1905,7 @@ async function buildModel(){
       var _panelPaths=null,_panelZ=0;
       if(typeof PHOTO!=="undefined"&&PHOTO){try{_panelPaths=off(B,-3.5);}catch(e){_panelPaths=null;}
         if(_panelPaths&&_panelPaths.length){var _wd=Math.max(0,TT-FLOOR_MIN);slabFeatures.push({p:_panelPaths,depth:_wd});_panelZ=TT-_wd;}else{_panelPaths=null;}}
-buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,skirtD).forEach(s=>{const m=new THREE.Mesh(s.geo,nameMode?MATS.name:lidMat);m.position.z=s.z;capGroup.add(m);});
+buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,(nameMode?Math.min(skirtD,depth):skirtD)).forEach(s=>{const m=new THREE.Mesh(s.geo,nameMode?MATS.name:lidMat);m.position.z=s.z;capGroup.add(m);});   // skirt is a lid lip: never deeper than the box
       // ---- Flat photo panel: its own watertight, printable part (true flat lithophane; the geometry colour needs) ----
       var photoPanelGroup=null;
       if(_panelPaths){try{
