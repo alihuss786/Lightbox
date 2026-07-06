@@ -1408,34 +1408,58 @@ function _dp(pts,eps){ if(pts.length<3)return pts;
   while(st.length){var seg=st.pop(),a=seg[0],b=seg[1],idx=-1,mx=e2;for(var k=a+1;k<b;k++){var dd=d2(pts[k],pts[a],pts[b]);if(dd>mx){mx=dd;idx=k;}}if(idx>=0){keep[idx]=true;st.push([a,idx],[idx,b]);}}
   return pts.filter(function(_,k){return keep[k];});
 }
+function _chaikin(pts,iter){ // closed-polygon corner cutting -> smooth rounded curves
+  for(var t=0;t<iter;t++){ if(pts.length<4)break; var out=[],n=pts.length;
+    for(var i=0;i<n;i++){var a=pts[i],b=pts[(i+1)%n];out.push([a[0]*0.75+b[0]*0.25,a[1]*0.75+b[1]*0.25]);out.push([a[0]*0.25+b[0]*0.75,a[1]*0.25+b[1]*0.75]);}
+    pts=out; }
+  return pts;
+}
 function _rasterToClipper(img,heightMm){
   try{
-    var S=1000, maxd=560;
+    var S=1000, maxd=900;
     var iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height; if(!iw||!ih)return null;
-    var sc=Math.min(1,maxd/Math.max(iw,ih)); if(!(sc>0))sc=1;
+    var sc=maxd/Math.max(iw,ih); if(!(sc>0))sc=1;                       // upscale small logos for smoother edges
     var W=Math.max(2,Math.round(iw*sc)), H=Math.max(2,Math.round(ih*sc));
-    var cv=document.createElement("canvas");cv.width=W;cv.height=H;var ctx=cv.getContext("2d");ctx.drawImage(img,0,0,W,H);
+    var cv=document.createElement("canvas");cv.width=W;cv.height=H;var ctx=cv.getContext("2d");
+    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";ctx.drawImage(img,0,0,W,H);
     var data=ctx.getImageData(0,0,W,H).data;
     var transp=0;for(var i=3;i<data.length;i+=4){if(data[i]<250)transp++;}
     var useAlpha=transp>(W*H*0.02);
     function px(x,y){var o=(y*W+x)*4;return [data[o],data[o+1],data[o+2]];}
     var cs4=[px(0,0),px(W-1,0),px(0,H-1),px(W-1,H-1)],bg=[0,0,0];cs4.forEach(function(c){bg[0]+=c[0];bg[1]+=c[1];bg[2]+=c[2];});bg=[bg[0]/4,bg[1]/4,bg[2]/4];
-    var W2=W+2,H2=H+2,m=new Uint8Array(W2*H2);
-    for(var y=0;y<H;y++)for(var x=0;x<W;x++){var o=(y*W+x)*4,a=data[o+3],ink;
-      if(useAlpha)ink=a>128?1:0;else{var d=Math.abs(data[o]-bg[0])+Math.abs(data[o+1]-bg[1])+Math.abs(data[o+2]-bg[2]);ink=(a>128&&d>90)?1:0;}
-      if(ink)m[(y+1)*W2+(x+1)]=1;}
-    var seg={},coord={};
-    function addSeg(ax,ay,bx,by){var ka=ax+","+ay,kb=bx+","+by;seg[ka]=kb;coord[ka]=[ax/2,ay/2];coord[kb]=[bx/2,by/2];}
-    for(var cyy=0;cyy<H2-1;cyy++)for(var cxx=0;cxx<W2-1;cxx++){
-      var TL=m[cyy*W2+cxx],TR=m[cyy*W2+cxx+1],BR=m[(cyy+1)*W2+cxx+1],BL=m[(cyy+1)*W2+cxx],cc=TL*8+TR*4+BR*2+BL;if(cc===0||cc===15)continue;
-      var T=[2*cxx+1,2*cyy],R=[2*cxx+2,2*cyy+1],Bt=[2*cxx+1,2*cyy+2],L=[2*cxx,2*cyy+1];
-      function A(a,b){addSeg(a[0],a[1],b[0],b[1]);}
-      switch(cc){case 1:A(Bt,L);break;case 2:A(R,Bt);break;case 3:A(R,L);break;case 4:A(T,R);break;case 5:A(T,R);A(Bt,L);break;case 6:A(T,Bt);break;case 7:A(T,L);break;case 8:A(L,T);break;case 9:A(Bt,T);break;case 10:A(L,T);A(R,Bt);break;case 11:A(R,T);break;case 12:A(L,R);break;case 13:A(Bt,R);break;case 14:A(L,Bt);break;}
+    // continuous field f in [0,1]; the shape boundary is the iso=0.5 contour (sub-pixel, from anti-aliasing)
+    var W2=W+2,H2=H+2, f=new Float32Array(W2*H2);
+    for(var y=0;y<H;y++)for(var x=0;x<W;x++){var o=(y*W+x)*4,a=data[o+3],v;
+      if(useAlpha){v=a/255;}
+      else{var d=(Math.abs(data[o]-bg[0])+Math.abs(data[o+1]-bg[1])+Math.abs(data[o+2]-bg[2]))/255;v=(a>128)?Math.min(1,d/0.45):0;}
+      f[(y+1)*W2+(x+1)]=v;}
+    var iso=0.5, ecoord={}, seg={};
+    function hE(gx,gy){var k="h"+gx+"_"+gy;if(ecoord[k])return k;var a=f[gy*W2+gx],b=f[gy*W2+gx+1],t=(a===b)?0.5:(iso-a)/(b-a);t=t<0?0:t>1?1:t;ecoord[k]=[gx+t,gy];return k;}
+    function vE(gx,gy){var k="v"+gx+"_"+gy;if(ecoord[k])return k;var a=f[gy*W2+gx],b=f[(gy+1)*W2+gx],t=(a===b)?0.5:(iso-a)/(b-a);t=t<0?0:t>1?1:t;ecoord[k]=[gx,gy+t];return k;}
+    for(var cy=0;cy<H2-1;cy++)for(var cx=0;cx<W2-1;cx++){
+      var TL=f[cy*W2+cx],TR=f[cy*W2+cx+1],BR=f[(cy+1)*W2+cx+1],BL=f[(cy+1)*W2+cx];
+      var cc=(TL>iso?8:0)+(TR>iso?4:0)+(BR>iso?2:0)+(BL>iso?1:0); if(cc===0||cc===15)continue;
+      switch(cc){
+        case 1:seg[hE(cx,cy+1)]=vE(cx,cy);break;
+        case 2:seg[vE(cx+1,cy)]=hE(cx,cy+1);break;
+        case 3:seg[vE(cx+1,cy)]=vE(cx,cy);break;
+        case 4:seg[hE(cx,cy)]=vE(cx+1,cy);break;
+        case 5:seg[hE(cx,cy)]=vE(cx+1,cy);seg[hE(cx,cy+1)]=vE(cx,cy);break;
+        case 6:seg[hE(cx,cy)]=hE(cx,cy+1);break;
+        case 7:seg[hE(cx,cy)]=vE(cx,cy);break;
+        case 8:seg[vE(cx,cy)]=hE(cx,cy);break;
+        case 9:seg[hE(cx,cy+1)]=hE(cx,cy);break;
+        case 10:seg[vE(cx,cy)]=hE(cx,cy);seg[vE(cx+1,cy)]=hE(cx,cy+1);break;
+        case 11:seg[vE(cx+1,cy)]=hE(cx,cy);break;
+        case 12:seg[vE(cx,cy)]=vE(cx+1,cy);break;
+        case 13:seg[hE(cx,cy+1)]=vE(cx+1,cy);break;
+        case 14:seg[vE(cx,cy)]=hE(cx,cy+1);break;
+      }
     }
     var visited={},loops=[];
-    for(var k in seg){if(visited[k])continue;var loop=[],cur=k,guard=0;while(cur!==undefined&&seg[cur]!==undefined&&!visited[cur]&&guard++<2e6){visited[cur]=1;loop.push(coord[cur]);cur=seg[cur];}if(loop.length>3)loops.push(loop);}
+    for(var k in seg){if(visited[k])continue;var loop=[],cur=k,guard=0;while(cur!==undefined&&seg[cur]!==undefined&&!visited[cur]&&guard++<6e6){visited[cur]=1;loop.push(ecoord[cur]);cur=seg[cur];}if(loop.length>3)loops.push(loop);}
     if(!loops.length)return null;
-    var clip=[];loops.forEach(function(lp){var s2=_dp(lp,0.9);if(s2.length>3){var area=0;for(var j=0;j<s2.length;j++){var p1=s2[j],p2=s2[(j+1)%s2.length];area+=p1[0]*p2[1]-p2[0]*p1[1];}if(Math.abs(area)>8)clip.push(s2.map(function(p){return {X:Math.round(p[0]*S),Y:Math.round(p[1]*S)};}));}});
+    var clip=[];loops.forEach(function(lp){var sm=_chaikin(lp,2);var s2=_dp(sm,0.55);if(s2.length>3){var area=0;for(var j=0;j<s2.length;j++){var p1=s2[j],p2=s2[(j+1)%s2.length];area+=p1[0]*p2[1]-p2[0]*p1[1];}if(Math.abs(area)>12)clip.push(s2.map(function(p){return {X:Math.round(p[0]*S),Y:Math.round(p[1]*S)};}));}});
     if(!clip.length)return null;
     var total=_uniNZ(clip);if(!total||!total.length)return null;
     var bb={mnx:1e18,mxx:-1e18,mny:1e18,mxy:-1e18};total.forEach(function(p){p.forEach(function(pt){if(pt.X<bb.mnx)bb.mnx=pt.X;if(pt.X>bb.mxx)bb.mxx=pt.X;if(pt.Y<bb.mny)bb.mny=pt.Y;if(pt.Y>bb.mxy)bb.mxy=pt.Y;});});
