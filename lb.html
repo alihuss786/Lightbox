@@ -987,7 +987,7 @@ function applyEnv(k){if(!ENVS[k])k="studio";currentEnv=k;var e=ENVS[k];try{local
 function renderEnvBar(){var el=document.getElementById("envbar");if(!el)return;el.innerHTML=Object.keys(ENVS).map(function(k){var e=ENVS[k];return "<button class=\"envchip"+(k===currentEnv?" sel":"")+"\" data-env=\""+k+"\" title=\""+e.name+"\"><span class=\"eci\">"+e.icon+"</span><span class=\"ecl\">"+e.name+"</span></button>";}).join("");el.querySelectorAll(".envchip").forEach(function(c){c.onclick=function(){applyEnv(c.getAttribute("data-env"));};});}
 function initEnv(){try{var s=localStorage.getItem("sl_env");if(s&&ENVS[s])currentEnv=s;}catch(_){}renderEnvBar();applyEnv(currentEnv);}
 function scheduleBuild(){clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},100);if(typeof autosave==="function")autosave();}
-function syncDepthUI(){try{var nameOn=(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;var sk=document.getElementById("dimrow_skirt");if(sk)sk.style.display=nameOn?"none":"";}catch(e){}}   // name plate = one depth control (Light box depth); skirt follows it
+function syncDepthUI(){try{var sk=document.getElementById("dimrow_skirt");if(sk)sk.style.display="none";}catch(e){}}   // one depth control everywhere: skirt always follows Light box depth
 function rebuild(){syncDepthUI();updatePad();clearTimeout(t1);t1=setTimeout(()=>{buildModel();buildSummary();},150);if(typeof autosave==="function")autosave();}
 
 const PRESETS=["#FFFFFF","#F4E9D8","#E8C99B","#C9A36A","#B0B5BB","#7E848B","#3A3F44","#15171A","#E23B3B","#E2663B","#E2A93B","#7FB23B","#2FB273","#3B9AE2","#3B57E2","#7A3BE2","#E23B86","#10100F","#F7C0D1","#9FE1CB","#FAC775","#B5D4F4","#CECBF6","#888780"];
@@ -1775,7 +1775,7 @@ function buildBodyShell(filled,inner,depth,wall,cx,cy){
 let PLATES=[],PLATE_THUMBS=[];
 async function buildModel(){
   if(!renderer||!pivot)return;clearPivot();glowFace=null;glowSpot=null;floorPlane=null;DIM=null;
-  const letter=(v("letter")||"A").toUpperCase()[0];const nameMode=(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;window.__nameFlat=nameMode;window.__plateFoot=null;try{var _skRow=document.getElementById("dimrow_skirt");if(_skRow)_skRow.style.display=nameMode?"none":"";}catch(e){}   // name plate = single depth control; hide Skirt depth on every build (covers load/restore)
+  const letter=(v("letter")||"A").toUpperCase()[0];const nameMode=(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;window.__nameFlat=nameMode;window.__plateFoot=null;try{var _skRow=document.getElementById("dimrow_skirt");if(_skRow)_skRow.style.display="none";}catch(e){}   // single depth control everywhere: Light box depth drives the skirt (hidden on every build path)
       const name=texts.map(t=>(t.str||"").trim()).filter(Boolean).join(" ");
   const lh=mmOf("lh")||140,depth=mmOf("bd")||40,wall=mmOf("wall")||3;
   const topT=mmOf("topT")||3,capW=mmOf("capW")||3,skirtD=mmOf("skirt")||14,clearance=0.4;
@@ -1907,7 +1907,7 @@ async function buildModel(){
       var _panelPaths=null,_panelZ=0;
       if(typeof PHOTO!=="undefined"&&PHOTO){try{_panelPaths=off(B,-3.5);}catch(e){_panelPaths=null;}
         if(_panelPaths&&_panelPaths.length){var _wd=Math.max(0,TT-FLOOR_MIN);slabFeatures.push({p:_panelPaths,depth:_wd});_panelZ=TT-_wd;}else{_panelPaths=null;}}
-buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,(nameMode?depth:skirtD)).forEach(s=>{const m=new THREE.Mesh(s.geo,nameMode?MATS.name:lidMat);m.position.z=s.z;capGroup.add(m);});   // name plate: skirt spans the full Light box depth (single depth control)
+buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new THREE.Mesh(s.geo,nameMode?MATS.name:lidMat);m.position.z=s.z;capGroup.add(m);});   // skirt always spans the full Light box depth (single depth control, name + single letter)
       // ---- Flat photo panel: its own watertight, printable part (true flat lithophane; the geometry colour needs) ----
       var photoPanelGroup=null;
       if(_panelPaths){try{
