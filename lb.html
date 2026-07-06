@@ -1398,12 +1398,11 @@ function _placeGraphic(nameP,key,glyphSize,bg){var out={ink:nameP,sil:nameP,regi
   var b=_pathsBB(nameP);var nmH=(b.maxY-b.minY)/S;var icoH=Math.max(8,nmH*0.98);var raw=ICONS[key].build(icoH);if(!raw)return out;
   var regs=raw.regions?raw.regions:[{p:raw,c:null}];regs=regs.filter(function(r){return r&&r.p&&r.p.length;});if(!regs.length)return out;
   var allSil=regs[0].p;for(var i=1;i<regs.length;i++){var uu=union2(allSil,regs[i].p);if(uu&&uu.length)allSil=uu;}
-  var ib=_pathsBB(allSil);var gap=Math.round((bg||nmH*0.1)*0.3*S);var cy=Math.round((b.minY+b.maxY)/2-(ib.minY+ib.maxY)/2);
+  var ib=_pathsBB(allSil);var gap=-Math.round((bg||nmH*0.1)*1.6*S);var cy=Math.round((b.minY+b.maxY)/2-(ib.minY+ib.maxY)/2);
   var dx=(LIDICONSIDE==="left")?(b.minX-gap-ib.maxX):(b.maxX+gap-ib.minX);
   var tr=function(paths){return paths.map(function(p){return p.map(function(pt){return {X:pt.X+dx,Y:pt.Y+cy};});});};
   var ink=nameP,sil=nameP;
   regs.forEach(function(r){var rp=tr(r.p);var cp=cleanPaths(rp);if(cp&&cp.length)rp=cp;var su=union2(sil,rp);if(su&&su.length)sil=su;if(r.c==null){var iu=union2(ink,rp);if(iu&&iu.length)ink=iu;}else{out.regions.push({p:rp,c:r.c});}});
-  try{var _nCx=(b.minX+b.maxX)/2,_nCy=(b.minY+b.maxY)/2;var _gCx=(ib.minX+ib.maxX)/2+dx,_gCy=(ib.minY+ib.maxY)/2+cy;var _bh=Math.max(Math.min(nmH,icoH)*0.13,5)*S;var _x0=Math.min(_nCx,_gCx),_x1=Math.max(_nCx,_gCx),_my=Math.round((_nCy+_gCy)/2);var _bar=[[{X:Math.round(_x0),Y:Math.round(_my-_bh)},{X:Math.round(_x1),Y:Math.round(_my-_bh)},{X:Math.round(_x1),Y:Math.round(_my+_bh)},{X:Math.round(_x0),Y:Math.round(_my+_bh)}]];var _sb=union2(sil,_bar);if(_sb&&_sb.length)sil=_sb;}catch(e){}
   /* blend name + graphic into ONE plate via a morphological close (smooth fillet, no visible connector stick) */
   try{var _R=Math.max((bg||4)*1.4,5);var _c1=off(sil,_R);if(_c1&&_c1.length){var _c2=off(_c1,-_R);if(_c2&&_c2.length)sil=_c2;}}catch(e){}
   out.ink=ink;out.sil=sil;}catch(e){}return out;}
