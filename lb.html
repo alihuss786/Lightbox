@@ -1465,6 +1465,26 @@ function _imgToClipper(img,heightMm){
     return _fieldToClipper(buildField(false),W2,H2,heightMm);       // fallback: whole silhouette (e.g. an all-white logo)
   }catch(e){return null;}
 }
+function _thickBar(a,b,w){var dx=b.X-a.X,dy=b.Y-a.Y,L=Math.sqrt(dx*dx+dy*dy)||1,nx=-dy/L*w,ny=dx/L*w;return [{X:Math.round(a.X+nx),Y:Math.round(a.Y+ny)},{X:Math.round(b.X+nx),Y:Math.round(b.Y+ny)},{X:Math.round(b.X-nx),Y:Math.round(b.Y-ny)},{X:Math.round(a.X-nx),Y:Math.round(a.Y-ny)}];}
+function _cloSolid(pp,r){try{var d=off(pp,r);if(d&&d.length){var e=off(d,-r);if(e&&e.length){var fs=fillSolid(e);if(fs&&fs.length)return fs;}}}catch(_){}return pp;}
+function _connectSolid(paths,closeMm,bridgeHalf){
+  var p=fillSolid(paths);if(!p||!p.length)return paths;
+  p=_cloSolid(p,closeMm);
+  var comps=p.filter(function(c){return ClipperLib.Clipper.Area(c)>0;});
+  if(comps.length>1){
+    comps.sort(function(a,b){return ClipperLib.Clipper.Area(b)-ClipperLib.Clipper.Area(a);});
+    var connected=[comps[0]];
+    for(var i=1;i<comps.length;i++){var ci=comps[i],best=null,step=Math.max(1,Math.floor(ci.length/70));
+      for(var vi=0;vi<ci.length;vi+=step){var pa=ci[vi];
+        for(var cj=0;cj<connected.length;cj++){var cc=connected[cj],st2=Math.max(1,Math.floor(cc.length/70));
+          for(var vj=0;vj<cc.length;vj+=st2){var pb=cc[vj],dx=pa.X-pb.X,dy=pa.Y-pb.Y,dd=dx*dx+dy*dy;if(!best||dd<best.d)best={d:dd,a:pa,b:pb};}}}
+      if(best){var u=union2(p,[_thickBar(best.a,best.b,bridgeHalf)]);if(u&&u.length)p=u;}
+      connected.push(ci);
+    }
+    p=_cloSolid(p,closeMm);   // fillet the bridge junctions
+  }
+  return fillSolid(p);
+}
 function _logoLoaded(paths){if(!paths||!paths.length){uiAlert("Couldn\u2019t trace that logo \u2014 use a clear image, or an SVG/PNG with a solid shape.");return;}LOGO=paths;window.__logoSvg=null;if(typeof LIDNAME!=="undefined"&&LIDNAME){LIDNAME="";var na=document.getElementById("lidName");if(na)na.value="";}var info=document.getElementById("logoInfo");if(info)info.innerHTML="Logo loaded \u2014 it now drives the lightbox. Set the size with <b>Letter height</b>.";_logoUIsync();if(typeof rebuild==="function")rebuild();}
 /* Multi-line name -> Clipper subject paths. Each glyph is placed individually with
    tight tracking (bounding boxes overlap slightly) so a small connect-border fuses
@@ -1958,7 +1978,7 @@ async function buildModel(){
       /* LOGO MODE \u2014 trace the outline into a SOLID box; the traced image detail sits proud ON TOP, like a name. */
       var _lk=lh/100;var _lw=LOGO.map(function(p){return p.map(function(pt){return {X:Math.round(pt.X*_lk),Y:Math.round(pt.Y*_lk)};});});var _lwc=cleanPaths(_lw);if(_lwc&&_lwc.length)_lw=_lwc;
       window.__logoInk=_lw;                                   // the image detail, raised on the front face
-      var _out=fillSolid(_lw);var _oc=cleanPaths(_out);if(_oc&&_oc.length)_out=_oc;   // solid outline (holes dropped) = the box
+      var _out=_connectSolid(fillSolid(_lw),lh*0.06,Math.round(2.4*S));var _oc=cleanPaths(_out);if(_oc&&_oc.length)_out=_oc;   // solid outline (holes dropped) = the box
       filled=(_out&&_out.length)?_out:_lw;
       var _lc=pathsCenter(filled);cx=_lc.x;cy=_lc.y;var _lex=pathsExtent(filled,cx,cy);LW=_lex.W;LH=_lex.H;PAD.filled=filled;PAD.cx=cx;PAD.cy=cy;window.__plateFoot={w:LW,h:LH};drawPad();
     }else if(hasClip&&nameMode){
