@@ -338,6 +338,18 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
 .pl-tab.active::after{content:"";position:absolute;left:11px;right:11px;bottom:-1px;height:2px;background:var(--acc);border-radius:2px}
 .controls .pl-tab.pl-soon{opacity:.5}.controls .pl-tab.pl-soon .ptlbl::after{content:" \00b7 soon";font-size:9px;font-weight:600;letter-spacing:.02em;opacity:.9}
 .soon-card{padding:24px 18px;text-align:center}.soon-badge{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--acc);border:1px solid rgba(201,163,106,.4);border-radius:999px;padding:6px 13px;margin-bottom:12px}.soon-txt{font-size:12.5px;color:var(--txt3);line-height:1.5;max-width:240px;margin:0 auto}
+.uimodal-ov{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);padding:20px}
+.uimodal{background:var(--panel,#1a1a1c);color:var(--txt,#f5f5f7);border:1px solid var(--hair,rgba(255,255,255,.09));border-radius:16px;max-width:420px;width:100%;box-shadow:0 24px 70px -20px rgba(0,0,0,.7);padding:20px 22px 18px;font-family:inherit;animation:uimodal-in .16s ease}
+@keyframes uimodal-in{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+.uimodal-brand{display:flex;align-items:center;gap:9px;margin-bottom:13px}
+.uimodal-brand .um-mk{width:25px;height:25px;border-radius:7px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#161616;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.uimodal-brand .um-nm{font-size:11.5px;font-weight:700;letter-spacing:.05em;color:var(--txt2);text-transform:uppercase}
+.uimodal-t{font-size:16px;font-weight:700;margin-bottom:7px;color:var(--txt)}
+.uimodal-m{font-size:13.5px;line-height:1.55;color:var(--txt2);white-space:pre-line}
+.uimodal-btns{display:flex;gap:9px;justify-content:flex-end;margin-top:20px}
+.uimodal-btn{padding:9px 16px;border-radius:10px;border:1px solid var(--cardline,rgba(255,255,255,.12));background:var(--soft,#242426);color:var(--txt);font-size:13px;font-weight:600;cursor:pointer;transition:filter .12s,transform .06s}
+.uimodal-btn:hover{filter:brightness(1.14)}.uimodal-btn:active{transform:translateY(1px)}
+.uimodal-btn.pri{background:linear-gradient(135deg,var(--acc),var(--acc2));border-color:transparent;color:#161616}
 /* light on/off button as a POP LAMP pill, bottom-right */
 #lightPill.lightbtn{position:absolute;right:16px;bottom:16px;width:auto;height:46px;padding:0 20px;gap:10px;border-radius:24px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;background:#141821;border:1px solid var(--line2);color:#fff;backdrop-filter:blur(8px);box-shadow:0 16px 32px -14px rgba(0,0,0,.75);z-index:7}
 #lightPill .lb-ic{font-size:15px;line-height:1}
@@ -745,7 +757,7 @@ body.ar-open #acct{display:none!important}
     <div class="acc-h" onclick="accT(this)">Export <i class="chev">⌄</i></div>
     <div class="acc-b">
       <div class="summary" id="summary"></div>
-      <button class="btn-gen" onclick="alert('UI demo — the STL/3MF export backend comes next.')">Generate 3D files</button>
+      <button class="btn-gen" onclick="uiAlert('UI demo — the STL/3MF export backend comes next.')">Generate 3D files</button>
     </div>
   </div>
 </div>
@@ -808,6 +820,11 @@ const MEAS=[["lh",50,400,1],["bd",15,150,1],["wall",1.5,8,.5],["topT",1,12,.5],[
 function mmOf(id){const raw=+v(id);if(isNaN(raw))return 0;return UNIT==="cm"?raw*10:raw;}
 function tidy(n){return (Math.round(n*100)/100).toString();}
 function fmt(mm){return UNIT==="cm"?(Math.round(mm/10*100)/100)+" cm":Math.round(mm)+" mm";}
+/* ===== Branded modal dialogs (replace native alert/confirm everywhere) ===== */
+function _ensureModal(){var ov=document.getElementById("uiModal");if(ov)return ov;ov=document.createElement("div");ov.id="uiModal";ov.className="uimodal-ov";ov.style.display="none";ov.innerHTML='<div class="uimodal" role="dialog" aria-modal="true"><div class="uimodal-brand"><span class="um-mk">S</span><span class="um-nm">Signature Lightboxes</span></div><div class="uimodal-t" id="uiModalT" style="display:none"></div><div class="uimodal-m" id="uiModalM"></div><div class="uimodal-btns" id="uiModalB"></div></div>';document.body.appendChild(ov);return ov;}
+function _showModal(o){return new Promise(function(res){var ov=_ensureModal();var T=document.getElementById("uiModalT"),M=document.getElementById("uiModalM"),B=document.getElementById("uiModalB");if(o.title){T.textContent=o.title;T.style.display="";}else{T.style.display="none";}M.textContent=o.msg||"";B.innerHTML="";function done(v){ov.style.display="none";document.removeEventListener("keydown",onkey);res(v);}o.buttons.forEach(function(b){var el=document.createElement("button");el.className="uimodal-btn"+(b.primary?" pri":"");el.textContent=b.label;el.onclick=function(){done(b.val);};B.appendChild(el);});function onkey(e){if(e.key==="Escape"){e.preventDefault();done(o.escVal);}else if(e.key==="Enter"){e.preventDefault();done(o.enterVal);}}document.addEventListener("keydown",onkey);ov.onclick=function(e){if(e.target===ov)done(o.escVal);};ov.style.display="flex";var pri=B.querySelector(".pri")||B.querySelector(".uimodal-btn");if(pri)setTimeout(function(){try{pri.focus();}catch(_){}} ,30);});}
+function uiAlert(msg,opts){opts=opts||{};return _showModal({title:opts.title||"",msg:String(msg==null?"":msg),buttons:[{label:opts.ok||"OK",primary:true,val:true}],escVal:true,enterVal:true});}
+function uiConfirm(msg,opts){opts=opts||{};return _showModal({title:opts.title||"",msg:String(msg==null?"":msg),buttons:[{label:opts.cancel||"Cancel",primary:false,val:false},{label:opts.ok||"Confirm",primary:true,val:true}],escVal:false,enterVal:true});}
 function paintUnitSeg(){const mmS=UNIT==="mm";const a=g("u_mm"),b=g("u_cm");if(!a)return;a.style.background=mmS?"#eef0f2":"transparent";a.style.color=mmS?"#16181b":"#fff";b.style.background=!mmS?"#eef0f2":"transparent";b.style.color=!mmS?"#16181b":"#fff";}
 function setUnit(u){if(u===UNIT)return;const store={};MEAS.forEach(m=>{store[m[0]]=mmOf(m[0]);});UNIT=u;const toU=(u==="cm"?0.1:1);MEAS.forEach(([id,mn,mx,st])=>{const el=g(id);if(!el)return;el.value=tidy(store[id]*toU);el.min=mn*toU;el.max=mx*toU;el.step=(u==="cm")?Math.max(0.1,Math.round(st)/10):st;const R=g(id+"R");if(R)R.value=store[id];});document.querySelectorAll(".numbox .u").forEach(s=>s.textContent=u);paintUnitSeg();rebuild();buildSummary();}
 
@@ -838,8 +855,8 @@ function onLetterFontUpload(input){const file=input&&input.files&&input.files[0]
   const reader=new FileReader();
   reader.onload=ev=>{const buf=ev.target.result;const nm=(file.name.replace(/\.(ttf|otf)$/i,"").trim().slice(0,14))||"Custom";const id="letter-"+Date.now()+"-"+Math.floor(Math.random()*1e4);const entry=addCustomLetterFont(id,nm,buf,true);showFontLoading(false);
     if(entry)dbPutFont({id,name:nm,buf,kind:"letter"});
-    else alert("Could not read that font. Please upload a standard .ttf or .otf file.");};
-  reader.onerror=()=>{showFontLoading(false);alert("Could not read that file.");};
+    else uiAlert("Could not read that font. Please upload a standard .ttf or .otf file.");};
+  reader.onerror=()=>{showFontLoading(false);uiAlert("Could not read that file.");};
   reader.readAsArrayBuffer(file);input.value="";
 }
 function removeLetterFont(key){const i=FONTS.findIndex(f=>f.url===key);if(i<0)return;const wasSel=FONTS[i]===selFont;FONTS.splice(i,1);delete fontCache[key];dbDelFont(key);if(wasSel)selFont=FONTS[0];renderFontGrid();if(wasSel)rebuild();}
@@ -898,9 +915,9 @@ function onFontUpload(input){const file=input&&input.files&&input.files[0];if(!f
     const id="custom-"+Date.now()+"-"+Math.floor(Math.random()*1e4);
     const entry=addCustomFont(id,nm,buf,true);
     if(entry)dbPutFont({id,name:nm,buf});                 // persist so it survives a page refresh
-    else{showFontLoading(false);alert("Could not read that font. Please upload a standard .ttf or .otf file.");}
+    else{showFontLoading(false);uiAlert("Could not read that font. Please upload a standard .ttf or .otf file.");}
   };
-  reader.onerror=()=>{showFontLoading(false);alert("Could not read that file.");};
+  reader.onerror=()=>{showFontLoading(false);uiAlert("Could not read that file.");};
   reader.readAsArrayBuffer(file);input.value="";
 }
 function removeNameFont(key){const i=NAME_FONTS.findIndex(f=>f.url===key);if(i<0)return;const wasSel=NAME_FONTS[i]===selNameFont;NAME_FONTS.splice(i,1);delete otCache[key];dbDelFont(key);if(wasSel)selNameFont=NAME_FONTS[0];renderNameGrid();if(wasSel)rebuild();}
@@ -975,7 +992,7 @@ function updatePhotoPreview(){
   cg.add(_photoPrevMesh);
 }
 function togglePhotoLit(){photoLitPreview=!photoLitPreview;var t=document.getElementById("tg_photoLit");if(t)t.classList.toggle("on",photoLitPreview);updatePhotoPreview();}
-function onPhotoUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;if(!window.Lithophane){alert("Lithophane module still loading — try again in a moment.");return;}var img=new Image();img.onload=function(){try{var hm=window.Lithophane.imageToHeightMap(img,{minThickness:0,maxThickness:1,maxSamples:240});PHOTO={h:hm.thickness,cols:hm.cols,rows:hm.rows};photoOffset={x:0,y:0};var zz=document.getElementById("photoZoom");if(zz)zz.value="1";var t=document.getElementById("photoThumb");if(t)t.style.backgroundImage="url("+img.src+")";var pc=document.getElementById("photoControls");if(pc)pc.style.display="flex";onPhotoLabel();initPhotoPad();renderPhotoMarker();applyPhoto();}catch(e){alert("Could not read that image.");}};img.src=URL.createObjectURL(f);}
+function onPhotoUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;if(!window.Lithophane){uiAlert("Lithophane module still loading — try again in a moment.");return;}var img=new Image();img.onload=function(){try{var hm=window.Lithophane.imageToHeightMap(img,{minThickness:0,maxThickness:1,maxSamples:240});PHOTO={h:hm.thickness,cols:hm.cols,rows:hm.rows};photoOffset={x:0,y:0};var zz=document.getElementById("photoZoom");if(zz)zz.value="1";var t=document.getElementById("photoThumb");if(t)t.style.backgroundImage="url("+img.src+")";var pc=document.getElementById("photoControls");if(pc)pc.style.display="flex";onPhotoLabel();initPhotoPad();renderPhotoMarker();applyPhoto();}catch(e){uiAlert("Could not read that image.");}};img.src=URL.createObjectURL(f);}
 function onPhotoLabel(){var d=document.getElementById("photoDepth"),g=document.getElementById("photoDetail"),z=document.getElementById("photoZoom");if(document.getElementById("photoDepthLbl")&&d)document.getElementById("photoDepthLbl").textContent=(+d.value).toFixed(1);if(document.getElementById("photoDetailLbl")&&g)document.getElementById("photoDetailLbl").textContent=(+g.value<=0.5?"Fine":(+g.value>=0.9?"Coarse":"Medium"));if(document.getElementById("photoZoomLbl")&&z)document.getElementById("photoZoomLbl").textContent=(+z.value).toFixed(1);}
 function onPhotoParam(){onPhotoLabel();if(PHOTO)applyPhoto();}
 function nudgePhoto(which,dir){var el=document.getElementById(which==="depth"?"photoDepth":"photoDetail");if(!el)return;el.value=(+el.value+dir*(+el.step)).toFixed(2);onPhotoParam();}
@@ -1043,11 +1060,11 @@ function applyLight(){{var _lbl=g("lightLbl");if(_lbl)_lbl.textContent=lightOn?"
   (window.__glowSpots||[]).forEach(function(g){g.color.copy(fc);g.intensity=lightOn?(g.userData.baseI||13):0;});
 }
 
-function handleUpload(inp){const files=inp.files;if(!files||!files.length)return;Array.from(files).forEach(file=>{const ext=(file.name.split(".").pop()||"").toLowerCase();if(ext==="stl"||ext==="3mf"){alert("Custom 3D uploads have been replaced by the Model catalog below — pick a model from there.");return;}loadImage(file);});inp.value="";}
+function handleUpload(inp){const files=inp.files;if(!files||!files.length)return;Array.from(files).forEach(file=>{const ext=(file.name.split(".").pop()||"").toLowerCase();if(ext==="stl"||ext==="3mf"){uiAlert("Custom 3D uploads have been replaced by the Model catalog below — pick a model from there.");return;}loadImage(file);});inp.value="";}
 function loadImage(file){
   const isSVG=(file.type==="image/svg+xml")||/\.svg$/i.test(file.name);
   const reader=new FileReader();
-  reader.onerror=()=>alert('Could not read "'+file.name+'": '+((reader.error&&reader.error.message)||"unknown error"));
+  reader.onerror=()=>uiAlert('Could not read "'+file.name+'": '+((reader.error&&reader.error.message)||"unknown error"));
   if(isSVG){
     reader.onload=()=>{
       let txt=reader.result;
@@ -1078,14 +1095,14 @@ function finishImage(file,dataURL){
   im.onload=()=>{
     if(!im.naturalWidth||!im.naturalHeight){
       const i=images.indexOf(obj);if(i>=0)images.splice(i,1);renderImgList();
-      alert('"'+file.name+'" loaded with no usable dimensions. If it is an SVG, give it a width/height or viewBox.');
+      uiAlert('"'+file.name+'" loaded with no usable dimensions. If it is an SVG, give it a width/height or viewBox.');
       return;
     }
     obj.img=im;selImg=images.length-1;g("imgControls").style.display="flex";renderImgList();drawPad();scheduleBuild();
   };
   im.onerror=()=>{
     const i=images.indexOf(obj);if(i>=0)images.splice(i,1);renderImgList();
-    alert('Could not load image "'+file.name+'". If it is an SVG, check that it is valid and has a width/height or viewBox.');
+    uiAlert('Could not load image "'+file.name+'". If it is an SVG, check that it is valid and has a width/height or viewBox.');
   };
   im.src=dataURL;
 }
@@ -1200,7 +1217,7 @@ function placeCatalogGeo(geo,name){
 }
 function loadCatalogModel(i,card){
   const entry=STL_CATALOG[i];if(!entry)return;
-  if(!THREE.STLLoader){alert("STL loader unavailable.");return;}
+  if(!THREE.STLLoader){uiAlert("STL loader unavailable.");return;}
   // Cache hit → place instantly, no refetch, no spinner.
   if(STL_CACHE[entry.path]){placeCatalogGeo(STL_CACHE[entry.path],entry.name);return;}
   if(card){card.classList.add("busy");card.querySelector(".cat-ico").innerHTML='<div class="spin"></div>';}
@@ -1208,7 +1225,7 @@ function loadCatalogModel(i,card){
   loadForeground(entry.path).then(geo=>{placeCatalogGeo(geo,entry.name);done();}).catch(err=>{
     done();
     if(err&&err.name==="AbortError")return;   // superseded by another pick; not a real failure
-    alert('Could not load "'+entry.path+'".\n\nThe catalog loads each model from the "stls/" folder that ships next to this page (e.g. stls/'+entry.path.split("/").pop()+'). Make sure that folder is deployed alongside lb.html and served over http(s).');
+    uiAlert('Could not load "'+entry.path+'".\n\nThe catalog loads each model from the "stls/" folder that ships next to this page (e.g. stls/'+entry.path.split("/").pop()+'). Make sure that folder is deployed alongside lb.html and served over http(s).');
   });
 }
 // A catalog model is laid FLAT on the lid top surface (like the name & image): no free-axis movement,
@@ -1216,7 +1233,7 @@ function loadCatalogModel(i,card){
 function addModelObj(obj3d,name){
   obj3d.updateMatrixWorld(true);
   const box=new THREE.Box3().setFromObject(obj3d);
-  if(!isFinite(box.min.x)||box.min.x>box.max.x){alert("That model had no printable mesh: "+name);return;}
+  if(!isFinite(box.min.x)||box.min.x>box.max.x){uiAlert("That model had no printable mesh: "+name);return;}
   const c=box.getCenter(new THREE.Vector3()),mn=box.min.clone(),sz=box.getSize(new THREE.Vector3());
   obj3d.position.x-=c.x;obj3d.position.y-=c.y;obj3d.position.z-=mn.z;   // centre XY, base at z=0 (pre-flattened)
   const wrap=new THREE.Group();wrap.add(obj3d);
@@ -1383,7 +1400,7 @@ function _svgToClipper(svgText,heightMm){
   }catch(e){try{if(holder&&holder.parentNode)holder.parentNode.removeChild(holder);}catch(_){}return null;}
 }
 function _logoUIsync(){var info=document.getElementById("logoInfo"),cl=document.getElementById("logoClear");var on=!!LOGO;if(info)info.style.display=on?"":"none";if(cl)cl.style.display=on?"":"none";}
-function onLogoUpload(inp){var f=inp&&inp.files&&inp.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var txt=String(rd.result||"");var paths=_svgToClipper(txt,100);if(!paths||!paths.length){alert("Couldn\u2019t read that SVG \u2014 use a flattened logo made of filled shapes.");return;}LOGO=paths;window.__logoSvg=txt;if(typeof LIDNAME!=="undefined"&&LIDNAME){LIDNAME="";var na=document.getElementById("lidName");if(na)na.value="";}var info=document.getElementById("logoInfo");if(info)info.innerHTML="Logo loaded \u2014 it now drives the lightbox. Set the size with <b>Letter height</b>.";_logoUIsync();if(typeof rebuild==="function")rebuild();}catch(e){alert("Couldn\u2019t read that SVG.");}};rd.readAsText(f);if(inp)inp.value="";}
+function onLogoUpload(inp){var f=inp&&inp.files&&inp.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var txt=String(rd.result||"");var paths=_svgToClipper(txt,100);if(!paths||!paths.length){uiAlert("Couldn\u2019t read that SVG \u2014 use a flattened logo made of filled shapes.");return;}LOGO=paths;window.__logoSvg=txt;if(typeof LIDNAME!=="undefined"&&LIDNAME){LIDNAME="";var na=document.getElementById("lidName");if(na)na.value="";}var info=document.getElementById("logoInfo");if(info)info.innerHTML="Logo loaded \u2014 it now drives the lightbox. Set the size with <b>Letter height</b>.";_logoUIsync();if(typeof rebuild==="function")rebuild();}catch(e){uiAlert("Couldn\u2019t read that SVG.");}};rd.readAsText(f);if(inp)inp.value="";}
 function clearLogo(){LOGO=null;window.__logoSvg=null;_logoUIsync();if(typeof rebuild==="function")rebuild();}
 /* Multi-line name -> Clipper subject paths. Each glyph is placed individually with
    tight tracking (bounding boxes overlap slightly) so a small connect-border fuses
@@ -2234,7 +2251,7 @@ async function exportPlates(deliver){deliver=deliver||"download";
     // path recompute FIRST — so the 'A' counter and every cutout are present in the exported mesh.
     if(!geomReady)await updateTextGeometry();if(typeof PHOTO!=="undefined"&&PHOTO){window.__photoFine=true;try{await buildModel();buildSummary();}catch(_){}}
     await new Promise(r=>requestAnimationFrame(()=>r()));   // let the rebuilt scene graph settle
-    if(!PLATES||!PLATES.length){alert("Nothing to export yet — design a lightbox first.");return;}
+    if(!PLATES||!PLATES.length){uiAlert("Nothing to export yet — design a lightbox first.");return;}
     // ===== CONFIRM before spending an export (guards against an accidental click) =====
     if(btn){btn.disabled=false;btn.textContent=orig;}
     var __cmsg="Export this design as a Bambu Studio .3mf file?";
@@ -2242,13 +2259,13 @@ async function exportPlates(deliver){deliver=deliver||"download";
       if(_l&&_l.quota_type==="total"){var _r=Math.max(0,(_l.quota_limit||0)-(_l.exports_total||0));__cmsg="Export this design?\n\nThis uses 1 export — you have "+_r+" of "+_l.quota_limit+" left.";}
       else if(_l&&_l.quota_type==="monthly"){var _cur=new Date().toISOString().slice(0,7),_u=(_l.period_key===_cur)?(_l.exports_period||0):0,_r2=Math.max(0,(_l.quota_limit||0)-_u);__cmsg="Export this design?\n\nThis uses 1 of this month's exports — you have "+_r2+" of "+_l.quota_limit+" left this month.";}
     }catch(e){}
-    if(deliver!=="concierge"){if(!window.confirm(__cmsg)){return;}}
+    if(deliver!=="concierge"){if(!(await uiConfirm(__cmsg))){return;}}
     if(btn){btn.disabled=true;btn.textContent="⏳ Preparing…";}
     // ===== LICENCE GATE: sign-in + an available export required before producing a file =====
     if(deliver==="concierge"){
-      if(!(window.__sb&&window.__user)){alert("Please sign in first, then tap Print for me.");if(btn)btn.textContent=orig;return;}
+      if(!(window.__sb&&window.__user)){uiAlert("Please sign in first, then tap Print for me.");if(btn)btn.textContent=orig;return;}
     }else{
-      if(window.__isConcierge&&window.__isConcierge()){if(btn)btn.textContent=orig;alert("Your plan is Concierge — tap “Print for me” and we’ll print & ship it for you.");return;}
+      if(window.__isConcierge&&window.__isConcierge()){if(btn)btn.textContent=orig;uiAlert("Your plan is Concierge — tap “Print for me” and we’ll print & ship it for you.");return;}
       if(typeof window.__consumeExport==="function"){var __lic=await window.__consumeExport();if(!__lic||!__lic.allowed){if(btn)btn.textContent=orig;return;}}
     }
     // Categorise every printable part, then enforce the STRICT 4-plate split:
@@ -2274,7 +2291,7 @@ async function exportPlates(deliver){deliver=deliver||"download";
       if(bucket.text.length)groups.push({name:"Plate "+(groups.length+1)+" - Text Layers",objects:bucket.text});
       if(bucket.model.length)groups.push({name:"Plate "+(groups.length+1)+" - Catalog Models",objects:bucket.model});
     }
-    if(!groups.length){alert("No printable geometry found to export.");return;}
+    if(!groups.length){uiAlert("No printable geometry found to export.");return;}
     const plateCount=groups.length;
     const bed=PRINTERS[selPrinter]||{x:256,y:256};
     const enc=new TextEncoder();
@@ -2312,7 +2329,7 @@ async function exportPlates(deliver){deliver=deliver||"download";
       document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},800);
       if(btn){btn.textContent="✓ Exported "+plateCount+" plates";setTimeout(()=>{btn.textContent=orig;},1800);}
     }
-  }catch(e){console.error(e);alert("Export failed: "+(e&&e.message||e));if(btn)btn.textContent=orig;}
+  }catch(e){console.error(e);uiAlert("Export failed: "+(e&&e.message||e));if(btn)btn.textContent=orig;}
   finally{if(btn)btn.disabled=false;if(typeof PHOTO!=="undefined"&&PHOTO){window.__photoFine=false;try{if(typeof scheduleBuild==="function")scheduleBuild();}catch(_){}}}
 }
 window.exportPlates=exportPlates;   // the ONLY export entry point exposed globally (gated inside)
@@ -2503,8 +2520,8 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
     var pw=box.querySelector("#acPw");if(pw){pw.focus();pw.onkeydown=function(e){if(e.key==="Enter")pwSend();};}
   }
   function askEmail(){signinStep=1;signedOut();}
-  function pwSend(){var pwv=((box.querySelector("#acPw")||{}).value||"");if(!pwv){alert("Enter your password.");return;}signinStep=2;signinMsg="Signing in…";signedOut();sb.auth.signInWithPassword({email:signinEmail,password:pwv}).then(function(r){if(r&&r.error){signinStep=3;signedOut();setTimeout(function(){alert(r.error.message||"Incorrect password.");},30);}});}
-  function send(){var em=((box.querySelector("#acEm")||{}).value||"").trim();if(!/.+@.+\..+/.test(em)){alert("Please enter a valid email.");return;}if(em.toLowerCase()===(window.__ownerEmail||"").toLowerCase()){signinEmail=em;signinStep=3;signedOut();return;}signinStep=2;signinMsg="Sending…";signedOut();sb.auth.signInWithOtp({email:em,options:{emailRedirectTo:location.origin}}).then(function(r){if(r.error){signinMsg=esc(r.error.message);signedOut();setTimeout(function(){signinStep=0;signedOut();},3500);}else{signinMsg="📧 Check your email — click the link in it to sign in.";signedOut();}});}
+  function pwSend(){var pwv=((box.querySelector("#acPw")||{}).value||"");if(!pwv){uiAlert("Enter your password.");return;}signinStep=2;signinMsg="Signing in…";signedOut();sb.auth.signInWithPassword({email:signinEmail,password:pwv}).then(function(r){if(r&&r.error){signinStep=3;signedOut();setTimeout(function(){uiAlert(r.error.message||"Incorrect password.");},30);}});}
+  function send(){var em=((box.querySelector("#acEm")||{}).value||"").trim();if(!/.+@.+\..+/.test(em)){uiAlert("Please enter a valid email.");return;}if(em.toLowerCase()===(window.__ownerEmail||"").toLowerCase()){signinEmail=em;signinStep=3;signedOut();return;}signinStep=2;signinMsg="Sending…";signedOut();sb.auth.signInWithOtp({email:em,options:{emailRedirectTo:location.origin}}).then(function(r){if(r.error){signinMsg=esc(r.error.message);signedOut();setTimeout(function(){signinStep=0;signedOut();},3500);}else{signinMsg="📧 Check your email — click the link in it to sign in.";signedOut();}});}
   function quotaText(lic){
     if(!lic)return '<span class="muted">No licence yet</span>';
     if(lic.quota_type==="unlimited")return '<span class="quota">Unlimited exports</span>';
@@ -2579,18 +2596,18 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
     var name=prompt("Name this design:","My design");
     if(name===null)return;name=(name||"").trim()||"Untitled";
     var data=(typeof window.__serializeDesign==="function")?window.__serializeDesign():null;
-    if(!data){alert("Couldn't read the current design.");return;}
-    sb.from("designs").insert({name:name,data:data}).then(function(r){if(r&&r.error){alert("Save failed: "+r.error.message);}else{fetchDesigns();}});
+    if(!data){uiAlert("Couldn't read the current design.");return;}
+    sb.from("designs").insert({name:name,data:data}).then(function(r){if(r&&r.error){uiAlert("Save failed: "+r.error.message);}else{fetchDesigns();}});
   }
   function doLoadDesign(id){
     sb.from("designs").select("data").eq("id",id).maybeSingle().then(function(r){
       if(r&&r.data&&r.data.data&&typeof window.__applyDesign==="function"){window.__applyDesign(r.data.data);menuOpen=false;designsView=false;renderAccount();}
-      else{alert("Couldn't load that design.");}
+      else{uiAlert("Couldn't load that design.");}
     });
   }
-  function doDeleteDesign(id){
-    if(!confirm("Delete this design?"))return;
-    sb.from("designs").delete().eq("id",id).then(function(r){if(r&&r.error){alert("Delete failed: "+r.error.message);}else{fetchDesigns();}});
+  async function doDeleteDesign(id){
+    if(!(await uiConfirm("Delete this design?")))return;
+    sb.from("designs").delete().eq("id",id).then(function(r){if(r&&r.error){uiAlert("Delete failed: "+r.error.message);}else{fetchDesigns();}});
   }
   function showRedeem(){
     box.innerHTML='<div class="pill"><input id="acCode" placeholder="Enter your code" style="text-transform:uppercase"><button class="primary" id="acDo">Redeem</button><button id="acX">✕</button></div>';
@@ -2613,8 +2630,8 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
       if(!session){signedOut();return;}
       fetch("/api/redeem",{method:"POST",headers:{Authorization:"Bearer "+session.access_token,"Content-Type":"application/json"},body:JSON.stringify({code:code})})
         .then(function(res){return res.json().catch(function(){return {ok:false,reason:"bad_response"};});})
-        .then(function(d){if(!(d&&d.ok))alert(redeemMsg(d));if(window.__user)loadLicence(window.__user);})
-        .catch(function(){alert("Couldn't reach the server. Please try again.");if(window.__user)loadLicence(window.__user);});
+        .then(function(d){if(!(d&&d.ok))uiAlert(redeemMsg(d));if(window.__user)loadLicence(window.__user);})
+        .catch(function(){uiAlert("Couldn't reach the server. Please try again.");if(window.__user)loadLicence(window.__user);});
     });
   }
   function loadLicence(user){sb.from("licenses").select("*").eq("user_id",user.id).maybeSingle().then(function(r){if(r&&r.data){window.__license=r.data;signedIn(user,r.data);}else{tryClaim(user);}}).catch(function(){window.__license=null;signedIn(user,null);});}
@@ -2640,14 +2657,14 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
     if(r==="monthly_limit")return "You've used all of this month's exports — they reset next month.";
     return "Export isn't available right now. Please try again in a moment.";}
   window.__consumeExport=function(){return new Promise(function(resolve){
-    if(!sb){alert("Sign-in is offline — check your connection and try again.");resolve({allowed:false,reason:"offline"});return;}
+    if(!sb){uiAlert("Sign-in is offline — check your connection and try again.");resolve({allowed:false,reason:"offline"});return;}
     sb.auth.getSession().then(function(r){
       var session=r.data&&r.data.session;
-      if(!session){askEmail();alert("Please sign in at the top of the page to download your STL.");resolve({allowed:false,reason:"not_signed_in"});return;}
+      if(!session){askEmail();uiAlert("Please sign in at the top of the page to download your STL.");resolve({allowed:false,reason:"not_signed_in"});return;}
       fetch("/api/export",{method:"POST",headers:{Authorization:"Bearer "+session.access_token}})
         .then(function(res){return res.json().catch(function(){return {allowed:false,reason:"bad_response"};});})
-        .then(function(d){if(d&&d.allowed){if(window.__user)loadLicence(window.__user);}else{alert(msgFor(d));}resolve(d||{allowed:false});})
-        .catch(function(){alert("Couldn't reach the licence server. Please try again.");resolve({allowed:false,reason:"network"});});
+        .then(function(d){if(d&&d.allowed){if(window.__user)loadLicence(window.__user);}else{uiAlert(msgFor(d));}resolve(d||{allowed:false});})
+        .catch(function(){uiAlert("Couldn't reach the licence server. Please try again.");resolve({allowed:false,reason:"network"});});
     });
   });};
   ready(function(){
@@ -3513,7 +3530,7 @@ window.USDZExporter=USDZExporter;})();
   function shipContinue(){
     var g=function(id){return ((document.getElementById(id)||{}).value||"").trim();};
     var info={name:g("ship_name"),email:g("ship_email"),phone:g("ship_phone"),line1:g("ship_l1"),line2:g("ship_l2"),city:g("ship_city"),postcode:g("ship_pc"),country:g("ship_country")||"United Kingdom",notes:g("ship_notes")};
-    if(!info.name||!info.email||!info.line1||!info.city||!info.postcode){alert("Please fill in your name, email, address, town/city and postcode so we can ship your print.");return;}
+    if(!info.name||!info.email||!info.line1||!info.city||!info.postcode){uiAlert("Please fill in your name, email, address, town/city and postcode so we can ship your print.");return;}
     window.__shipInfo=info;
     try{localStorage.setItem("__shipInfo",JSON.stringify(info));}catch(e){}
     var m=document.getElementById("shipModal");if(m)m.style.display="none";
@@ -3706,7 +3723,7 @@ window.USDZExporter=USDZExporter;})();
       var un=card.querySelector(".pqUndo");
       if(un)un.onclick=async function(){this.textContent="…";var u=await sb.from("print_jobs").update({status:"new"}).eq("id",job.id);if(u.error){this.textContent="⚠";return;}refreshDash();};
       var del=card.querySelector(".pqDel");
-      if(del)del.onclick=async function(){var ok=await dashConfirm("Delete this completed order permanently? This removes the order and its file — it can’t be undone.");if(!ok)return;this.textContent="…";try{await sb.storage.from(PRINT_BUCKET).remove([job.file_path]);}catch(e){}var d=await sb.from("print_jobs").delete().eq("id",job.id).select();if(d.error){this.textContent="⚠ "+esc(d.error.message);return;}if(!d.data||!d.data.length){this.textContent="🗑 Delete";alert("Couldn’t delete — the owner DELETE policy is missing in Supabase. Run the delete policies from CONCIERGE_SETUP.md §3, then try again.");return;}refreshDash();};
+      if(del)del.onclick=async function(){var ok=await dashConfirm("Delete this completed order permanently? This removes the order and its file — it can’t be undone.");if(!ok)return;this.textContent="…";try{await sb.storage.from(PRINT_BUCKET).remove([job.file_path]);}catch(e){}var d=await sb.from("print_jobs").delete().eq("id",job.id).select();if(d.error){this.textContent="⚠ "+esc(d.error.message);return;}if(!d.data||!d.data.length){this.textContent="🗑 Delete";uiAlert("Couldn’t delete — the owner DELETE policy is missing in Supabase. Run the delete policies from CONCIERGE_SETUP.md §3, then try again.");return;}refreshDash();};
       host.appendChild(card);
     });
   }
