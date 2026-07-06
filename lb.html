@@ -1456,7 +1456,7 @@ function _imgToClipper(img,heightMm){
       var f=new Float32Array(W2*H2);
       for(var y=0;y<H;y++)for(var x=0;x<W;x++){var o=(y*W+x)*4,a=data[o+3]/255,lum=(0.299*data[o]+0.587*data[o+1]+0.114*data[o+2])/255;
         var vis; if(useAlpha){vis=a;} else {var d=(Math.abs(data[o]-bg[0])+Math.abs(data[o+1]-bg[1])+Math.abs(data[o+2]-bg[2]))/255; vis=Math.max(0,Math.min(1,(d-0.12)/0.12+0.5));}
-        var val; if(inkOnly){var ink=Math.max(0,Math.min(1,(0.82-lum)/0.14+0.5)); val=vis*ink;} else {val=vis;}
+        var val; if(inkOnly){var mx=Math.max(data[o],data[o+1],data[o+2])/255,mn=Math.min(data[o],data[o+1],data[o+2])/255,sat=mx>0.004?(mx-mn)/mx:0;var isLight=Math.max(0,Math.min(1,(lum-0.72)/0.14+0.5)),isDesat=Math.max(0,Math.min(1,(0.16-sat)/0.12+0.5));val=vis*(1-isLight*isDesat);} else {val=vis;}
         f[(y+1)*W2+(x+1)]=val;}
       return f;
     }
@@ -1473,6 +1473,8 @@ function _connectSolid(paths,closeMm,bridgeHalf){
   var comps=p.filter(function(c){return ClipperLib.Clipper.Area(c)>0;});
   if(comps.length>1){
     comps.sort(function(a,b){return ClipperLib.Clipper.Area(b)-ClipperLib.Clipper.Area(a);});
+    var _amax=ClipperLib.Clipper.Area(comps[0]);comps=comps.filter(function(c){return ClipperLib.Clipper.Area(c)>=_amax*0.02;});   /* drop tiny trace specks so we never bridge to noise */
+    p=comps.slice();
     var connected=[comps[0]];
     for(var i=1;i<comps.length;i++){var ci=comps[i],best=null,step=Math.max(1,Math.floor(ci.length/70));
       for(var vi=0;vi<ci.length;vi+=step){var pa=ci[vi];
