@@ -66,9 +66,10 @@ export default async function handler(req, res) {
   };
 
   // Logo/icon — branded from our server so it never depends on WalletWallet's
-  // Pass Designer. Defaults to the hosted Signature Lightboxes logo; override
-  // per-deploy with WALLET_LOGO_URL / WALLET_ICON_URL in Vercel.
-  const LOGO_URL = process.env.WALLET_LOGO_URL || (SITE + "/email-logo.jpg");
+  // Pass Designer. Point WALLET_LOGO_URL at a FLAT, transparent-background PNG
+  // (a photo/3D mockup does not work in the small pass logo slot). Falls back to
+  // wallet-logo.png at the site root if present.
+  const LOGO_URL = process.env.WALLET_LOGO_URL || "";
   const ICON_URL = process.env.WALLET_ICON_URL || "";
   if (LOGO_URL) body.logoURL = LOGO_URL;
   if (ICON_URL) body.iconURL = ICON_URL;
