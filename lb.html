@@ -2669,12 +2669,13 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
   function signedOut(){
     window.__user=null;window.__license=null;if(window.__afterLicence)try{window.__afterLicence()}catch(e){}
     var html='<button class="acsignin" id="acIn">Sign in</button>';
-    if(signinStep===1)html+='<div class="acmenu"><div class="acmenuhead"><span>Sign in</span></div><input class="acinput" id="acEm" type="email" placeholder="you@email.com" autocomplete="email"><button class="acsignout" id="acGo">Email me a link</button></div>';
+    if(signinStep===1)html+='<div class="acmenu"><div class="acmenuhead"><span>Sign in</span></div><input class="acinput" id="acEm" type="email" placeholder="you@email.com" autocomplete="email"><button class="acsignout" id="acGo">Email me a link</button><button id="acPwLink" type="button" style="background:none;border:none;color:var(--txt2);font-size:11.5px;cursor:pointer;padding:8px 2px 0;text-decoration:underline;align-self:center">Have a password? Sign in</button></div>';
     else if(signinStep===2)html+='<div class="acmenu"><div class="acmsg">'+signinMsg+'</div></div>';
-    else if(signinStep===3)html+='<div class="acmenu"><div class="acmenuhead"><span>Owner sign in</span></div><input class="acinput" id="acPw" type="password" placeholder="Password" autocomplete="current-password"><button class="acsignout" id="acPwGo">Sign in</button></div>';
+    else if(signinStep===3)html+='<div class="acmenu"><div class="acmenuhead"><span>Sign in with password</span></div><input class="acinput" id="acPw" type="password" placeholder="Password" autocomplete="current-password"><button class="acsignout" id="acPwGo">Sign in</button></div>';
     box.innerHTML=html;
     var i=box.querySelector("#acIn");if(i)i.onclick=function(){signinStep=(signinStep===1?0:1);signedOut();};
     var go=box.querySelector("#acGo");if(go)go.onclick=send;
+    var pl=box.querySelector("#acPwLink");if(pl)pl.onclick=function(){var e2=((box.querySelector("#acEm")||{}).value||"").trim();if(!/.+@.+\..+/.test(e2)){uiAlert("Enter your email first.");return;}signinEmail=e2;signinStep=3;signedOut();};
     var em=box.querySelector("#acEm");if(em){em.focus();em.onkeydown=function(e){if(e.key==="Enter")send();};}
     var pg2=box.querySelector("#acPwGo");if(pg2)pg2.onclick=pwSend;
     var pw=box.querySelector("#acPw");if(pw){pw.focus();pw.onkeydown=function(e){if(e.key==="Enter")pwSend();};}
@@ -2697,7 +2698,7 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
   function nextReset(){var d=new Date(),n=new Date(d.getFullYear(),d.getMonth()+1,1);return n.toLocaleDateString(undefined,{day:'numeric',month:'short'});}
   function crow(k,v){return '<div class="crow"><span class="ck">'+k+'</span><span class="cv">'+v+'</span></div>';}
   function renderCard(lic){
-    var t=crow('Plan',tierName(lic.tier));
+    var t=crow('Plan',tierName(lic.tier));t+=crow('License',(lic.tier==='merchant'?'Commercial':'Personal use'));
     t+=crow('Time left',timeLeft(lic)+(lic.expires_at?' <span class="cdim">(until '+fmtDate(lic.expires_at)+')</span>':''));
     var ex=exportsLeft(lic);
     if(lic.quota_type==='monthly')ex+=' <span class="cdim">this month · resets '+nextReset()+'</span>';
