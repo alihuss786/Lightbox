@@ -55,7 +55,8 @@ export default async function handler(req, res) {
     logoText: brand,
     description: "Order " + code,
     organizationName: brand,
-    backgroundColor: "#111a3d",   // deep Signature navy (reads as colour, not black)
+    colorPreset: "blue",          // Google card colour (free plan preset; closest to brand)
+    backgroundColor: "#111a3d",   // Apple card background (deep navy)
     foregroundColor: "#ffffff",   // crisp white values
     labelColor: "#e0c08d",        // gold labels
     primaryFields: [{ label: "ORDER", value: code }],
