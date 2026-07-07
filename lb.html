@@ -2205,7 +2205,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       const plate=makePlate(bed.x,bed.y);plate.position.set(0,0,0);pivot.add(plate);
       // Seat the part's absolute bottom flush on the plate's printed top surface (y = 0); a hair of lift
       // (0.05 mm) only to avoid coplanar z-fighting — the part rests ON the plate, never sinking into it.
-      const c=b.getCenter(new THREE.Vector3());part.group.position.x+=-c.x;part.group.position.z+=-c.z;part.group.position.y+=0.05-b.min.y;pivot.add(part.group);
+      const c=b.getCenter(new THREE.Vector3());part.group.position.x+=-c.x;part.group.position.z+=-c.z;part.group.position.y+=0.05-b.min.y;var _pth=_fitSpin(b.max.x-b.min.x,b.max.z-b.min.z,bed.x,bed.y);if(_pth>0.0001){var _spin=new THREE.Group();_spin.rotation.y=-_pth;_spin.add(part.group);pivot.add(_spin);}else{pivot.add(part.group);}
       pivot.position.set(0,0,0);pivot.rotation.set(0,0,0);pivot.updateMatrixWorld(true);
       g("dims").style.display="block";g("dims").textContent=`${bed.x}×${bed.y} mm · ${idx+1}/${partList.length}`;
       baseY=0;baseDist=Math.max(bed.x,bed.y)*1.55+130;applyZoom();
@@ -2222,7 +2222,8 @@ function renderPlateList(){const el=g("platelist");if(!el)return;if(mode!=="plat
 function renderPrinter(){const el=g("printerbox");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";el.innerHTML=`<div class="plbl">Printer</div><select class="psel" onchange="setPrinter(this.selectedIndex)">`+PRINTERS.map((p,i)=>`<option ${i===selPrinter?"selected":""}>${p.n} · ${p.x}×${p.y}mm</option>`).join("")+`</select>`;}
 function setPrinter(i){selPrinter=i;zoom=1;buildModel();}
 
-function updateFitWarn(){try{var fw=document.getElementById("fitWarn");if(!fw)return;var pf=window.__plateFoot,bed=(typeof PRINTERS!=="undefined"&&PRINTERS[selPrinter])||{x:256,y:256};if(!pf||!pf.w){fw.style.display="none";return;}var pw=pf.w,ph=pf.h,fits=(pw<=bed.x&&ph<=bed.y)||(pw<=bed.y&&ph<=bed.x);if(fits){fw.style.display="none";return;}fw.innerHTML="\u26a0 This name is <b>"+(pw/10).toFixed(0)+"\u00d7"+(ph/10).toFixed(0)+" cm</b> \u2014 too big for your "+(bed.x/10)+"\u00d7"+(bed.y/10)+" cm printer. Lower <b>Letter height</b> in the Size tab, or pick a larger printer.";fw.style.display="block";}catch(e){}}
+function _fitSpin(w,h,bx,by){if(!(w>0)||!(h>0))return 0;if((w<=bx&&h<=by)||(w<=by&&h<=bx))return 0;var best=0,bestM=-1e9;for(var d=5;d<90;d+=2.5){var a=d*Math.PI/180,c=Math.abs(Math.cos(a)),si=Math.abs(Math.sin(a));var W=w*c+h*si,H=w*si+h*c;var m1=(W<=bx&&H<=by)?Math.min(bx-W,by-H):-1e9;var m2=(W<=by&&H<=bx)?Math.min(by-W,bx-H):-1e9;var m=Math.max(m1,m2);if(m>bestM){bestM=m;best=a;}}return bestM>=0?best:0;}
+function updateFitWarn(){try{var fw=document.getElementById("fitWarn");if(!fw)return;var pf=window.__plateFoot,bed=(typeof PRINTERS!=="undefined"&&PRINTERS[selPrinter])||{x:256,y:256};if(!pf||!pf.w){fw.style.display="none";return;}var pw=pf.w,ph=pf.h,fits=(pw<=bed.x&&ph<=bed.y)||(pw<=bed.y&&ph<=bed.x)||(_fitSpin(pw,ph,bed.x,bed.y)>0.0001);if(fits){fw.style.display="none";return;}fw.innerHTML="\u26a0 This name is <b>"+(pw/10).toFixed(0)+"\u00d7"+(ph/10).toFixed(0)+" cm</b> \u2014 too big for your "+(bed.x/10)+"\u00d7"+(bed.y/10)+" cm printer. Lower <b>Letter height</b> in the Size tab, or pick a larger printer.";fw.style.display="block";}catch(e){}}
 function buildSummary(){try{updateFitWarn();}catch(e){}const nameExt=mmOf("nameExt")||10;let pocket=Math.max(0,Math.min(mmOf("nameDepth")||0,nameExt));const above=Math.round((nameExt-pocket)*10)/10;const liveTexts=texts.filter(t=>(t.str||"").trim());const parts=2+liveTexts.length+images.length+models.length;const bed=PRINTERS[selPrinter];const tnames=liveTexts.map(t=>t.str.trim()).join(", ")||"—";g("summary").innerHTML=`<b>${(v("letter")||"A").toUpperCase()}</b> · ${selFont.name} · overall ${fmt(mmOf("lh"))} tall × ${fmt(mmOf("bd"))} deep<br>Text layers (${liveTexts.length||"none"}): <b>${tnames}</b> · ${fmt(nameExt)} tall, ${fmt(above)} proud<br>Images: ${images.length||"none"} · 3D models: ${models.length||"none"}<br>Printer <b>${bed.n}</b> (${bed.x}×${bed.y} mm bed)<br><b>${parts} separate printable parts</b> — lid prints face-down`;}
 
 /* ---------- Combined text plate: pack each layer into a non-overlapping row on the shared plate ---------- */
@@ -2269,11 +2270,12 @@ function partTriangles(part,skipLayout){
   let mnx=1/0,mxx=-1/0,mnz=1/0,mxz=-1/0,mny=1/0;
   tris.forEach(t=>t.forEach(p=>{mnx=Math.min(mnx,p.x);mxx=Math.max(mxx,p.x);mnz=Math.min(mnz,p.z);mxz=Math.max(mxz,p.z);mny=Math.min(mny,p.y);}));
   const cx=(mnx+mxx)/2,cz=(mnz+mxz)/2;   // map THREE(x,y,z) -> world(X=x-cx, Y=-(z-cz), Z=y-mny)
+  var _bd=(typeof PRINTERS!=="undefined"&&PRINTERS[selPrinter])||{x:256,y:256};var _th=_fitSpin(mxx-mnx,mxz-mnz,_bd.x,_bd.y),_c=Math.cos(_th),_s=Math.sin(_th);
   // Negate Y so the part is NOT mirrored on the bed: with the old (z-cz) mapping the printed face came out
   // as a reflection, so names/images read backwards. Negating Y is a reflection, so each triangle's winding
   // is reversed (swap v1/v2) to keep outward-facing normals and a valid manifold.
   return tris.map(t=>{
-    const m=p=>({x:f3(p.x-cx),y:f3(cz-p.z),z:f3(p.y-mny)});
+    const m=p=>{var X=p.x-cx,Y=cz-p.z;return {x:f3(X*_c-Y*_s),y:f3(X*_s+Y*_c),z:f3(p.y-mny)};};
     return [m(t[0]),m(t[2]),m(t[1])];
   });
 }
@@ -2292,7 +2294,7 @@ function partTrianglesByColor(part,skipLayout){
   let mnx=1/0,mxx=-1/0,mnz=1/0,mxz=-1/0,mny=1/0,any=false;
   Object.keys(byCol).forEach(c=>byCol[c].forEach(t=>t.forEach(p=>{any=true;mnx=Math.min(mnx,p.x);mxx=Math.max(mxx,p.x);mnz=Math.min(mnz,p.z);mxz=Math.max(mxz,p.z);mny=Math.min(mny,p.y);})));
   if(!any)return [];
-  const cx=(mnx+mxx)/2,cz=(mnz+mxz)/2;const map=p=>({x:f3(p.x-cx),y:f3(cz-p.z),z:f3(p.y-mny)});
+  const cx=(mnx+mxx)/2,cz=(mnz+mxz)/2;var _bd=(typeof PRINTERS!=="undefined"&&PRINTERS[selPrinter])||{x:256,y:256};var _th=_fitSpin(mxx-mnx,mxz-mnz,_bd.x,_bd.y),_c=Math.cos(_th),_s=Math.sin(_th);const map=p=>{var X=p.x-cx,Y=cz-p.z;return {x:f3(X*_c-Y*_s),y:f3(X*_s+Y*_c),z:f3(p.y-mny)};};
   const out=[];Object.keys(byCol).forEach(c=>{const ts=byCol[c];if(!ts.length)return;out.push({color:c,tris:ts.map(t=>[map(t[0]),map(t[2]),map(t[1])])});});
   return out;
 }
