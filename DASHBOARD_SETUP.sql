@@ -130,8 +130,12 @@ create table if not exists public.merchants (
   max_z_mm   int  not null default 256,
   price_rules jsonb not null default '{}'::jsonb,  -- reserved for live pricing
   idle_secs  int  not null default 90,             -- attract-loop / reset timeout
+  screensaver_url text,                            -- idle DVD-bounce logo (image/gif/mp4)
   updated_at timestamptz not null default now()
 );
+
+-- if the merchants table already exists from an earlier run, add the newer columns
+alter table public.merchants add column if not exists screensaver_url text;
 
 alter table public.merchants enable row level security;
 
