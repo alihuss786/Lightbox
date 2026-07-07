@@ -114,3 +114,37 @@ create policy "kiosk own"
 create policy "kiosk owner read"
   on public.kiosk_orders for select
   using ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
+
+-- ---------- MERCHANTS (per-store kiosk profile: branding, filaments, printer) ----
+-- One row per merchant account. Loaded at boot to co-brand the kiosk, limit the
+-- colour picker to the filaments actually loaded, and match the plate/fit-check
+-- to the store's printer.
+create table if not exists public.merchants (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null unique default auth.uid(),
+  store_name text,
+  logo_url   text,
+  filaments  jsonb not null default '[]'::jsonb,   -- ["#E2663B", ...] loaded colours
+  max_x_mm   int  not null default 256,            -- printer build size (fit-check)
+  max_y_mm   int  not null default 256,
+  max_z_mm   int  not null default 256,
+  price_rules jsonb not null default '{}'::jsonb,  -- reserved for live pricing
+  idle_secs  int  not null default 90,             -- attract-loop / reset timeout
+  updated_at timestamptz not null default now()
+);
+
+alter table public.merchants enable row level security;
+
+drop policy if exists "merchant own"        on public.merchants;
+drop policy if exists "merchant owner read"  on public.merchants;
+
+-- a merchant has full access to their OWN profile row
+create policy "merchant own"
+  on public.merchants for all
+  using ( user_id = auth.uid() )
+  with check ( user_id = auth.uid() );
+
+-- the owner can read every merchant's profile
+create policy "merchant owner read"
+  on public.merchants for select
+  using ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
