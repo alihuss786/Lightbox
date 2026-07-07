@@ -66,6 +66,7 @@ input,button,select,textarea{font-family:inherit}
 .lightbtn{width:38px;height:38px;border-radius:11px;border:1px solid var(--line);background:rgba(18,21,27,.82);backdrop-filter:blur(8px);color:#fff;font-size:16px;cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;transition:background .15s,box-shadow .15s}
 .lightbtn.on{background:var(--acc);border-color:var(--acc);box-shadow:0 0 22px -4px rgba(201,163,106,.7)}
 .exportbtn{height:32px;padding:0 13px;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:#fff;font-size:11.5px;font-weight:600;letter-spacing:.02em;cursor:pointer;flex:none;display:flex;align-items:center;gap:6px;box-shadow:none;transition:filter .15s,transform .15s}
+#ownerTplBtn.exportbtn{background:transparent;color:var(--acc);border-color:var(--acc)}#ownerTplBtn.exportbtn:hover{background:var(--accdim)}
 .exportbtn:hover{filter:brightness(1.08)}
 .exportbtn:active{transform:translateY(1px)}
 .exportbtn[disabled]{opacity:.5;cursor:default;filter:none}
@@ -616,6 +617,7 @@ body.ar-open #acct{display:none!important}
     <img class="canvasfreeze" id="canvasFreeze" alt="">
     <div class="topbar">
       <div class="seg"><button class="seg-b" id="segR" onclick="setMode('render')">Rendering effect</button><button class="seg-b" id="segP" onclick="setMode('plates')">Plates</button></div>
+      <button class="exportbtn" id="ownerTplBtn" style="display:none" onclick="window.__ownerPublishTemplate&&window.__ownerPublishTemplate()" title="Owner: publish the current design as a template for everyone">＋ Save as template</button>
       <button class="exportbtn" id="exportBtn" onclick="exportPlates()" title="Export every build plate as a Bambu Studio-ready 3D project (one object per plate)">⬇ Export STL</button>
     </div>
     <button class="lightbtn on" id="lightPill" onclick="toggleLight()"><span class="lb-ic">🌙</span><span class="lb-tx" id="lightLbl">Turn off lamp</span></button>
@@ -2495,9 +2497,10 @@ function bootGeometry(font){
 loadFont(selFont.url).then(bootGeometry,()=>bootGeometry(null));
 // Belt-and-suspenders: once the window + any web fonts are fully ready, queue one more clean pass.
 /* ===== Design persistence: snapshot the whole design + auto-restore on reload (never lose work) ===== */
+function _openTabByTitle(title){try{var t=[].filter.call(document.querySelectorAll(".controls .pl-tab"),function(x){return (x.getAttribute("title")||x.textContent||"").trim().toLowerCase()===String(title).toLowerCase();})[0];if(t)t.click();}catch(e){}}
 function _tplDesc(d){try{if(d){if(d.logoPaths)return "Logo";if(d.name&&String(d.name).trim())return "Name \u00b7 "+String(d.name).trim();if(d.letter)return "Letter "+String(d.letter).toUpperCase().slice(0,1);}}catch(e){}return "Design";}
 function renderTemplates(){var host=document.getElementById("tplGrid");if(!host)return;var sb=window.__sb;if(!sb){host.innerHTML='<div class="tplmuted">Templates load once you\u2019re online.</div>';return;}
-  try{sb.from("templates").select("id,name,data").order("sort",{ascending:true}).order("created_at",{ascending:true}).then(function(r){var h=document.getElementById("tplGrid");if(!h)return;var rows=(r&&!r.error&&r.data)||[];if(!rows.length){h.innerHTML='<div class="tplmuted">No templates yet \u2014 check back soon.</div>';return;}h.innerHTML="";rows.forEach(function(t){var c=document.createElement("button");c.type="button";c.className="tplcard";c.innerHTML='<span class="tt"></span><span class="ts"></span>';c.querySelector(".tt").textContent=t.name||"Template";c.querySelector(".ts").textContent=_tplDesc(t.data);c.onclick=function(){try{if(typeof window.__applyDesign==="function")window.__applyDesign(t.data,{styleOnly:true});}catch(e){}};h.appendChild(c);});});}catch(e){host.innerHTML='<div class="tplmuted">Templates unavailable.</div>';}
+  try{sb.from("templates").select("id,name,data").order("sort",{ascending:true}).order("created_at",{ascending:true}).then(function(r){var h=document.getElementById("tplGrid");if(!h)return;var rows=(r&&!r.error&&r.data)||[];if(!rows.length){h.innerHTML='<div class="tplmuted">No templates yet \u2014 check back soon.</div>';return;}h.innerHTML="";rows.forEach(function(t){var c=document.createElement("button");c.type="button";c.className="tplcard";c.innerHTML='<span class="tt"></span><span class="ts"></span>';c.querySelector(".tt").textContent=t.name||"Template";c.querySelector(".ts").textContent=_tplDesc(t.data);c.onclick=function(){try{if(typeof window.__applyDesign==="function")window.__applyDesign(t.data,{styleOnly:true});var _k=(t.data&&t.data.logoPaths)?"Logo":((t.data&&t.data.name&&String(t.data.name).trim())?"Name":"Letter");setTimeout(function(){_openTabByTitle(_k);},60);}catch(e){}};h.appendChild(c);});});}catch(e){host.innerHTML='<div class="tplmuted">Templates unavailable.</div>';}
 }
 window.__loadTemplates=renderTemplates;
 function serializeDesign(){var d={v:1};try{
@@ -2512,15 +2515,15 @@ var _asT=null;
 function autosave(){clearTimeout(_asT);_asT=setTimeout(function(){try{localStorage.setItem("sl_design_v1",JSON.stringify(serializeDesign()));}catch(e){}},700);}
 function _restoreModels(list){try{(list||[]).forEach(function(mm){var entry=(typeof STL_CATALOG!=="undefined")?STL_CATALOG.filter(function(c){return c.name===mm.name;})[0]:null;if(!entry)return;loadGeometry(entry.path,false).then(function(geo){try{placeCatalogGeo(geo,entry.name);var m=models[selModel];if(m){if(typeof mm.size==="number")m.size=mm.size;if(typeof mm.x==="number")m.x=mm.x;if(typeof mm.y==="number")m.y=mm.y;if(typeof mm.rz==="number")m.rz=mm.rz;renderModelList();try{drawStlPad();}catch(e){}scheduleBuild();}}catch(e){}}).catch(function(){});});}catch(e){}}
 function applyDesign(d,opts){if(!d||d.v!==1)return false;opts=opts||{};var _styleOnly=!!opts.styleOnly;try{
-  if(!_styleOnly&&g("letter"))g("letter").value=(d.letter||"A");
-  if(!_styleOnly&&typeof d.name==="string"){LIDNAME=d.name;var _nel0=document.getElementById("lidName");if(_nel0)_nel0.value=d.name;}
+  if(g("letter"))g("letter").value=(d.letter||"A");
+  if(typeof d.name==="string"){LIDNAME=d.name;var _nel0=document.getElementById("lidName");if(_nel0)_nel0.value=d.name;}
   if(!_styleOnly&&typeof d.printer==="number")selPrinter=d.printer;
   if(!_styleOnly&&(d.unit==="mm"||d.unit==="cm")){UNIT=d.unit;try{paintUnitSeg();}catch(e){}}
   try{var _toU=(UNIT==="cm"?0.1:1);MEAS.forEach(function(m){var el=g(m[0]);if(!el)return;el.min=m[1]*_toU;el.max=m[2]*_toU;el.step=(UNIT==="cm")?Math.max(0.1,Math.round(m[3])/10):m[3];});document.querySelectorAll(".numbox .u").forEach(function(s){s.textContent=UNIT;});}catch(e){}   // restore must also flip the unit labels + slider ranges, not just the value
   if(!_styleOnly&&d.dims){Object.keys(d.dims).forEach(function(id){var el=g(id);if(el){var mm=+d.dims[id]||0;el.value=(UNIT==="cm"?(Math.round(mm/10*100)/100):Math.round(mm));var R=g(id+"R");if(R)R.value=mm;}});}
   if(d.colors){Object.keys(d.colors).forEach(function(k){if(d.colors[k])COLORS[k]=d.colors[k];});try{refreshSwatches();}catch(e){}}
-  if(!_styleOnly&&d.font){var f=NAME_FONTS.find(function(x){return x.url===d.font;});if(f){selNameFont=f;try{renderNameGrid();}catch(e){}}}
-  if(!_styleOnly&&Array.isArray(d.texts)){texts=d.texts.map(function(t){return {id:uid++,str:t.str||"",size:t.size||22,x:t.x||0,y:t.y||0,color:t.color||"#FFFFFF",bold:t.bold||0,font:t.font};});selText=texts.length?0:-1;try{renderTextList();}catch(e){}}
+  if(d.font){var f=NAME_FONTS.find(function(x){return x.url===d.font;});if(f){selNameFont=f;try{renderNameGrid();}catch(e){}}}
+  if(Array.isArray(d.texts)){texts=d.texts.map(function(t){return {id:uid++,str:t.str||"",size:t.size||22,x:t.x||0,y:t.y||0,color:t.color||"#FFFFFF",bold:t.bold||0,font:t.font};});selText=texts.length?0:-1;try{renderTextList();}catch(e){}}
   if(d.texture&&featState("textures")==="on"){try{selectTexture(d.texture);}catch(e){}}
   if(d.logoPaths&&featState("logo")==="on"){try{LOGO=d.logoPaths;if(LOGO&&LOGO.length){LIDNAME="";var _lna=document.getElementById("lidName");if(_lna)_lna.value="";try{_logoUIsync();}catch(e){}}}catch(e){}}
   try{models=[];selModel=-1;if(g("modelControls"))g("modelControls").style.display="none";if(typeof renderModelList==="function")renderModelList();}catch(e){}
@@ -3767,6 +3770,7 @@ window.USDZExporter=USDZExporter;})();
     if(window.__isConcierge()&&!isOwner()){
       if(!cob){cob=document.createElement("button");cob.id="myOrdersBtn";cob.type="button";cob.textContent="📦 My orders";cob.style.cssText="position:fixed;left:14px;bottom:14px;z-index:6000;padding:9px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:#1c1f26;color:#eaeaec;font:600 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35)";cob.onclick=openMyOrders;document.body.appendChild(cob);}
     }else if(cob){cob.remove();}
+    var otb=document.getElementById("ownerTplBtn");if(otb)otb.style.display=isOwner()?"":"none";
     var ob=document.getElementById("ownerJobsBtn");
     if(isOwner()){
       if(!window.__ownerDashShown){window.__ownerDashShown=true;try{showOwnerDash();}catch(e){}}
@@ -3910,6 +3914,7 @@ window.USDZExporter=USDZExporter;})();
   }
   function showOwnerDash(){var d=ensureOwnerDash();d.style.display="flex";var ac=document.getElementById("acct");if(ac)ac.style.display="none";refreshDash();}
   function hideOwnerDash(){var d=document.getElementById("ownerDash");if(d)d.style.display="none";var ac=document.getElementById("acct");if(ac)ac.style.display="";}
+  window.__ownerPublishTemplate=async function(){var sb=window.__sb;if(!sb||!window.__user){uiAlert("Sign in as the owner first.");return;}var name=prompt("Save this design as a template \u2014 name it:","");if(name===null)return;name=(name||"").trim()||"Untitled";var data=(typeof window.__serializeDesign==="function")?window.__serializeDesign():null;if(!data){uiAlert("Couldn\u2019t read the current design.");return;}var mx=0;try{var cur=await sb.from("templates").select("sort").order("sort",{ascending:false}).limit(1);if(cur&&cur.data&&cur.data[0])mx=(cur.data[0].sort||0)+1;}catch(e){}var r=await sb.from("templates").insert({name:name,data:data,sort:mx});if(r&&r.error){uiAlert("Publish failed: "+r.error.message);return;}try{if(window.__loadTemplates)window.__loadTemplates();}catch(e){}uiAlert("\u201c"+name+"\u201d saved to Templates \u2713");};
   window.__openPrintQueue=showOwnerDash;
   window.__showOwnerDash=showOwnerDash;
   window.__hideOwnerDash=hideOwnerDash;
