@@ -95,9 +95,15 @@ create table if not exists public.kiosk_orders (
   contact     text,
   note        text,
   design      jsonb not null,
-  status      text  not null default 'new',
+  status      text  not null default 'new',   -- new -> paid -> done
+  ticket_code text,                            -- short claim code shown to the customer (+QR)
+  price_pence int,                             -- reserved for live pricing
   created_at  timestamptz not null default now()
 );
+
+-- if kiosk_orders already exists from an earlier run, add the newer columns
+alter table public.kiosk_orders add column if not exists ticket_code text;
+alter table public.kiosk_orders add column if not exists price_pence int;
 
 alter table public.kiosk_orders enable row level security;
 
