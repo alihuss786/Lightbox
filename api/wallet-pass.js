@@ -48,7 +48,7 @@ export default async function handler(req, res) {
   const orderUrl = SITE + "/?order=" + encodeURIComponent(code);
 
   const body = {
-    serialNumber: code,                 // idempotent per ticket
+    // NB: serialNumber & authenticationToken are server-owned by WalletWallet — do not send them.
     barcodeValue: orderUrl,
     barcodeFormat: "QR",
     barcodeAltText: code,
