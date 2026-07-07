@@ -65,6 +65,13 @@ export default async function handler(req, res) {
     ],
   };
 
+  // Optional logo/icon (PNG, hosted). Set WALLET_LOGO_URL (and optionally
+  // WALLET_ICON_URL) in Vercel to brand the pass without the Pass Designer.
+  const LOGO_URL = process.env.WALLET_LOGO_URL || "";
+  const ICON_URL = process.env.WALLET_ICON_URL || LOGO_URL;
+  if (LOGO_URL) body.logoURL = LOGO_URL;
+  if (ICON_URL) body.iconURL = ICON_URL;
+
   let data;
   try {
     const r = await fetch("https://api.walletwallet.dev/api/passes", {
