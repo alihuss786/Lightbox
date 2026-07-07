@@ -82,6 +82,8 @@ export default async function handler(req, res) {
   // Tolerate small differences in field naming across API versions.
   const googleUrl = data && (data.googleSaveUrl || data.googlePayUrl || data.saveUrl || (data.google && (data.google.saveUrl || data.google.url)) || "");
   const appleB64 = data && (data.applePass || data.pkpass || data.applePassBase64 || (data.apple && data.apple.pkpass) || "");
+  // shareUrl = WalletWallet's hosted page that auto-shows the right button per device.
+  const shareUrl = data && (data.shareUrl || data.share_url || "");
 
   // Apple path: stream the signed .pkpass so iOS offers "Add to Apple Wallet".
   if (platform === "apple") {
@@ -97,7 +99,10 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   res.status(200).json({
     ok: true,
+    shareUrl: shareUrl || "",
     googleSaveUrl: googleUrl || "",
     appleUrl: appleB64 ? (SITE + "/api/wallet-pass?platform=apple&code=" + encodeURIComponent(code)) : "",
+    // surfaced only for your own debugging via the raw endpoint URL
+    has: { google: !!googleUrl, apple: !!appleB64, share: !!shareUrl },
   });
 }
