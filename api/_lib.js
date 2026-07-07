@@ -43,12 +43,8 @@ export async function signedDownloadUrl(env, filePath, seconds) {
 
 // Build + send the two branded order emails (owner notification with download,
 // customer confirmation without). Best-effort; no-op without RESEND_API_KEY.
-// Free WhatsApp order ping to the owner via CallMeBot (https://www.callmebot.com).
-// No-op unless CALLMEBOT_PHONE + CALLMEBOT_APIKEY are set. Best-effort, never throws.
-export async function sendOrderWhatsApp(env, o) {
-  const phone = (env.CALLMEBOT_PHONE || "").replace(/[^\d+]/g, "");
-  const apikey = env.CALLMEBOT_APIKEY || "";
-  if (!phone || !apikey) return;
+// Build a one-line order alert used by the push channels below.
+export function orderAlertText(o) {
   let s = o.summary;
   if (typeof s === "string") { try { s = JSON.parse(s); } catch (e) { s = {}; } }
   if (!s || typeof s !== "object") s = {};
@@ -60,17 +56,45 @@ export async function sendOrderWhatsApp(env, o) {
   if (s.size) bits.push(s.size.label + " · " + s.size.cm + "cm");
   if (amount) bits.push(amount);
   if (sh.name) bits.push("→ " + sh.name + (sh.postcode ? " (" + sh.postcode + ")" : ""));
-  const text = "🖨 New Lightbox order\n" + (o.user_email || "customer")
-             + (bits.length ? "\n" + bits.join(" · ") : "");
+  return "🖨 New Lightbox order\n" + (o.user_email || "customer")
+       + (bits.length ? "\n" + bits.join(" · ") : "");
+}
+
+// Telegram push to the owner (official Bot API — reliable + free). No-op unless
+// TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID are set. Best-effort, never throws.
+export async function sendOrderTelegram(env, o) {
+  const token = env.TELEGRAM_BOT_TOKEN || "";
+  const chat = env.TELEGRAM_CHAT_ID || "";
+  if (!token || !chat) return;
+  try {
+    await fetch("https://api.telegram.org/bot" + token + "/sendMessage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chat, text: orderAlertText(o), disable_web_page_preview: true }),
+    });
+  } catch (e) { /* best-effort */ }
+}
+
+// Free WhatsApp order ping via CallMeBot (kept as a fallback; can be flaky).
+// No-op unless CALLMEBOT_PHONE + CALLMEBOT_APIKEY are set. Best-effort.
+export async function sendOrderWhatsApp(env, o) {
+  const phone = (env.CALLMEBOT_PHONE || "").replace(/[^\d+]/g, "");
+  const apikey = env.CALLMEBOT_APIKEY || "";
+  if (!phone || !apikey) return;
   try {
     const url = "https://api.callmebot.com/whatsapp.php?phone=" + encodeURIComponent(phone)
-              + "&text=" + encodeURIComponent(text) + "&apikey=" + encodeURIComponent(apikey);
+              + "&text=" + encodeURIComponent(orderAlertText(o)) + "&apikey=" + encodeURIComponent(apikey);
     await fetch(url);
   } catch (e) { /* best-effort */ }
 }
 
+// Fire every configured owner-notification channel (each is a no-op if unset).
+export async function notifyOwnerOrder(env, o) {
+  await Promise.allSettled([ sendOrderTelegram(env, o), sendOrderWhatsApp(env, o) ]);
+}
+
 export async function sendOrderEmails(env, o) {
-  try { await sendOrderWhatsApp(env, o); } catch (e) { /* best-effort */ }
+  try { await notifyOwnerOrder(env, o); } catch (e) { /* best-effort */ }
   if (!env.RESEND_API_KEY) return;
   const FROM = env.FROM_EMAIL || "onboarding@resend.dev";
   const OWNER = (env.OWNER_EMAIL || "ali.hussain755@outlook.com").split(",").map((e) => e.trim()).filter(Boolean);
