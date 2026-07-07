@@ -43,7 +43,34 @@ export async function signedDownloadUrl(env, filePath, seconds) {
 
 // Build + send the two branded order emails (owner notification with download,
 // customer confirmation without). Best-effort; no-op without RESEND_API_KEY.
+// Free WhatsApp order ping to the owner via CallMeBot (https://www.callmebot.com).
+// No-op unless CALLMEBOT_PHONE + CALLMEBOT_APIKEY are set. Best-effort, never throws.
+export async function sendOrderWhatsApp(env, o) {
+  const phone = (env.CALLMEBOT_PHONE || "").replace(/[^\d+]/g, "");
+  const apikey = env.CALLMEBOT_APIKEY || "";
+  if (!phone || !apikey) return;
+  let s = o.summary;
+  if (typeof s === "string") { try { s = JSON.parse(s); } catch (e) { s = {}; } }
+  if (!s || typeof s !== "object") s = {};
+  const sh = (s.shipping && typeof s.shipping === "object") ? s.shipping : {};
+  const amount = (o.amount != null) ? ("£" + (o.amount / 100).toFixed(2))
+              : (s.size && s.size.price != null ? ("£" + s.size.price) : "");
+  const bits = [];
+  if (s.letter) bits.push("Letter " + s.letter);
+  if (s.size) bits.push(s.size.label + " · " + s.size.cm + "cm");
+  if (amount) bits.push(amount);
+  if (sh.name) bits.push("→ " + sh.name + (sh.postcode ? " (" + sh.postcode + ")" : ""));
+  const text = "🖨 New Lightbox order\n" + (o.user_email || "customer")
+             + (bits.length ? "\n" + bits.join(" · ") : "");
+  try {
+    const url = "https://api.callmebot.com/whatsapp.php?phone=" + encodeURIComponent(phone)
+              + "&text=" + encodeURIComponent(text) + "&apikey=" + encodeURIComponent(apikey);
+    await fetch(url);
+  } catch (e) { /* best-effort */ }
+}
+
 export async function sendOrderEmails(env, o) {
+  try { await sendOrderWhatsApp(env, o); } catch (e) { /* best-effort */ }
   if (!env.RESEND_API_KEY) return;
   const FROM = env.FROM_EMAIL || "onboarding@resend.dev";
   const OWNER = (env.OWNER_EMAIL || "ali.hussain755@outlook.com").split(",").map((e) => e.trim()).filter(Boolean);
