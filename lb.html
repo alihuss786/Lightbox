@@ -2690,7 +2690,7 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
     return '<span class="muted">Licensed</span>';
   }
   var detailsOpen=false;
-  function tierName(t){return t==='concierge'?'Concierge (print & ship)':t==='lifetime'?'Lifetime Access':t==='one_year'?'1-Year Access':t==='six_month'?'6-Month Access':'Access';}
+  function tierName(t){return t==='concierge'?'Concierge':t==='merchant'?'Merchant':(t==='studio'||t==='lifetime')?'Studio':(t==='hobby'||t==='one_year'||t==='six_month')?'Hobby':'Access';}
   function fmtDate(iso){try{return new Date(iso).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});}catch(e){return '';}}
   function timeLeft(lic){if(!lic.expires_at)return 'Never expires';var ms=new Date(lic.expires_at)-new Date();if(ms<=0)return 'Expired';var days=Math.ceil(ms/86400000);if(days>=60)return Math.round(days/30)+' months left';return days+(days===1?' day left':' days left');}
   function exportsLeft(lic){if(lic.quota_type==='unlimited')return 'Unlimited';if(lic.quota_type==='total')return Math.max(0,(lic.quota_limit||0)-(lic.exports_total||0))+' of '+lic.quota_limit;if(lic.quota_type==='monthly'){var cur=(new Date()).toISOString().slice(0,7),used=(lic.period_key===cur)?(lic.exports_period||0):0;return Math.max(0,(lic.quota_limit||0)-used)+' of '+lic.quota_limit;}return '';}
@@ -2707,7 +2707,7 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
   }
   var menuOpen=false,designsView=false,_designs=[],_designsLoading=false;
   function signedIn(user,lic){window.__user=user;window.__license=lic;renderAccount();if(window.__afterLicence)try{window.__afterLicence()}catch(e){}}
-  function badgeText(lic){if(!lic)return 'No licence';var t=lic.tier;if(t==='concierge')return 'Concierge';return (t==='lifetime'?'Lifetime':t==='one_year'?'1-Year':t==='six_month'?'6-Month':'Member')+' Member';}
+  function badgeText(lic){if(!lic)return 'No licence';var t=lic.tier;if(t==='concierge')return 'Concierge';if(t==='merchant')return 'Merchant';if(t==='studio'||t==='lifetime')return 'Studio';if(t==='hobby'||t==='one_year'||t==='six_month')return 'Hobby';return 'Member';}
   function usageText(lic){if(!lic)return '';if(lic.quota_type==='unlimited')return 'Unlimited';var e=exportsLeft(lic);return lic.quota_type==='monthly'?(e+' this month'):(e+' left');}
   function statRow(k,v){return '<div class="acstat"><span>'+k+'</span><span>'+v+'</span></div>';}
   function renderAccount(){
