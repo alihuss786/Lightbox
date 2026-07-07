@@ -3623,6 +3623,7 @@ window.USDZExporter=USDZExporter;})();
 
   window.__ownerEmail=OWNER_EMAIL;
   window.__isConcierge=function(){return !!(window.__license&&window.__license.tier==="concierge");};
+  window.__isMerchant=function(){return !!(window.__license&&window.__license.tier==="merchant");};
   function isOwner(){return !!(window.__user&&window.__user.email&&window.__user.email.toLowerCase()===OWNER_EMAIL);}
 
   /* ---- Submit a finished design to the print studio ---- */
@@ -3804,6 +3805,7 @@ window.USDZExporter=USDZExporter;})();
     if(window.__isConcierge()&&!isOwner()){
       if(!cob){cob=document.createElement("button");cob.id="myOrdersBtn";cob.type="button";cob.textContent="📦 My orders";cob.style.cssText="position:fixed;left:14px;bottom:14px;z-index:6000;padding:9px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:#1c1f26;color:#eaeaec;font:600 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35)";cob.onclick=openMyOrders;document.body.appendChild(cob);}
     }else if(cob){cob.remove();}
+    var mkb=document.getElementById("merchantKioskBtn");if(window.__isMerchant()&&!isOwner()){if(!mkb){mkb=document.createElement("button");mkb.id="merchantKioskBtn";mkb.type="button";mkb.textContent="\uD83D\uDDA5 Kiosk mode";mkb.style.cssText="position:fixed;left:14px;bottom:14px;z-index:6000;padding:9px 14px;border-radius:10px;border:1px solid rgba(224,192,141,.45);background:#1c1f26;color:#e0c08d;font:700 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35)";mkb.onclick=function(){try{window.__enterKiosk&&window.__enterKiosk();}catch(e){}};document.body.appendChild(mkb);}}else if(mkb){mkb.remove();}
     var otb=document.getElementById("ownerTplBtn");if(otb)otb.style.display=isOwner()?"":"none";
     var ob=document.getElementById("ownerJobsBtn");
     if(isOwner()){
@@ -4020,5 +4022,40 @@ window.USDZExporter=USDZExporter;})();
 })();
 </script>
 
+<script>
+(function(){
+  var css=document.createElement("style");
+  css.textContent="#kioskBar{display:none}"
+   +"body.kiosk #kioskBar{display:flex;position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:99998;align-items:center;gap:12px;background:rgba(18,21,27,.97);border:1px solid #2b2f37;border-radius:14px;padding:8px 10px 8px 16px;box-shadow:0 12px 32px -12px rgba(0,0,0,.7)}"
+   +"body.kiosk #acct,body.kiosk #exportBtn,body.kiosk .seg,body.kiosk #themeBtn,body.kiosk #merchantKioskBtn,body.kiosk #ownerJobsBtn,body.kiosk #ownerTplBtn,body.kiosk #myOrdersBtn,body.kiosk .arbtn{display:none!important}"
+   +"#kioskBar .kbrand{font:800 12px system-ui,sans-serif;color:#e0c08d;letter-spacing:.12em}"
+   +"#kioskBar .knew{padding:9px 18px;border-radius:10px;border:none;background:linear-gradient(180deg,#e0c08d,#cba765);color:#231a0c;font:800 13px system-ui,sans-serif;cursor:pointer}"
+   +"#kioskBar .kexit{padding:8px 13px;border-radius:10px;border:1px solid #2b2f37;background:transparent;color:#8b93a1;font:600 12px system-ui,sans-serif;cursor:pointer;position:relative;overflow:hidden;-webkit-user-select:none;user-select:none;touch-action:none}"
+   +"#kioskBar .kexit .kfill{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(224,192,141,.3)}";
+  document.head.appendChild(css);
+  function ensureBar(){var bar=document.getElementById("kioskBar");if(bar)return bar;bar=document.createElement("div");bar.id="kioskBar";
+    bar.innerHTML='<span class="kbrand">KIOSK</span><button class="knew" id="kNew">\u2728 Start new</button><button class="kexit" id="kExit" title="Press and hold to exit"><span class="kfill"></span><span style="position:relative">Hold to exit</span></button>';
+    document.body.appendChild(bar);
+    bar.querySelector("#kNew").onclick=function(){try{window.__kioskReset&&window.__kioskReset();}catch(e){}};
+    var ex=bar.querySelector("#kExit"),fill=ex.querySelector(".kfill"),raf=null,t0=0;
+    function step(){var p=Math.min(1,(Date.now()-t0)/1500);fill.style.width=(p*100)+"%";if(p>=1){cancel();try{window.__exitKiosk&&window.__exitKiosk();}catch(e){}return;}raf=requestAnimationFrame(step);}
+    function startHold(e){if(e)e.preventDefault();t0=Date.now();cancel();raf=requestAnimationFrame(step);}
+    function cancel(){if(raf){cancelAnimationFrame(raf);raf=null;}fill.style.width="0";}
+    ex.addEventListener("pointerdown",startHold);["pointerup","pointerleave","pointercancel"].forEach(function(ev){ex.addEventListener(ev,cancel);});
+    return bar;}
+  window.__enterKiosk=function(){try{ensureBar();document.body.classList.add("kiosk");try{sessionStorage.setItem("sl_kiosk","1");}catch(e){}try{if(typeof setMode==="function")setMode("render");}catch(e){}try{if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen();}catch(e){}}catch(e){}};
+  window.__exitKiosk=function(){try{document.body.classList.remove("kiosk");try{sessionStorage.removeItem("sl_kiosk");}catch(e){}try{if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen();}catch(e){}}catch(e){}};
+  window.__kioskReset=function(){try{
+    var nm=document.getElementById("lidName");if(nm)nm.value="";try{if(typeof LIDNAME!=="undefined")LIDNAME="";}catch(e){}
+    var lt=document.getElementById("letter");if(lt)lt.value="A";
+    try{if(typeof LIDICON!=="undefined")LIDICON="";}catch(e){}try{if(typeof LOGO!=="undefined")LOGO=null;}catch(e){}try{window.__logoSvg=null;}catch(e){}
+    try{if(typeof images!=="undefined"&&images)images.length=0;}catch(e){}try{if(typeof models!=="undefined"&&models)models.length=0;}catch(e){}try{if(typeof texts!=="undefined"&&texts)texts.length=0;}catch(e){}
+    ["refreshIconGrid","renderImgList","renderModelList","renderTextList","_logoUIsync"].forEach(function(fn){try{if(typeof window[fn]==="function")window[fn]();}catch(e){}});
+    try{if(typeof rebuild==="function")rebuild();else if(typeof buildModel==="function")buildModel();}catch(e){}
+  }catch(e){}};
+  function restore(){try{if(sessionStorage.getItem("sl_kiosk")==="1"){ensureBar();document.body.classList.add("kiosk");}}catch(e){}}
+  if(document.readyState!=="loading")setTimeout(restore,500);else document.addEventListener("DOMContentLoaded",function(){setTimeout(restore,500);});
+})();
+</script>
 </body>
 </html>
