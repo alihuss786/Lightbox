@@ -55,9 +55,9 @@ export default async function handler(req, res) {
     logoText: brand,
     description: "Order " + code,
     organizationName: brand,
-    backgroundColor: "rgb(20,22,27)",
-    foregroundColor: "rgb(224,192,141)",
-    labelColor: "rgb(139,147,161)",
+    backgroundColor: "#111a3d",   // deep Signature navy (reads as colour, not black)
+    foregroundColor: "#ffffff",   // crisp white values
+    labelColor: "#e0c08d",        // gold labels
     primaryFields: [{ label: "ORDER", value: code }],
     secondaryFields: [
       { label: "Store", value: brand },
@@ -76,6 +76,8 @@ export default async function handler(req, res) {
   const ICON_URL = process.env.WALLET_ICON_URL || (SITE + "/wallet-logo.png");
   if (LOGO_URL) body.logoURL = LOGO_URL;
   if (ICON_URL) body.iconURL = ICON_URL;
+  // a branded thumbnail (logo on navy) — the one extra image a generic pass supports
+  body.thumbnailURL = process.env.WALLET_THUMB_URL || (SITE + "/wallet-thumb.png");
 
   let data;
   try {
