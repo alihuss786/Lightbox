@@ -2520,7 +2520,7 @@ function applyDesign(d,opts){if(!d||d.v!==1)return false;opts=opts||{};var _styl
   if(!_styleOnly&&typeof d.printer==="number")selPrinter=d.printer;
   if(!_styleOnly&&(d.unit==="mm"||d.unit==="cm")){UNIT=d.unit;try{paintUnitSeg();}catch(e){}}
   try{var _toU=(UNIT==="cm"?0.1:1);MEAS.forEach(function(m){var el=g(m[0]);if(!el)return;el.min=m[1]*_toU;el.max=m[2]*_toU;el.step=(UNIT==="cm")?Math.max(0.1,Math.round(m[3])/10):m[3];});document.querySelectorAll(".numbox .u").forEach(function(s){s.textContent=UNIT;});}catch(e){}   // restore must also flip the unit labels + slider ranges, not just the value
-  if(!_styleOnly&&d.dims){Object.keys(d.dims).forEach(function(id){var el=g(id);if(el){var mm=+d.dims[id]||0;el.value=(UNIT==="cm"?(Math.round(mm/10*100)/100):Math.round(mm));var R=g(id+"R");if(R)R.value=mm;}});}
+  if(d.dims){Object.keys(d.dims).forEach(function(id){var el=g(id);if(el){var mm=+d.dims[id]||0;el.value=(UNIT==="cm"?(Math.round(mm/10*100)/100):Math.round(mm));var R=g(id+"R");if(R)R.value=mm;}});}
   if(d.colors){Object.keys(d.colors).forEach(function(k){if(d.colors[k])COLORS[k]=d.colors[k];});try{refreshSwatches();}catch(e){}}
   if(d.font){var f=NAME_FONTS.find(function(x){return x.url===d.font;});if(f){selNameFont=f;try{renderNameGrid();}catch(e){}}}
   if(Array.isArray(d.texts)){texts=d.texts.map(function(t){return {id:uid++,str:t.str||"",size:t.size||22,x:t.x||0,y:t.y||0,color:t.color||"#FFFFFF",bold:t.bold||0,font:t.font};});selText=texts.length?0:-1;try{renderTextList();}catch(e){}}
