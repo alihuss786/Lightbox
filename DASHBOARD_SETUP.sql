@@ -62,3 +62,27 @@ create policy "config owner write"
 insert into public.site_config (id, config)
 values (1, '{}'::jsonb)
 on conflict (id) do nothing;
+
+-- ---------- NAME GRAPHICS (owner-uploaded, traced in the browser) -----------
+create table if not exists public.graphics (
+  id         uuid primary key default gen_random_uuid(),
+  name       text not null,
+  emoji      text default '🎨',
+  data       jsonb not null,          -- { ink:[[...]], sil:[[...]] }
+  sort       int  not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table public.graphics enable row level security;
+
+drop policy if exists "graphics public read" on public.graphics;
+drop policy if exists "graphics owner write"  on public.graphics;
+
+create policy "graphics public read"
+  on public.graphics for select
+  using (true);
+
+create policy "graphics owner write"
+  on public.graphics for all
+  using      ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' )
+  with check ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
