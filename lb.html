@@ -842,7 +842,8 @@ let UNIT="mm";
 const _FEATURES=Object.freeze({textures:"on",name:"on",logo:"on",templates:"on",ar:"on"});
 try{window.__siteConfig=JSON.parse(localStorage.getItem("sl_cfg")||"null");}catch(e){window.__siteConfig=null;}
 try{window.__cachedTier=localStorage.getItem("sl_tier")||null;}catch(e){window.__cachedTier=null;}
-function featState(k){var cfg=window.__siteConfig||{};var tier=(window.__license&&window.__license.tier)||window.__cachedTier||null;var v=null;if(tier&&cfg.tiers&&cfg.tiers[tier]&&cfg.tiers[tier][k])v=cfg.tiers[tier][k];if(!v&&cfg.features&&cfg.features[k])v=cfg.features[k];if(!v)v=_FEATURES[k]||"on";return (v==="soon"||v==="hidden")?v:"on";}
+try{window.__viewAsTier=sessionStorage.getItem("sl_viewas")||null;}catch(e){window.__viewAsTier=null;}
+function featState(k){var cfg=window.__siteConfig||{};var tier=window.__viewAsTier||(window.__license&&window.__license.tier)||window.__cachedTier||null;var v=null;if(tier&&cfg.tiers&&cfg.tiers[tier]&&cfg.tiers[tier][k])v=cfg.tiers[tier][k];if(!v&&cfg.features&&cfg.features[k])v=cfg.features[k];if(!v)v=_FEATURES[k]||"on";return (v==="soon"||v==="hidden")?v:"on";}
 function applyFeatureGates(){try{[].forEach.call(document.querySelectorAll(".controls .acc[data-feat]"),function(acc){var st=featState(acc.getAttribute("data-feat"));if(st==="hidden"){if(acc.parentNode)acc.parentNode.removeChild(acc);}else if(st==="soon"){acc.classList.add("feat-soon");var body=acc.querySelector(".acc-b");if(body)body.innerHTML='<div class="soon-card"><div class="soon-badge">Coming soon</div><div class="soon-txt">This feature isn\u2019t available yet \u2014 it\u2019s on the roadmap.</div></div>';}});}catch(e){}}
 window.__refreshGates=function(){try{applyFeatureGates();}catch(e){}try{var wrap=document.querySelector(".controls");if(wrap){var bar=wrap.querySelector(".pl-tabs");if(bar){bar.parentNode.removeChild(bar);if(typeof plBuildTabs==="function")plBuildTabs();if(typeof immersiveInit==="function")immersiveInit();}}}catch(e){}try{if(featState("ar")!=="on"){var _ab=document.querySelector(".topbar .arbtn");if(_ab)_ab.parentNode.removeChild(_ab);}}catch(e){}};
 window.__applySiteConfig=function(cfg){window.__siteConfig=(cfg&&typeof cfg==="object")?cfg:{};try{localStorage.setItem("sl_cfg",JSON.stringify(window.__siteConfig));}catch(e){}if(document.querySelector(".controls .pl-tabs"))window.__refreshGates();};
@@ -3622,8 +3623,8 @@ window.USDZExporter=USDZExporter;})();
   var PRINT_BUCKET="print-jobs";
 
   window.__ownerEmail=OWNER_EMAIL;
-  window.__isConcierge=function(){return !!(window.__license&&window.__license.tier==="concierge");};
-  window.__isMerchant=function(){return !!(window.__license&&window.__license.tier==="merchant");};
+  window.__isConcierge=function(){return (window.__viewAsTier||(window.__license&&window.__license.tier))==="concierge";};
+  window.__isMerchant=function(){return (window.__viewAsTier||(window.__license&&window.__license.tier))==="merchant";};
   function isOwner(){return !!(window.__user&&window.__user.email&&window.__user.email.toLowerCase()===OWNER_EMAIL);}
 
   /* ---- Submit a finished design to the print studio ---- */
@@ -3805,7 +3806,8 @@ window.USDZExporter=USDZExporter;})();
     if(window.__isConcierge()&&!isOwner()){
       if(!cob){cob=document.createElement("button");cob.id="myOrdersBtn";cob.type="button";cob.textContent="📦 My orders";cob.style.cssText="position:fixed;left:14px;bottom:14px;z-index:6000;padding:9px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:#1c1f26;color:#eaeaec;font:600 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35)";cob.onclick=openMyOrders;document.body.appendChild(cob);}
     }else if(cob){cob.remove();}
-    var mkb=document.getElementById("merchantKioskBtn");if(window.__isMerchant()&&!isOwner()){if(!mkb){mkb=document.createElement("button");mkb.id="merchantKioskBtn";mkb.type="button";mkb.textContent="\uD83D\uDDA5 Kiosk mode";mkb.style.cssText="position:fixed;left:14px;bottom:14px;z-index:6000;padding:9px 14px;border-radius:10px;border:1px solid rgba(224,192,141,.45);background:#1c1f26;color:#e0c08d;font:700 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35)";mkb.onclick=function(){try{window.__enterKiosk&&window.__enterKiosk();}catch(e){}};document.body.appendChild(mkb);}}else if(mkb){mkb.remove();}
+    var mkb=document.getElementById("merchantKioskBtn");if(window.__isMerchant()&&(window.__viewAsTier||!isOwner())){if(!mkb){mkb=document.createElement("button");mkb.id="merchantKioskBtn";mkb.type="button";mkb.textContent="\uD83D\uDDA5 Kiosk mode";mkb.style.cssText="position:fixed;left:14px;bottom:58px;z-index:6000;padding:9px 14px;border-radius:10px;border:1px solid rgba(224,192,141,.45);background:#1c1f26;color:#e0c08d;font:700 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35)";mkb.onclick=function(){try{window.__enterKiosk&&window.__enterKiosk();}catch(e){}};document.body.appendChild(mkb);}}else if(mkb){mkb.remove();}
+    var vas=document.getElementById("ownerViewAs");if(isOwner()){if(!vas){vas=document.createElement("select");vas.id="ownerViewAs";vas.innerHTML='<option value="">\uD83D\uDC41 Viewing: Owner</option><option value="concierge">View as Concierge</option><option value="hobby">View as Hobby</option><option value="studio">View as Studio</option><option value="merchant">View as Merchant</option>';vas.style.cssText="position:fixed;top:58px;right:14px;z-index:99997;padding:8px 12px;border-radius:10px;border:1px solid rgba(224,192,141,.45);background:#1c1f26;color:#e0c08d;font:700 12px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35)";vas.onchange=function(){try{if(vas.value)sessionStorage.setItem("sl_viewas",vas.value);else sessionStorage.removeItem("sl_viewas");}catch(e){}try{sessionStorage.removeItem("sl_treload");}catch(e){}location.reload();};document.body.appendChild(vas);}vas.value=window.__viewAsTier||"";}else if(vas){vas.remove();}
     var otb=document.getElementById("ownerTplBtn");if(otb)otb.style.display=isOwner()?"":"none";
     var ob=document.getElementById("ownerJobsBtn");
     if(isOwner()){
