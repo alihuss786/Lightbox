@@ -86,3 +86,31 @@ create policy "graphics owner write"
   on public.graphics for all
   using      ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' )
   with check ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
+
+-- ---------- KIOSK ORDERS (customer designs captured at a merchant's stall) ----
+create table if not exists public.kiosk_orders (
+  id          uuid primary key default gen_random_uuid(),
+  merchant_id uuid not null default auth.uid(),
+  customer    text,
+  contact     text,
+  note        text,
+  design      jsonb not null,
+  status      text  not null default 'new',
+  created_at  timestamptz not null default now()
+);
+
+alter table public.kiosk_orders enable row level security;
+
+drop policy if exists "kiosk own"        on public.kiosk_orders;
+drop policy if exists "kiosk owner read" on public.kiosk_orders;
+
+-- a merchant has full access to their OWN captured orders
+create policy "kiosk own"
+  on public.kiosk_orders for all
+  using ( merchant_id = auth.uid() )
+  with check ( merchant_id = auth.uid() );
+
+-- the owner can read every merchant's orders
+create policy "kiosk owner read"
+  on public.kiosk_orders for select
+  using ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
