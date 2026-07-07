@@ -25,29 +25,30 @@ Supabase → **SQL Editor → New query** → paste → Run:
 
 ```sql
 -- Concierge: design + order prints on site, no STL downloads
-insert into public.licenses (user_id, tier, quota_type, quota_limit, expires_at)
-select id, 'concierge', 'total', 0, null from auth.users where email = 'concierge@sltest.com'
-on conflict (user_id) do update set tier='concierge', quota_type='total', quota_limit=0, expires_at=null;
+insert into public.licenses (user_id, tier, quota_type, quota_limit)
+select id, 'concierge', 'total', 0 from auth.users where email = 'concierge@sltest.com'
+on conflict (user_id) do update set tier='concierge', quota_type='total', quota_limit=0;
 
--- Hobby: 12 months, up to 30 downloads (personal)
-insert into public.licenses (user_id, tier, quota_type, quota_limit, expires_at)
-select id, 'hobby', 'total', 30, now() + interval '12 months' from auth.users where email = 'hobby@sltest.com'
-on conflict (user_id) do update set tier='hobby', quota_type='total', quota_limit=30, expires_at=now() + interval '12 months';
+-- Hobby: up to 30 downloads (personal)
+insert into public.licenses (user_id, tier, quota_type, quota_limit)
+select id, 'hobby', 'total', 30 from auth.users where email = 'hobby@sltest.com'
+on conflict (user_id) do update set tier='hobby', quota_type='total', quota_limit=30;
 
--- Studio: lifetime, unlimited downloads (personal)
-insert into public.licenses (user_id, tier, quota_type, quota_limit, expires_at)
-select id, 'studio', 'unlimited', 0, null from auth.users where email = 'studio@sltest.com'
-on conflict (user_id) do update set tier='studio', quota_type='unlimited', quota_limit=0, expires_at=null;
+-- Studio: unlimited downloads (personal)
+insert into public.licenses (user_id, tier, quota_type, quota_limit)
+select id, 'studio', 'unlimited', 0 from auth.users where email = 'studio@sltest.com'
+on conflict (user_id) do update set tier='studio', quota_type='unlimited', quota_limit=0;
 
--- Merchant: lifetime, unlimited, commercial licence
-insert into public.licenses (user_id, tier, quota_type, quota_limit, expires_at)
-select id, 'merchant', 'unlimited', 0, null from auth.users where email = 'merchant@sltest.com'
-on conflict (user_id) do update set tier='merchant', quota_type='unlimited', quota_limit=0, expires_at=null;
+-- Merchant: unlimited, commercial licence
+insert into public.licenses (user_id, tier, quota_type, quota_limit)
+select id, 'merchant', 'unlimited', 0 from auth.users where email = 'merchant@sltest.com'
+on conflict (user_id) do update set tier='merchant', quota_type='unlimited', quota_limit=0;
 ```
 
-> If the SQL errors on a column that doesn't exist (e.g. `expires_at`), your
-> `licenses` table uses a slightly different schema — tell me the columns and
-> I'll adjust. The example in `CONCIERGE_SETUP.md §4` shows the shape it expects.
+> This uses only the four columns every `licenses` table has, so it will run
+> as-is. (Hobby won't have a 12-month expiry date in the test — not needed to
+> verify the tier.) If you ever see a red error mentioning a column name, paste
+> it to me and I'll adjust.
 
 ## Step 3 — sign in
 
