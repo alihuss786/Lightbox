@@ -432,6 +432,9 @@ input[type=text]:focus,input[type=number]:focus{border-color:var(--acc)}
 .tplcard .tt{font-weight:700;font-size:13px;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tplcard .ts{font-size:11px;color:var(--txt2)}
 .tplmuted{grid-column:1/-1;color:var(--txt2);font-size:12px;padding:10px 2px}
+.tplcard.tplmore{cursor:default;border-style:dashed;background:transparent;opacity:.8}
+.tplcard.tplmore:hover{border-color:var(--line);background:transparent}
+.tplcard.tplmore .tt{color:var(--txt2);font-weight:700}
 .pl-tab{font-size:11px;letter-spacing:.06em}
 .iconbtn{border-radius:9px}
 #lightPill.lightbtn{height:40px;border-radius:12px;font-size:11px;letter-spacing:.05em;box-shadow:0 6px 18px -10px rgba(0,0,0,.6)}
@@ -2522,7 +2525,7 @@ loadFont(selFont.url).then(bootGeometry,()=>bootGeometry(null));
 function _openTabByTitle(title){try{var t=[].filter.call(document.querySelectorAll(".controls .pl-tab"),function(x){return (x.getAttribute("title")||x.textContent||"").trim().toLowerCase()===String(title).toLowerCase();})[0];if(t)t.click();}catch(e){}}
 function _tplDesc(d){try{if(d){if(d.logoPaths)return "Logo";if(d.name&&String(d.name).trim())return "Name \u00b7 "+String(d.name).trim();if(d.letter)return "Letter "+String(d.letter).toUpperCase().slice(0,1);}}catch(e){}return "Design";}
 function renderTemplates(){var host=document.getElementById("tplGrid");if(!host)return;var sb=window.__sb;if(!sb){host.innerHTML='<div class="tplmuted">Templates load once you\u2019re online.</div>';return;}
-  try{sb.from("templates").select("id,name,data").order("sort",{ascending:true}).order("created_at",{ascending:true}).then(function(r){var h=document.getElementById("tplGrid");if(!h)return;var rows=(r&&!r.error&&r.data)||[];if(!rows.length){h.innerHTML='<div class="tplmuted">No templates yet \u2014 check back soon.</div>';return;}h.innerHTML="";rows.forEach(function(t){var c=document.createElement("button");c.type="button";c.className="tplcard";c.innerHTML='<span class="tt"></span><span class="ts"></span>';c.querySelector(".tt").textContent=t.name||"Template";c.querySelector(".ts").textContent=_tplDesc(t.data);c.onclick=function(){try{if(typeof window.__applyDesign==="function")window.__applyDesign(t.data,{styleOnly:true});}catch(e){}};h.appendChild(c);});});}catch(e){host.innerHTML='<div class="tplmuted">Templates unavailable.</div>';}
+  try{sb.from("templates").select("id,name,data").order("sort",{ascending:true}).order("created_at",{ascending:true}).then(function(r){var h=document.getElementById("tplGrid");if(!h)return;var rows=(r&&!r.error&&r.data)||[];if(!rows.length){h.innerHTML='<div class="tplmuted">No templates yet \u2014 check back soon.</div>';return;}h.innerHTML="";rows.forEach(function(t){var c=document.createElement("button");c.type="button";c.className="tplcard";c.innerHTML='<span class="tt"></span><span class="ts"></span>';c.querySelector(".tt").textContent=t.name||"Template";c.querySelector(".ts").textContent=_tplDesc(t.data);c.onclick=function(){try{if(typeof window.__applyDesign==="function")window.__applyDesign(t.data,{styleOnly:true});}catch(e){}};h.appendChild(c);});var _mc=document.createElement("div");_mc.className="tplcard tplmore";_mc.setAttribute("aria-hidden","true");_mc.innerHTML='<span class="tt">\u2728 More to come</span><span class="ts">New designs added regularly</span>';h.appendChild(_mc);});}catch(e){host.innerHTML='<div class="tplmuted">Templates unavailable.</div>';}
 }
 window.__loadTemplates=renderTemplates;
 function serializeDesign(){var d={v:1};try{
