@@ -69,10 +69,11 @@ export default async function handler(req, res) {
   // Pass Designer. Point WALLET_LOGO_URL at a FLAT, transparent-background PNG
   // (a photo/3D mockup does not work in the small pass logo slot). Falls back to
   // wallet-logo.png at the site root if present.
-  // Prefer an explicit env logo, else the merchant's own uploaded store logo
-  // (served as an image by /api/store-logo), else nothing.
-  const LOGO_URL = process.env.WALLET_LOGO_URL || (hasLogo ? (SITE + "/api/store-logo?code=" + encodeURIComponent(code)) : "");
-  const ICON_URL = process.env.WALLET_ICON_URL || "";
+  // Logo priority: explicit env override → the Signature Lightboxes logo committed
+  // at the site root → the merchant's own uploaded store logo (served by /api/store-logo).
+  const LOGO_URL = process.env.WALLET_LOGO_URL || (SITE + "/wallet-logo.png") ||
+    (hasLogo ? (SITE + "/api/store-logo?code=" + encodeURIComponent(code)) : "");
+  const ICON_URL = process.env.WALLET_ICON_URL || (SITE + "/wallet-logo.png");
   if (LOGO_URL) body.logoURL = LOGO_URL;
   if (ICON_URL) body.iconURL = ICON_URL;
 
