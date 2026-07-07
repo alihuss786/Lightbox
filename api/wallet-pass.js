@@ -22,8 +22,8 @@ export default async function handler(req, res) {
   if (!KEY) { res.status(200).json({ ok: false, reason: "not_configured" }); return; }
   if (!/^[A-Z0-9-]{3,24}$/.test(code)) { res.status(400).json({ ok: false, reason: "bad_code" }); return; }
 
-  // Optional: brand the pass with the store name + live status (best-effort).
-  let store = "", status = "new";
+  // Optional: brand the pass with the store name + live status + logo (best-effort).
+  let store = "", status = "new", hasLogo = false;
   const SUPA_URL = process.env.SUPABASE_URL, SECRET = process.env.SUPABASE_SECRET_KEY;
   if (SUPA_URL && SECRET) {
     try {
@@ -35,9 +35,9 @@ export default async function handler(req, res) {
         status = o.status || "new";
         if (o.merchant_id) {
           const mr = await fetch(SUPA_URL + "/rest/v1/merchants?user_id=eq." +
-            encodeURIComponent(o.merchant_id) + "&select=store_name&limit=1", { headers: H });
+            encodeURIComponent(o.merchant_id) + "&select=store_name,logo_url&limit=1", { headers: H });
           const m = (await mr.json().catch(() => []))[0];
-          if (m) store = m.store_name || "";
+          if (m) { store = m.store_name || ""; hasLogo = !!m.logo_url; }
         }
       }
     } catch (e) { /* branding optional */ }
@@ -69,7 +69,9 @@ export default async function handler(req, res) {
   // Pass Designer. Point WALLET_LOGO_URL at a FLAT, transparent-background PNG
   // (a photo/3D mockup does not work in the small pass logo slot). Falls back to
   // wallet-logo.png at the site root if present.
-  const LOGO_URL = process.env.WALLET_LOGO_URL || "";
+  // Prefer an explicit env logo, else the merchant's own uploaded store logo
+  // (served as an image by /api/store-logo), else nothing.
+  const LOGO_URL = process.env.WALLET_LOGO_URL || (hasLogo ? (SITE + "/api/store-logo?code=" + encodeURIComponent(code)) : "");
   const ICON_URL = process.env.WALLET_ICON_URL || "";
   if (LOGO_URL) body.logoURL = LOGO_URL;
   if (ICON_URL) body.iconURL = ICON_URL;
