@@ -8,11 +8,15 @@
 //   SUPABASE_URL         e.g. https://xxxx.supabase.co
 //   SUPABASE_SECRET_KEY  the sb_secret_... key  (SECRET — server only)
 
+import { rateLimit, clientIp } from "./_lib.js";
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     res.status(405).json({ ok: false, reason: "method_not_allowed" });
     return;
   }
+  const rl = rateLimit("os:" + clientIp(req), 60, 60000);
+  if (!rl.ok) { res.setHeader("Retry-After", rl.retryAfter); res.status(429).json({ ok: false, reason: "rate_limited" }); return; }
 
   const SUPA_URL = process.env.SUPABASE_URL;
   const SECRET = process.env.SUPABASE_SECRET_KEY;

@@ -7,7 +7,11 @@
 
 const MIME = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", svg: "image/svg+xml" };
 
+import { rateLimit, clientIp } from "./_lib.js";
+
 export default async function handler(req, res) {
+  const rl = rateLimit("sl:" + clientIp(req), 120, 60000);
+  if (!rl.ok) { res.setHeader("Retry-After", rl.retryAfter); res.status(429).end(); return; }
   const SUPA_URL = process.env.SUPABASE_URL, SECRET = process.env.SUPABASE_SECRET_KEY;
   if (!SUPA_URL || !SECRET) { res.status(500).end(); return; }
 

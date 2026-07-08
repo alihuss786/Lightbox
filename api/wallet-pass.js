@@ -13,7 +13,12 @@
 
 const STATUS_LABEL = { new: "Order received", paid: "Being made", done: "Ready to collect" };
 
+import { rateLimit, clientIp } from "./_lib.js";
+
 export default async function handler(req, res) {
+  // wallet passes count against the WalletWallet quota, so limit tighter
+  const rl = rateLimit("wp:" + clientIp(req), 20, 60000);
+  if (!rl.ok) { res.setHeader("Retry-After", rl.retryAfter); res.status(429).json({ ok: false, reason: "rate_limited" }); return; }
   const KEY = process.env.WALLETWALLET_API_KEY;
   const raw = (req.query && (req.query.code || req.query.order)) || "";
   const code = String(Array.isArray(raw) ? raw[0] : raw).trim().toUpperCase().slice(0, 24);

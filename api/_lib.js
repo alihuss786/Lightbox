@@ -8,6 +8,27 @@ export function escapeHtml(v) {
   );
 }
 
+// Best-effort in-memory rate limiter (per warm serverless instance). Not a hard
+// guarantee across instances, but it stops naive hammering of the public GET
+// endpoints. For production-grade limiting, back this with Upstash/Redis.
+const _rlBuckets = new Map();
+export function rateLimit(key, max = 30, windowMs = 60000) {
+  const now = Date.now();
+  let e = _rlBuckets.get(key);
+  if (!e || now > e.reset) { e = { count: 0, reset: now + windowMs }; _rlBuckets.set(key, e); }
+  e.count++;
+  if (_rlBuckets.size > 5000) { for (const [k, v] of _rlBuckets) { if (now > v.reset) _rlBuckets.delete(k); } }
+  return e.count <= max
+    ? { ok: true, remaining: max - e.count }
+    : { ok: false, retryAfter: Math.max(1, Math.ceil((e.reset - now) / 1000)) };
+}
+
+// Pull the caller's IP from Vercel's forwarding headers.
+export function clientIp(req) {
+  const xff = (req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return xff || req.headers["x-real-ip"] || "unknown";
+}
+
 // Verify a Supabase access token and return the user ({id,email}) or null.
 export async function verifyUser(env, authHeader) {
   const token = (authHeader || "").replace(/^Bearer\s+/i, "").trim();
