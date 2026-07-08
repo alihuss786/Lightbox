@@ -38,7 +38,7 @@ export default async function handler(req, res) {
   try {
     // 1) find the order by its ticket code (only the safe columns)
     const q = SUPA_URL + "/rest/v1/kiosk_orders?ticket_code=eq." +
-      encodeURIComponent(code) + "&select=status,created_at,merchant_id,ticket_code&limit=1";
+      encodeURIComponent(code) + "&select=status,created_at,merchant_id,ticket_code,fulfilment&limit=1";
     const or = await fetch(q, { headers: H });
     if (!or.ok) { res.status(502).json({ ok: false, reason: "lookup_failed" }); return; }
     const rows = await or.json().catch(() => []);
@@ -64,6 +64,9 @@ export default async function handler(req, res) {
       ticket: o.ticket_code || code,
       status: o.status || "new",
       created_at: o.created_at || null,
+      fulfilment: (o.fulfilment && o.fulfilment.mode)
+        ? { mode: o.fulfilment.mode, collectDate: o.fulfilment.collectDate || null }
+        : null,
       store,
       logo,
     });

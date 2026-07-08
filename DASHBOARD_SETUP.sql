@@ -104,6 +104,7 @@ create table if not exists public.kiosk_orders (
 -- if kiosk_orders already exists from an earlier run, add the newer columns
 alter table public.kiosk_orders add column if not exists ticket_code text;
 alter table public.kiosk_orders add column if not exists price_pence int;
+alter table public.kiosk_orders add column if not exists fulfilment jsonb;  -- {mode, address:{}, collectDate}
 
 alter table public.kiosk_orders enable row level security;
 
@@ -142,6 +143,7 @@ create table if not exists public.merchants (
 
 -- if the merchants table already exists from an earlier run, add the newer columns
 alter table public.merchants add column if not exists screensaver_url text;
+alter table public.merchants add column if not exists fulfilment jsonb not null default '{}'::jsonb;
 
 alter table public.merchants enable row level security;
 
