@@ -82,7 +82,7 @@ input,button,select,textarea{font-family:inherit}
 /* ----- plates + printer panels ----- */
 .platelist{position:absolute;top:62px;left:14px;display:none;flex-direction:column;gap:8px;width:188px;max-height:calc(var(--vh) - 96px);overflow:auto;z-index:6}
 .printerbox{position:absolute;top:62px;right:14px;display:none;flex-direction:column;width:172px;z-index:7}
-.prgrid{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;overflow-y:hidden;padding-bottom:3px;-webkit-overflow-scrolling:touch}
+.prgrid{display:none;flex-wrap:wrap;gap:8px}
 .prcard{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(20,22,28,.72);backdrop-filter:blur(8px);color:var(--txt);cursor:pointer;line-height:1.15;transition:border-color .15s,background .15s,color .15s}
 .prcard .prnm{font-weight:700;font-size:12.5px;white-space:nowrap}
 .prcard .prsz{font-size:9.5px;color:var(--txt2);font-variant-numeric:tabular-nums}
@@ -588,8 +588,8 @@ body.ar-open #acct{display:none!important}
 
   /* Plates mode: printer + plate list dock on the right, clear of the left
      panel, the top bar and the lamp (never over the controls) */
-  .printerbox{top:74px!important;right:22px!important;left:auto!important;bottom:auto!important;width:230px}
-  .platelist{top:158px!important;right:22px!important;left:auto!important;bottom:auto!important;width:230px;max-height:calc(100vh - 250px);flex-direction:column;overflow:auto}
+  .printerbox{top:74px!important;right:22px!important;left:auto!important;bottom:auto!important;width:210px}
+  .platelist{top:128px!important;right:22px!important;left:auto!important;bottom:auto!important;width:210px;max-height:calc(100vh - 220px);flex-direction:column;overflow:auto}
 }
 
 @media(max-width:979px){
@@ -608,14 +608,27 @@ body.ar-open #acct{display:none!important}
   .controls .pl-tab.active::after{display:none}
   .fbtn,.nbtn,.cat-item,.pcard,.texcard,.tlayer,.mchip{background:var(--soft)!important;border:1px solid var(--cardline)!important}
   .fbtn.sel,.nbtn.sel,.pcard.sel,.texcard.sel{border-color:var(--acc)!important;background:var(--accdim)!important}
-  /* Plates strip sits below the top bar; printer docks under it — both stay
-     clear of the lamp/RGB pills bottom-right (mobile only). */
-  body.plates-mode::after{content:"";position:fixed;left:0;right:0;bottom:0;height:188px;background:linear-gradient(to top,var(--card) 46%,rgba(20,22,28,.62) 82%,transparent);border-top:1px solid var(--cardline);z-index:5;pointer-events:none}
-  .platelist{top:56px!important}
-  body.plates-mode .printerbox{position:fixed!important;top:auto!important;bottom:92px!important;left:14px!important;right:14px!important;width:auto!important;z-index:8}
-  body.plates-mode #lightPill.lightbtn{position:fixed!important;bottom:24px!important;right:14px!important;left:auto!important;z-index:8}
-  body.plates-mode #rgbPill.lightbtn{position:fixed!important;bottom:24px!important;left:14px!important;right:auto!important;top:auto!important;z-index:8}
+}
+
+/* Plates mode: the lamp + RGB do nothing here, so hide them on every device */
+body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
+
+/* iPad / small screens: keep the printer DROPDOWN, docked top-right */
+@media(min-width:641px) and (max-width:979px){
+  body.plates-mode .printerbox{top:74px!important;right:22px!important;left:auto!important;bottom:auto!important;width:220px}
+  body.plates-mode .platelist{top:132px!important;right:22px!important;left:auto!important;bottom:auto!important;width:220px;max-height:calc(100vh - 220px);flex-direction:column;overflow:auto}
+}
+
+/* Phone: the printer becomes a TILE GRID filling the empty bottom area */
+@media(max-width:640px){
+  body.plates-mode::after{content:"";position:fixed;left:0;right:0;bottom:0;height:300px;background:linear-gradient(to top,var(--card) 62%,rgba(20,22,28,.55) 88%,transparent);border-top:1px solid var(--cardline);z-index:5;pointer-events:none}
+  body.plates-mode .platelist{top:56px!important;bottom:auto!important;left:12px!important;right:12px!important;width:auto!important;flex-direction:row!important;max-height:none!important;overflow-x:auto;overflow-y:visible}
   body.plates-mode .dims{position:fixed!important;top:130px!important;right:14px!important;bottom:auto!important;left:auto!important}
+  body.plates-mode .printerbox{position:fixed!important;top:auto!important;bottom:16px!important;left:12px!important;right:12px!important;width:auto!important;z-index:8;max-height:268px;overflow:auto}
+  body.plates-mode .psel{display:none}
+  body.plates-mode .prgrid{display:flex!important}
+  .prcard{flex:1 1 calc(33.333% - 6px);align-items:center;justify-content:center;padding:12px 8px;text-align:center}
+  .prcard .prnm{font-size:13px}
 }
 </style>
 </head>
@@ -2237,7 +2250,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
 function renderPlateList(){const el=g("platelist");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";
   el.innerHTML=`<div class="plbl">Plates</div>`+PLATES.map((p,i)=>{const extra=p.flip?" · face-down":"";const th=PLATE_THUMBS[i]?`<img src="${PLATE_THUMBS[i]}">`:"";return `<div class="pcard${i===selPlate?' sel':''}" data-i="${i}"><div class="pth">${th}</div><div><div class="pnm">Plate ${i+1}</div><div class="psub">${p.name}${extra}</div></div></div>`;}).join("");
   el.querySelectorAll(".pcard").forEach(d=>d.onclick=()=>{selPlate=+d.dataset.i;zoom=1;buildModel();});}
-function renderPrinter(){const el=g("printerbox");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";el.innerHTML=`<div class="plbl">Printer</div><div class="prgrid">`+PRINTERS.map((p,i)=>`<button type="button" class="prcard${i===selPrinter?' sel':''}" data-i="${i}"><span class="prnm">${p.n}</span><span class="prsz">${p.x}×${p.y}</span></button>`).join("")+`</div>`;el.querySelectorAll(".prcard").forEach(d=>{d.onclick=()=>{setPrinter(+d.dataset.i);};});const cur=el.querySelector(".prcard.sel");if(cur&&cur.scrollIntoView)try{cur.scrollIntoView({inline:"center",block:"nearest"});}catch(e){}}
+function renderPrinter(){const el=g("printerbox");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";el.innerHTML=`<div class="plbl">Printer</div><select class="psel" onchange="setPrinter(this.selectedIndex)">`+PRINTERS.map((p,i)=>`<option ${i===selPrinter?"selected":""}>${p.n} · ${p.x}×${p.y}mm</option>`).join("")+`</select><div class="prgrid">`+PRINTERS.map((p,i)=>`<button type="button" class="prcard${i===selPrinter?' sel':''}" data-i="${i}"><span class="prnm">${p.n}</span><span class="prsz">${p.x}×${p.y}</span></button>`).join("")+`</div>`;el.querySelectorAll(".prcard").forEach(d=>{d.onclick=()=>{setPrinter(+d.dataset.i);};});}
 function setPrinter(i){selPrinter=i;zoom=1;buildModel();}
 
 function _fitSpin(w,h,bx,by){if(!(w>0)||!(h>0))return 0;if((w<=bx&&h<=by)||(w<=by&&h<=bx))return 0;var best=0,bestO=1e18;for(var d=0;d<90;d+=2.5){var a=d*Math.PI/180,c=Math.abs(Math.cos(a)),si=Math.abs(Math.sin(a));var W=w*c+h*si,H=w*si+h*c;var o=Math.min(Math.max(0,W-bx,H-by),Math.max(0,W-by,H-bx));if(o<bestO-1e-6){bestO=o;best=a;}}return best;}
