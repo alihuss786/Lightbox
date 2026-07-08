@@ -44,11 +44,21 @@ export default async function handler(req, res) {
     } catch (e) { return null; }
   }
   async function setAcct(acct) {
+    // PATCH first (touches only stripe_account_id, preserves the rest of the
+    // profile). If no row exists yet, INSERT one. A blind upsert can't be used
+    // here because merchants.user_id is UNIQUE and would 409 / wipe columns.
     try {
-      // upsert so it works even before the merchant has saved their profile once
+      const pr = await fetch(env.SUPABASE_URL + "/rest/v1/merchants?user_id=eq." + user.id, {
+        method: "PATCH",
+        headers: Object.assign({ Prefer: "return=representation" }, SB),
+        body: JSON.stringify({ stripe_account_id: acct }),
+      });
+      const rows = await pr.json().catch(() => null);
+      if (Array.isArray(rows) && rows.length) return;
+    } catch (e) { /* fall through to insert */ }
+    try {
       await fetch(env.SUPABASE_URL + "/rest/v1/merchants", {
-        method: "POST",
-        headers: Object.assign({ Prefer: "resolution=merge-duplicates" }, SB),
+        method: "POST", headers: SB,
         body: JSON.stringify({ user_id: user.id, stripe_account_id: acct }),
       });
     } catch (e) { /* non-fatal */ }
