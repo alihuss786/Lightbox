@@ -8,7 +8,7 @@
 // If STRIPE_SECRET_KEY is unset the endpoint returns {configured:false} and the
 // client falls back to the free submit path — so nothing breaks pre-setup.
 
-import { verifyUser, SIZE_PRICES } from "./_lib.js";
+import { verifyUser, SIZE_PRICES, SHIP_PENCE } from "./_lib.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") { res.status(405).json({ ok: false, reason: "method_not_allowed" }); return; }
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
       headers: Object.assign({ Prefer: "return=representation" }, SB),
       body: JSON.stringify({
         user_id: user.id, email: user.email, file_path: filePath, filename: filename,
-        summary: summary, size_bytes: sizeBytes, status: "awaiting_payment", payment_amount: amount,
+        summary: summary, size_bytes: sizeBytes, status: "awaiting_payment", payment_amount: amount + SHIP_PENCE,
       }),
     });
     const rows = await ins.json().catch(() => null);
@@ -69,6 +69,11 @@ export default async function handler(req, res) {
   form.set("line_items[0][price_data][currency]", "gbp");
   form.set("line_items[0][price_data][unit_amount]", String(amount));
   form.set("line_items[0][price_data][product_data][name]", "Signature Lightbox — " + sizeLabel + (sizeCm ? " (" + sizeCm + "cm)" : ""));
+  // flat UK delivery as its own line so the customer sees it itemised at checkout
+  form.set("line_items[1][quantity]", "1");
+  form.set("line_items[1][price_data][currency]", "gbp");
+  form.set("line_items[1][price_data][unit_amount]", String(SHIP_PENCE));
+  form.set("line_items[1][price_data][product_data][name]", "UK delivery");
 
   try {
     const sres = await fetch("https://api.stripe.com/v1/checkout/sessions", {

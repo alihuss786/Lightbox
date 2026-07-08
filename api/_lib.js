@@ -188,6 +188,8 @@ export async function sendOrderEmails(env, o) {
 
 // Server-authoritative pricing (pence). Keep in sync with CONCIERGE_SIZES in lb.html.
 export const SIZE_PRICES = { small: 2000, medium: 3500, large: 4500 };
+// Flat UK delivery charged on every concierge order (pence). Keep in sync with SHIP_GBP in lb.html.
+export const SHIP_PENCE = 499;
 
 // Confirm a Stripe Checkout session is paid, then mark the order `new` and email.
 // Idempotent + re-verifies with Stripe directly (so it's safe to call from both
