@@ -317,6 +317,11 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
 .splash-enter{appearance:none;border:1px solid rgba(208,158,124,.5);background:linear-gradient(180deg,rgba(208,158,124,.14),rgba(208,158,124,.04));color:#f1ddce;font-size:12px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;padding:15px 40px;border-radius:42px;cursor:pointer;backdrop-filter:blur(4px);transition:all .3s ease}
 .splash-enter:hover{background:linear-gradient(180deg,rgba(208,158,124,.26),rgba(208,158,124,.1));box-shadow:0 12px 36px -10px rgba(208,158,124,.5);transform:translateY(-1px)}
 .splash-enter:active{transform:translateY(0)}
+.splash-foot{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:14px 20px calc(14px + env(safe-area-inset-bottom));font-size:11px;letter-spacing:.04em;color:rgba(200,188,176,.55)}
+.splash-foot button,.splash-foot a{appearance:none;background:none;border:0;padding:0;margin:0;font:inherit;color:rgba(210,196,182,.7);text-decoration:none;cursor:pointer;transition:color .2s ease}
+.splash-foot button:hover,.splash-foot a:hover{color:#f1ddce}
+.splash-foot-sep{opacity:.4}
+@media(max-width:520px){.splash-foot{font-size:10px;gap:6px}}
 .splash-dots{display:flex;gap:8px;margin-top:22px}
 .splash-dots span{width:6px;height:6px;border-radius:50%;background:rgba(205,160,130,.5);animation:splashDot 1.25s ease-in-out infinite}
 .splash-dots span:nth-child(2){animation-delay:.16s}.splash-dots span:nth-child(3){animation-delay:.32s}
@@ -640,6 +645,11 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
   <div class="splash-inner">
     <button class="splash-enter" id="enterBtn" onclick="enterStudio()">Enter Studio</button>
     <div class="splash-dots"><span></span><span></span><span></span></div>
+  </div>
+  <div class="splash-foot">
+    <button type="button" onclick="try{window.__showTerms&&window.__showTerms()}catch(e){}">Legal &amp; Privacy</button>
+    <span class="splash-foot-sep">·</span>
+    <a href="mailto:support@signaturelightboxes.com">support@signaturelightboxes.com</a>
   </div>
 </div>
 <script>function enterStudio(){var s=document.getElementById('splash');if(!s)return;s.classList.add('hide');try{window.dispatchEvent(new Event('resize'));}catch(e){}setTimeout(function(){s.style.display='none';},550);}</script>
