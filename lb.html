@@ -839,7 +839,7 @@ let UNIT="mm";
    "soon" shows a greyed Coming-soon tab whose real controls are removed. The config is frozen and read only
    through featState() from this closure, so it cannot be flipped from the console. Default everything to
    "on" -> no change until launch. ===== */
-const _FEATURES=Object.freeze({textures:"on",name:"on",logo:"on",templates:"on",ar:"on"});
+const _FEATURES=Object.freeze({textures:"on",name:"on",logo:"on",templates:"on",ar:"on",lithophane:"hidden"});
 try{window.__siteConfig=JSON.parse(localStorage.getItem("sl_cfg")||"null");}catch(e){window.__siteConfig=null;}
 try{window.__cachedTier=localStorage.getItem("sl_tier")||null;}catch(e){window.__cachedTier=null;}
 try{window.__viewAsTier=sessionStorage.getItem("sl_viewas")||null;}catch(e){window.__viewAsTier=null;}
