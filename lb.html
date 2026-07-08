@@ -6496,7 +6496,7 @@ var qrcode = function() {
   window.__hasCustomerImage=function(d){try{d=d||((typeof window.__serializeDesign==="function")?window.__serializeDesign():null);return !!(d&&((d.images&&d.images.length)||d.photo));}catch(e){return false;}};
   window.__showTerms=function(){try{var m=document.getElementById("legalModal");if(!m){m=document.createElement("div");m.id="legalModal";m.style.cssText="display:none;position:fixed;inset:0;z-index:100003;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:16px";
     var ENTITY="Signature Lightboxes";           /* TODO: your registered legal / trading name */
-    var ADDR="[your business address]";            /* TODO: registered / business address */
+    var ADDR="";
     var EMAIL="hello@signaturelightboxes.com";     /* TODO: your contact & data-request email */
     var EFF="8 July 2026";                          /* TODO: effective date */
     var MAKE="3–5 working days";               /* TODO: typical make time */
@@ -6531,7 +6531,7 @@ var qrcode = function() {
      + H('lg-delivery','3. Delivery')
      + UL(['We make to order, so please allow around '+MAKE+' to make your item, plus delivery time. Estimates are estimates, not guarantees.','We currently ship within the United Kingdom (and elsewhere only where stated at checkout).','Risk of loss or damage passes to you when the item is delivered; ownership passes once we have received full payment.','Please give an accurate delivery address — we are not responsible for delays or losses caused by an incorrect address. Parcels returned as undeliverable can be re-sent, and you may need to cover re-postage.','If your parcel has not arrived within a reasonable time after the estimate, contact us and we will investigate.'])
      + H('lg-privacy','4. Privacy policy')
-     + P('This explains how we handle your personal data under UK data protection law (UK GDPR and the Data Protection Act 2018). The data controller is '+ENTITY+', '+ADDR+', '+EMAIL+'.')
+     + P('This explains how we handle your personal data under UK data protection law (UK GDPR and the Data Protection Act 2018). The data controller is '+ENTITY+'. To ask about your data or exercise your rights, email us at '+EMAIL+'.')
      + Sh('What we collect')
      + P('Your name, email address, delivery address and phone number (if you provide it); the design you create and any photos or images you upload; and your order and payment status. Payments are processed by Stripe — we do not see or store your full card details.')
      + Sh('Why we use it, and our legal basis')
@@ -6547,7 +6547,7 @@ var qrcode = function() {
      + H('lg-use','5. Acceptable content & use')
      + P('You must not upload or request anything that is unlawful, hateful, harassing, obscene, or that infringes intellectual property or privacy. We screen names, text and images and may refuse, edit or cancel (and refund) any order whose content we consider inappropriate or unlawful.')
      + P('The Site, its design tool, code and branding are owned by us or our licensors. You may use the tool to create designs for your own orders; you may not copy, resell or reverse-engineer the tool itself.')
-     + '<div style="font:400 11px/1.5 system-ui;color:#6b7280;margin:20px 0 4px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)">This is a good-faith plain-English draft to get you started — it is not legal advice. Please have a solicitor review it, confirm your VAT position, and replace the [bracketed] placeholders before you rely on it.</div>';
+     + '<div style="font:400 11px/1.5 system-ui;color:#6b7280;margin:20px 0 4px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)">This is a good-faith plain-English draft to get you started — it is not legal advice. Please have a solicitor review it, confirm your VAT position before you rely on it.</div>';
     m.innerHTML='<div style="background:#14161b;color:#eaeaec;border:1px solid rgba(255,255,255,.12);border-radius:16px;max-width:560px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">'
      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:1px solid rgba(255,255,255,.08)"><div style="font-weight:800;font-size:16px">Terms, Privacy &amp; Policies</div><button id="lgClose" style="background:none;border:none;color:#aaa;font-size:24px;cursor:pointer;line-height:1">×</button></div>'
      +'<div style="display:flex;gap:7px;overflow-x:auto;padding:11px 18px;border-bottom:1px solid rgba(255,255,255,.07)">'+chip('lg-terms','Terms')+chip('lg-refunds','Refunds')+chip('lg-delivery','Delivery')+chip('lg-privacy','Privacy')+chip('lg-use','Use')+'</div>'
