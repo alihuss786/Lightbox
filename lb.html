@@ -3871,7 +3871,7 @@ window.USDZExporter=USDZExporter;})();
     if(!sb||!user||typeof sb.channel!=="function"||!(window.__isMerchant&&window.__isMerchant()))return;
     if(window.__merchChannel&&window.__merchChannelFor===user.id)return;
     try{if(window.__merchChannel&&sb.removeChannel)sb.removeChannel(window.__merchChannel);}catch(e){}
-    try{window.__merchChannelFor=user.id;window.__merchChannel=sb.channel("merch-"+user.id).on("postgres_changes",{event:"UPDATE",schema:"public",table:"merchants",filter:"user_id=eq."+user.id},function(payload){try{if(payload&&payload["new"]&&window.__applyMerchantConfig)window.__applyMerchantConfig(payload["new"]);}catch(e){}}).subscribe();}catch(e){}
+    try{window.__merchChannelFor=user.id;window.__merchChannel=sb.channel("merch-"+user.id).on("postgres_changes",{event:"UPDATE",schema:"public",table:"merchants",filter:"user_id=eq."+user.id},function(payload){try{if(payload&&payload["new"]&&window.__applyMerchantConfig)window.__applyMerchantConfig(Object.assign({},window.__merchant||{},payload["new"]));}catch(e){}}).subscribe();}catch(e){}
   };
 
   window.__afterLicence=applyConciergeUI;
