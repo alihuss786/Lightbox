@@ -65,9 +65,12 @@ export default async function handler(req, res) {
     foregroundColor: "#ffffff",   // crisp white values
     labelColor: "#e0c08d",        // gold labels
     primaryFields: [{ label: "ORDER", value: code }],
+    // No live "Status" field on the pass — it can't auto-update, so it would
+    // only ever show a stale value. The pass barcode links to the live status
+    // page instead. Keep the store name for branding.
     secondaryFields: [
       { label: "Store", value: brand },
-      { label: "Status", value: STATUS_LABEL[status] || "Order received" },
+      { label: "Ticket", value: "Show to collect" },
     ],
   };
 
