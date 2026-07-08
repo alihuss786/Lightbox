@@ -158,3 +158,8 @@ create policy "merchant own"
 create policy "merchant owner read"
   on public.merchants for select
   using ( (auth.jwt() ->> 'email') = 'ali.hussain755@outlook.com' );
+
+-- Live filament stock: let the kiosk receive merchant-profile changes in real time
+-- (so marking a colour out of stock on your phone updates the kiosk instantly).
+-- Safe to run again; ignore "already member of publication" if it appears.
+alter publication supabase_realtime add table public.merchants;
