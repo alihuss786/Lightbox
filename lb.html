@@ -6495,15 +6495,65 @@ var qrcode = function() {
   window.__moderateDesign=function(d){try{d=d||((typeof window.__serializeDesign==="function")?window.__serializeDesign():null);if(!d)return {ok:true};var parts=[];if(d.name)parts.push(d.name);if(d.letter)parts.push(d.letter);if(d.texts)d.texts.forEach(function(t){if(t&&t.str)parts.push(t.str);});for(var i=0;i<parts.length;i++){if(!window.__moderateText(parts[i]).ok)return {ok:false,text:parts[i]};}return {ok:true};}catch(e){return {ok:true};}};
   window.__hasCustomerImage=function(d){try{d=d||((typeof window.__serializeDesign==="function")?window.__serializeDesign():null);return !!(d&&((d.images&&d.images.length)||d.photo));}catch(e){return false;}};
   window.__showTerms=function(){try{var m=document.getElementById("legalModal");if(!m){m=document.createElement("div");m.id="legalModal";m.style.cssText="display:none;position:fixed;inset:0;z-index:100003;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:16px";
-    var H='<div style="font-weight:800;font-size:14px;color:#e0c08d;margin:16px 0 5px">';var P='<div style="font-size:12.5px;color:#aab2c0;line-height:1.55;margin-bottom:4px">';
-    m.innerHTML='<div style="background:#14161b;color:#eaeaec;border:1px solid rgba(255,255,255,.12);border-radius:16px;max-width:520px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden"><div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.08)"><div style="font-weight:800;font-size:16px">Terms &amp; Privacy</div><button id="lgClose" style="background:none;border:none;color:#aaa;font-size:24px;cursor:pointer;line-height:1">×</button></div><div style="padding:6px 22px 20px;overflow:auto">'
-    +H+'Made to order</div>'+P+'Every lightbox is personalised and made to order, so orders can’t be cancelled or refunded once placed — except where an item arrives faulty or damaged, in which case we’ll repair or replace it. This does not affect your statutory rights.</div>'
-    +H+'Your content &amp; rights</div>'+P+'By adding a name, text, logo or photo you confirm you own it or have permission to use it, and that it isn’t offensive, hateful, or infringing. We may decline or cancel any order whose content we consider inappropriate, and refund it.</div>'
-    +H+'Your details &amp; privacy</div>'+P+'We use the name and contact details you provide only to make and hand over your order, and to update you about it. We don’t sell your data. If you tick the optional box, we may occasionally email you about new designs and offers — you can opt out any time. Your saved design and details are stored securely and kept only as long as needed to fulfil your order.</div>'
-    +H+'Contact</div>'+P+'Questions about an order or your data: get in touch with the stall or email us. Signature Lightboxes.</div>'
-    +'<div style="font-size:11px;color:#6b7280;margin-top:12px">This is a plain-English summary. Have a solicitor review full terms before public launch.</div>'
-    +'</div></div>';
-    document.body.appendChild(m);m.querySelector("#lgClose").onclick=function(){m.style.display="none";};m.onclick=function(e){if(e.target===m)m.style.display="none";};}
+    var ENTITY="Signature Lightboxes";           /* TODO: your registered legal / trading name */
+    var ADDR="[your business address]";            /* TODO: registered / business address */
+    var EMAIL="hello@signaturelightboxes.com";     /* TODO: your contact & data-request email */
+    var EFF="8 July 2026";                          /* TODO: effective date */
+    var MAKE="3–5 working days";               /* TODO: typical make time */
+    var H=function(id,t){return '<h3 id="'+id+'" style="font:800 15px system-ui;color:#e0c08d;margin:22px 0 7px;scroll-margin-top:8px">'+t+'</h3>';};
+    var Sh=function(t){return '<div style="font:700 12.5px system-ui;color:#cfd4dd;margin:12px 0 3px">'+t+'</div>';};
+    var P=function(t){return '<p style="font:400 12.5px/1.62 system-ui;color:#aab2c0;margin:0 0 8px">'+t+'</p>';};
+    var UL=function(items){return '<ul style="margin:0 0 8px;padding-left:18px;color:#aab2c0;font:400 12.5px/1.6 system-ui">'+items.map(function(x){return '<li style="margin-bottom:4px">'+x+'</li>';}).join('')+'</ul>';};
+    var chip=function(a,t){return '<button type="button" data-go="'+a+'" style="flex:0 0 auto;padding:6px 12px;border-radius:20px;border:1px solid #2a2d35;background:#1c1f26;color:#c7cbd2;font:600 11.5px system-ui;cursor:pointer">'+t+'</button>';};
+    var body=''
+     + P('Effective '+EFF+'. These policies govern your use of signaturelightboxes.com (the “Site”) and any order you place through it. The Site and print service are operated by '+ENTITY+' (“we”, “us”, “our”). By using the Site or placing an order you agree to them.')
+     + H('lg-terms','1. Terms of sale')
+     + P('We make personalised, made-to-order 3D-printed lightboxes and related items to the design you create.')
+     + Sh('Placing an order')
+     + P('When you pay at checkout you are making an offer to buy. A contract is formed only when we confirm acceptance of your order (by email). We may decline or cancel an order — for example if we cannot make it, if there was a pricing or description error, or if the content is not acceptable (see section 5) — and we will refund any payment for an order we do not accept.')
+     + Sh('Prices & payment')
+     + P('Prices are in pounds sterling (GBP). Payment is taken at checkout by our payment provider, Stripe; we never see or store your full card details. Delivery is charged as shown before you pay. If a price is obviously wrong we may cancel and refund rather than fulfil at that price.')
+     + Sh('Made to order')
+     + P('Items are personalised and made specifically for you, and production may begin shortly after payment. Because our products are handmade / 3D-printed, small variations in colour, finish and dimensions are normal and are not defects.')
+     + Sh('Your content')
+     + P('By adding any name, text, logo or image you confirm you own it or have permission to use it, and that it does not infringe anyone’s rights or break the law. You grant us a licence to use your content only to produce and fulfil your order. You are responsible for what you upload.')
+     + Sh('Our liability')
+     + P('We do not exclude or limit liability where it would be unlawful to do so (including for death or personal injury caused by our negligence, or for fraud). Subject to that, our total liability for an order is limited to the amount you paid for it, and we are not liable for indirect or consequential losses. Nothing here affects your statutory rights.')
+     + Sh('Governing law')
+     + P('These terms are governed by the laws of England and Wales, and disputes are subject to the courts of England and Wales (you may also bring proceedings in your local UK court).')
+     + H('lg-refunds','2. Cancellations & refunds')
+     + P('Because our items are personalised and made to your specification, the 14-day right to cancel under the Consumer Contracts Regulations 2013 does not apply once your order is placed. Please check your design carefully before you pay.')
+     + Sh('Changed your mind?')
+     + P('If you email us at '+EMAIL+' quickly — before we have started making your item — we will do our best to amend or cancel it and refund you where production has not begun. Once we have started making a personalised item we may not be able to cancel it.')
+     + Sh('Faulty, damaged or not as described')
+     + P('Your rights under the Consumer Rights Act 2015 are unaffected. If your item arrives faulty, damaged or materially different from what you ordered, email '+EMAIL+' within 14 days of delivery with your order number and photos, and we will repair, replace or refund it as appropriate.')
+     + P('Approved refunds are made to your original payment method via Stripe, normally within 5–10 days of us agreeing them.')
+     + H('lg-delivery','3. Delivery')
+     + UL(['We make to order, so please allow around '+MAKE+' to make your item, plus delivery time. Estimates are estimates, not guarantees.','We currently ship within the United Kingdom (and elsewhere only where stated at checkout).','Risk of loss or damage passes to you when the item is delivered; ownership passes once we have received full payment.','Please give an accurate delivery address — we are not responsible for delays or losses caused by an incorrect address. Parcels returned as undeliverable can be re-sent, and you may need to cover re-postage.','If your parcel has not arrived within a reasonable time after the estimate, contact us and we will investigate.'])
+     + H('lg-privacy','4. Privacy policy')
+     + P('This explains how we handle your personal data under UK data protection law (UK GDPR and the Data Protection Act 2018). The data controller is '+ENTITY+', '+ADDR+', '+EMAIL+'.')
+     + Sh('What we collect')
+     + P('Your name, email address, delivery address and phone number (if you provide it); the design you create and any photos or images you upload; and your order and payment status. Payments are processed by Stripe — we do not see or store your full card details.')
+     + Sh('Why we use it, and our legal basis')
+     + UL(['To take, make and deliver your order and provide support — to perform our contract with you.','To send order and service updates — to perform our contract / our legitimate interest in keeping you informed.','To send marketing about new designs and offers — only if you opt in (consent); you can withdraw at any time.','To keep business and accounting records, prevent misuse and fraud, and moderate content — our legitimate interests and legal obligations.'])
+     + Sh('Who we share it with')
+     + P('We use trusted providers who process data on our instructions: Stripe (payments), Supabase (secure database, sign-in and file storage), Resend (sending emails) and Vercel (website hosting). Some may process data outside the UK / EEA under appropriate safeguards. We do not sell your personal data.')
+     + Sh('How long we keep it')
+     + P('We keep order and design data for as long as needed to fulfil your order and to meet our legal and accounting obligations, after which we delete or anonymise it. Marketing contact details are kept until you unsubscribe.')
+     + Sh('Your rights')
+     + P('You have the right to access, correct, delete, restrict or object to our use of your data, to data portability, and to withdraw consent. To exercise any of these, email '+EMAIL+'. You can also complain to the Information Commissioner’s Office (ico.org.uk).')
+     + Sh('Cookies & local storage')
+     + P('We store your in-progress design and preferences in your browser’s local storage on your device, and use essential cookies to keep you signed in. We do not use advertising trackers.')
+     + H('lg-use','5. Acceptable content & use')
+     + P('You must not upload or request anything that is unlawful, hateful, harassing, obscene, or that infringes intellectual property or privacy. We screen names, text and images and may refuse, edit or cancel (and refund) any order whose content we consider inappropriate or unlawful.')
+     + P('The Site, its design tool, code and branding are owned by us or our licensors. You may use the tool to create designs for your own orders; you may not copy, resell or reverse-engineer the tool itself.')
+     + '<div style="font:400 11px/1.5 system-ui;color:#6b7280;margin:20px 0 4px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)">This is a good-faith plain-English draft to get you started — it is not legal advice. Please have a solicitor review it, confirm your VAT position, and replace the [bracketed] placeholders before you rely on it.</div>';
+    m.innerHTML='<div style="background:#14161b;color:#eaeaec;border:1px solid rgba(255,255,255,.12);border-radius:16px;max-width:560px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">'
+     +'<div style="display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:1px solid rgba(255,255,255,.08)"><div style="font-weight:800;font-size:16px">Terms, Privacy &amp; Policies</div><button id="lgClose" style="background:none;border:none;color:#aaa;font-size:24px;cursor:pointer;line-height:1">×</button></div>'
+     +'<div style="display:flex;gap:7px;overflow-x:auto;padding:11px 18px;border-bottom:1px solid rgba(255,255,255,.07)">'+chip('lg-terms','Terms')+chip('lg-refunds','Refunds')+chip('lg-delivery','Delivery')+chip('lg-privacy','Privacy')+chip('lg-use','Use')+'</div>'
+     +'<div id="lgBody" style="padding:8px 22px 22px;overflow:auto">'+body+'</div></div>';
+    document.body.appendChild(m);m.querySelector("#lgClose").onclick=function(){m.style.display="none";};m.onclick=function(e){if(e.target===m)m.style.display="none";};
+    [].forEach.call(m.querySelectorAll("[data-go]"),function(bt){bt.onclick=function(){var t=m.querySelector("#"+bt.getAttribute("data-go"));if(t)t.scrollIntoView({behavior:"smooth",block:"start"});};});}
     m.style.display="flex";}catch(e){}};
 })();
 </script>
