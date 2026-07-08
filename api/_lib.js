@@ -120,7 +120,7 @@ export async function sendOrderEmails(env, o) {
   // Domain is verified in Resend, so send from it by default (env can override).
   const FROM = env.FROM_EMAIL || "orders@signaturelightboxes.com";
   const REPLY_TO = env.REPLY_TO || "support@signaturelightboxes.com";
-  const OWNER = (env.OWNER_EMAIL || "ali.hussain755@outlook.com").split(",").map((e) => e.trim()).filter(Boolean);
+  const OWNER = (env.OWNER_EMAIL || "ali.hussain755@outlook.com,support@signaturelightboxes.com").split(",").map((e) => e.trim()).filter(Boolean);
   const LOGO = env.LOGO_URL || "https://signaturelightboxes.com/email-logo.jpg";
   const s = (o.summary && typeof o.summary === "object") ? o.summary : {};
   const sh = (s.shipping && typeof s.shipping === "object") ? s.shipping : null;

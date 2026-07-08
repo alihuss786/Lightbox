@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   const SUPA_URL = process.env.SUPABASE_URL;
   const ANON = process.env.SUPABASE_ANON_KEY;
   const SECRET = process.env.SUPABASE_SECRET_KEY;
-  const OWNER_EMAIL = process.env.OWNER_EMAIL || "ali.hussain755@outlook.com";
+  const OWNER_EMAIL = process.env.OWNER_EMAIL || "ali.hussain755@outlook.com,support@signaturelightboxes.com";
   const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
   const FROM_EMAIL = process.env.FROM_EMAIL || "onboarding@resend.dev";
   const BUCKET = process.env.PRINT_BUCKET || "print-jobs";
