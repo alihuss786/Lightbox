@@ -217,3 +217,41 @@ export async function confirmPaidOrder(env, sessionId) {
   await sendOrderEmails(env, { user_email: job.email, filename: job.filename, summary: job.summary, downloadUrl: downloadUrl, amount: session.amount_total });
   return { ok: true, job_id: jobId };
 }
+
+// Finalise a KIOSK card payment: re-fetch the Stripe session, and only if it is
+// genuinely paid flip the kiosk_orders row to paid/card. Keyed by the
+// kiosk_order_id we stashed in the session metadata; returns early (not_kiosk)
+// for concierge sessions so it can be called side-by-side with confirmPaidOrder.
+// Idempotent — safe to run from both the webhook and the success redirect.
+export async function confirmKioskPaid(env, sessionId) {
+  const STRIPE = env.STRIPE_SECRET_KEY || "";
+  if (!STRIPE) return { ok: false, reason: "no_stripe" };
+  let session;
+  try {
+    const r = await fetch("https://api.stripe.com/v1/checkout/sessions/" + encodeURIComponent(sessionId), {
+      headers: { Authorization: "Bearer " + STRIPE },
+    });
+    session = await r.json().catch(() => null);
+    if (!r.ok || !session) return { ok: false, reason: "stripe_error" };
+  } catch (e) { return { ok: false, reason: "stripe_unreachable" }; }
+  if (session.payment_status !== "paid") return { ok: false, reason: "unpaid" };
+  const orderId = session.metadata && session.metadata.kiosk_order_id;
+  if (!orderId) return { ok: false, reason: "not_kiosk" };
+
+  const SB = { apikey: env.SUPABASE_SECRET_KEY, Authorization: "Bearer " + env.SUPABASE_SECRET_KEY, "Content-Type": "application/json" };
+  let row;
+  try {
+    const r = await fetch(env.SUPABASE_URL + "/rest/v1/kiosk_orders?id=eq." + encodeURIComponent(orderId) + "&select=id,status", { headers: SB });
+    const rows = await r.json().catch(() => null);
+    row = Array.isArray(rows) && rows[0] ? rows[0] : null;
+  } catch (e) { return { ok: false, reason: "db_unreachable" }; }
+  if (!row) return { ok: false, reason: "order_not_found" };
+  if (row.status === "paid" || row.status === "done") return { ok: true, already: true, order_id: orderId };
+
+  try {
+    await fetch(env.SUPABASE_URL + "/rest/v1/kiosk_orders?id=eq." + encodeURIComponent(orderId), {
+      method: "PATCH", headers: SB, body: JSON.stringify({ status: "paid", payment_method: "card" }),
+    });
+  } catch (e) { return { ok: false, reason: "update_failed" }; }
+  return { ok: true, order_id: orderId };
+}

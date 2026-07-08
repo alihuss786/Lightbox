@@ -13,7 +13,7 @@
 //   URL: https://signaturelightboxes.com/api/stripe-webhook
 //   Event: checkout.session.completed
 
-import { confirmPaidOrder } from "./_lib.js";
+import { confirmPaidOrder, confirmKioskPaid } from "./_lib.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") { res.status(405).json({ received: false }); return; }
@@ -30,6 +30,7 @@ export default async function handler(req, res) {
   // Only act on a completed checkout; ACK everything else so Stripe stops retrying.
   if (type === "checkout.session.completed" && session && session.id) {
     try { await confirmPaidOrder(env, session.id); } catch (e) { /* idempotent; ACK anyway */ }
+    try { await confirmKioskPaid(env, session.id); } catch (e) { /* idempotent; ACK anyway */ }
   }
   res.status(200).json({ received: true });
 }
