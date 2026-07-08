@@ -388,6 +388,17 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
     .zoomhint{display:none!important}
 }
 
+/* Narrow phones (≤384px, e.g. iPhone SE/mini, older Androids): tighten the top
+   bar so the Export/CTA button never runs under the account chip, and drop the
+   decorative floating dimension callouts that would otherwise collide with the
+   lamp pill in the lower-right. 390px+ phones keep both at full size. */
+@media (max-width:384px){
+  .topbar{gap:6px;left:10px}
+  .seg-b{padding:6px 9px;font-size:10.5px}
+  .exportbtn{padding:0 8px;font-size:10px;height:30px;gap:4px}
+  .dimlbl{display:none!important}
+}
+
 /* POP LAMP collapsible header bar */
 .controls::before{display:none !important}
 .pl-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
