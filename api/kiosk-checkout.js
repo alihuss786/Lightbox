@@ -20,13 +20,31 @@ export default async function handler(req, res) {
     res.status(500).json({ ok: false, reason: "server_not_configured" }); return;
   }
   const STRIPE = env.STRIPE_SECRET_KEY || "";
+  const SB = { apikey: env.SUPABASE_SECRET_KEY, Authorization: "Bearer " + env.SUPABASE_SECRET_KEY, "Content-Type": "application/json" };
+
+  // look up the connected account (if any) that a kiosk order was charged on,
+  // so a direct-charge session can be re-fetched on the right account.
+  async function acctForOrder(orderId) {
+    if (!orderId) return null;
+    try {
+      const r = await fetch(env.SUPABASE_URL + "/rest/v1/kiosk_orders?id=eq." + encodeURIComponent(orderId) + "&select=merchant_id", { headers: SB });
+      const rows = await r.json().catch(() => null);
+      const o = Array.isArray(rows) && rows[0] ? rows[0] : null;
+      if (!o || !o.merchant_id) return null;
+      const mr = await fetch(env.SUPABASE_URL + "/rest/v1/merchants?user_id=eq." + o.merchant_id + "&select=stripe_account_id", { headers: SB });
+      const mrows = await mr.json().catch(() => null);
+      const m = Array.isArray(mrows) && mrows[0] ? mrows[0] : null;
+      return (m && m.stripe_account_id) || null;
+    } catch (e) { return null; }
+  }
 
   // ---- finalise on return from Stripe ----
   if (req.method === "GET") {
     const sid = (req.query && req.query.confirm) || "";
     if (!sid) { res.status(400).json({ ok: false, reason: "no_session" }); return; }
     if (!STRIPE) { res.status(200).json({ ok: false, configured: false }); return; }
-    const out = await confirmKioskPaid(env, String(sid));
+    const acct = await acctForOrder((req.query && req.query.order) || "");
+    const out = await confirmKioskPaid(env, String(sid), acct);
     res.status(200).json(out); return;
   }
 
@@ -43,8 +61,6 @@ export default async function handler(req, res) {
   const orderId = (body.order_id || "").toString();
   if (!orderId) { res.status(400).json({ ok: false, reason: "no_order" }); return; }
 
-  const SB = { apikey: env.SUPABASE_SECRET_KEY, Authorization: "Bearer " + env.SUPABASE_SECRET_KEY, "Content-Type": "application/json" };
-
   // load the order (service role) and make sure it belongs to the signed-in merchant
   let order;
   try {
@@ -58,23 +74,27 @@ export default async function handler(req, res) {
   const amount = Number(order.price_pence) || 0;
   if (!(amount > 0)) { res.status(400).json({ ok: false, reason: "no_price" }); return; }
 
-  // merchant currency + store name for the Stripe line item
-  let cur = "gbp", storeName = "Signature Lightboxes";
+  // merchant currency + store name for the Stripe line item, and their connected
+  // account (if they've onboarded via Stripe Connect — payments then go direct).
+  let cur = "gbp", storeName = "Signature Lightboxes", acct = null;
   try {
-    const r = await fetch(env.SUPABASE_URL + "/rest/v1/merchants?user_id=eq." + user.id + "&select=store_name,price_rules", { headers: SB });
+    const r = await fetch(env.SUPABASE_URL + "/rest/v1/merchants?user_id=eq." + user.id + "&select=store_name,price_rules,stripe_account_id", { headers: SB });
     const rows = await r.json().catch(() => null);
     const m = Array.isArray(rows) && rows[0] ? rows[0] : null;
     if (m) {
       if (m.store_name) storeName = m.store_name;
       const c = m.price_rules && m.price_rules.currency;
       cur = c === "$" ? "usd" : (c === "€" ? "eur" : "gbp");
+      acct = m.stripe_account_id || null;
     }
   } catch (e) { /* defaults are fine */ }
 
   const base = (env.SITE_URL || "https://signaturelightboxes.com").replace(/\/$/, "");
   const form = new URLSearchParams();
   form.set("mode", "payment");
-  form.set("success_url", base + "/?kioskpaid=" + encodeURIComponent(order.ticket_code || order.id) + "&session_id={CHECKOUT_SESSION_ID}");
+  // include the order id so the return handler can re-fetch the session on the
+  // right connected account (direct charges live on the merchant's account).
+  form.set("success_url", base + "/?kioskpaid=" + encodeURIComponent(order.ticket_code || order.id) + "&ko=" + encodeURIComponent(order.id) + "&session_id={CHECKOUT_SESSION_ID}");
   form.set("cancel_url", base + "/?kioskpaid=cancel");
   form.set("client_reference_id", order.id);
   form.set("metadata[kiosk_order_id]", order.id);
@@ -83,10 +103,15 @@ export default async function handler(req, res) {
   form.set("line_items[0][price_data][unit_amount]", String(amount));
   form.set("line_items[0][price_data][product_data][name]", storeName + " — Lightbox" + (order.ticket_code ? (" (" + order.ticket_code + ")") : ""));
 
+  // When the merchant has connected their own Stripe, charge directly on their
+  // account (Stripe-Account header) so the money settles to them, not the platform.
+  const sHeaders = { Authorization: "Bearer " + STRIPE, "Content-Type": "application/x-www-form-urlencoded" };
+  if (acct) sHeaders["Stripe-Account"] = acct;
+
   try {
     const sres = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
-      headers: { Authorization: "Bearer " + STRIPE, "Content-Type": "application/x-www-form-urlencoded" },
+      headers: sHeaders,
       body: form.toString(),
     });
     const session = await sres.json().catch(() => null);

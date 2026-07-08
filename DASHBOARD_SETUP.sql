@@ -145,6 +145,7 @@ create table if not exists public.merchants (
 -- if the merchants table already exists from an earlier run, add the newer columns
 alter table public.merchants add column if not exists screensaver_url text;
 alter table public.merchants add column if not exists fulfilment jsonb not null default '{}'::jsonb;
+alter table public.merchants add column if not exists stripe_account_id text; -- Stripe Connect (Express) account so card payments go straight to the merchant
 
 alter table public.merchants enable row level security;
 

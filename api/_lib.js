@@ -223,14 +223,16 @@ export async function confirmPaidOrder(env, sessionId) {
 // kiosk_order_id we stashed in the session metadata; returns early (not_kiosk)
 // for concierge sessions so it can be called side-by-side with confirmPaidOrder.
 // Idempotent — safe to run from both the webhook and the success redirect.
-export async function confirmKioskPaid(env, sessionId) {
+export async function confirmKioskPaid(env, sessionId, stripeAccount) {
   const STRIPE = env.STRIPE_SECRET_KEY || "";
   if (!STRIPE) return { ok: false, reason: "no_stripe" };
+  // For a Connect direct charge the session lives on the merchant's connected
+  // account, so we must re-fetch it with the Stripe-Account header.
+  const headers = { Authorization: "Bearer " + STRIPE };
+  if (stripeAccount) headers["Stripe-Account"] = stripeAccount;
   let session;
   try {
-    const r = await fetch("https://api.stripe.com/v1/checkout/sessions/" + encodeURIComponent(sessionId), {
-      headers: { Authorization: "Bearer " + STRIPE },
-    });
+    const r = await fetch("https://api.stripe.com/v1/checkout/sessions/" + encodeURIComponent(sessionId), { headers });
     session = await r.json().catch(() => null);
     if (!r.ok || !session) return { ok: false, reason: "stripe_error" };
   } catch (e) { return { ok: false, reason: "stripe_unreachable" }; }

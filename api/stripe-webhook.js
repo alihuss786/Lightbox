@@ -30,7 +30,8 @@ export default async function handler(req, res) {
   // Only act on a completed checkout; ACK everything else so Stripe stops retrying.
   if (type === "checkout.session.completed" && session && session.id) {
     try { await confirmPaidOrder(env, session.id); } catch (e) { /* idempotent; ACK anyway */ }
-    try { await confirmKioskPaid(env, session.id); } catch (e) { /* idempotent; ACK anyway */ }
+    // event.account is set for Connect direct charges (kiosk merchant's own Stripe)
+    try { await confirmKioskPaid(env, session.id, event.account); } catch (e) { /* idempotent; ACK anyway */ }
   }
   res.status(200).json({ received: true });
 }
