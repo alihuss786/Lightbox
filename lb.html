@@ -2729,7 +2729,14 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
    +"@media(min-width:980px){#acct{right:406px}}"
    +"@media(max-width:979px){#acct{max-width:calc(100vw - 24px)}#acct.acopen{top:62px}#acct .pill{flex-wrap:wrap;max-width:calc(100vw - 24px);row-gap:5px}}";
   var box=document.createElement("div");box.id="acct";
-  function mount(){document.head.appendChild(css);document.body.appendChild(box);}
+  function mount(){document.head.appendChild(css);document.body.appendChild(box);
+    // click anywhere outside the account panel closes whichever menu is open
+    document.addEventListener("pointerdown",function(e){
+      if(!box||box.contains(e.target))return;
+      if(window.__user){if(menuOpen){menuOpen=false;designsView=false;renderAccount();}}
+      else if(signinStep!==0){signinStep=0;signedOut();}
+    });
+  }
   var signinStep=0,signinMsg='',signinEmail='';
   function signedOut(){
     window.__user=null;window.__license=null;if(window.__afterLicence)try{window.__afterLicence()}catch(e){}
@@ -2774,6 +2781,7 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
   var menuOpen=false,designsView=false,_designs=[],_designsLoading=false;
   function signedIn(user,lic){window.__user=user;window.__license=lic;try{var _tr=(lic&&lic.tier)||"",_ot=localStorage.getItem("sl_tier")||"";if(_tr!==_ot){localStorage.setItem("sl_tier",_tr);window.__cachedTier=_tr||null;var _hasT=window.__siteConfig&&window.__siteConfig.tiers&&_tr&&window.__siteConfig.tiers[_tr];if(_hasT&&document.querySelector(".controls .pl-tabs")&&!sessionStorage.getItem("sl_treload")){sessionStorage.setItem("sl_treload","1");location.reload();return;}}}catch(e){}renderAccount();if(window.__afterLicence)try{window.__afterLicence()}catch(e){}}
   function badgeText(lic){if(!lic)return 'No licence';var t=lic.tier;if(t==='concierge')return 'Concierge';if(t==='merchant')return 'Merchant';if(t==='studio'||t==='lifetime')return 'Studio';if(t==='hobby'||t==='one_year'||t==='six_month')return 'Hobby';return 'Member';}
+  function licenceType(lic){if(!lic)return '';var t=lic.tier;if(t==='merchant')return 'Commercial licence';if(t==='hobby'||t==='one_year'||t==='six_month'||t==='studio'||t==='lifetime')return 'Personal-use licence';return '';}
   function usageText(lic){if(!lic)return '';if(lic.quota_type==='unlimited')return 'Unlimited';var e=exportsLeft(lic);return lic.quota_type==='monthly'?(e+' this month'):(e+' left');}
   function statRow(k,v){return '<div class="acstat"><span>'+k+'</span><span>'+v+'</span></div>';}
   function renderAccount(){
@@ -2791,6 +2799,7 @@ window.addEventListener("load",()=>{const run=()=>{initChain=(initChain||Promise
     if(lic){stats+=statRow('Exports',usageText(lic));if(lic.expires_at)stats+=statRow('Renews',timeLeft(lic));}
     return '<div class="acmenu">'
       +'<div class="acbadge">'+esc(badgeText(lic))+'</div>'
+      +(licenceType(lic)?'<div class="aclic" style="font-size:11px;color:var(--txt2);margin-top:4px;letter-spacing:.02em">'+esc(licenceType(lic))+'</div>':'')
       +'<div class="acemail">'+esc(user.email)+'</div>'
       +(stats?('<div class="acstats">'+stats+'</div>'):'')
       +'<div class="acdiv"></div>'
