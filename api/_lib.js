@@ -117,7 +117,9 @@ export async function notifyOwnerOrder(env, o) {
 export async function sendOrderEmails(env, o) {
   try { await notifyOwnerOrder(env, o); } catch (e) { /* best-effort */ }
   if (!env.RESEND_API_KEY) return;
-  const FROM = env.FROM_EMAIL || "onboarding@resend.dev";
+  // Domain is verified in Resend, so send from it by default (env can override).
+  const FROM = env.FROM_EMAIL || "orders@signaturelightboxes.com";
+  const REPLY_TO = env.REPLY_TO || (env.OWNER_EMAIL || "ali.hussain755@outlook.com").split(",")[0].trim();
   const OWNER = (env.OWNER_EMAIL || "ali.hussain755@outlook.com").split(",").map((e) => e.trim()).filter(Boolean);
   const LOGO = env.LOGO_URL || "https://signaturelightboxes.com/email-logo.jpg";
   const s = (o.summary && typeof o.summary === "object") ? o.summary : {};
@@ -159,20 +161,28 @@ export async function sendOrderEmails(env, o) {
     `<tr><td align="center" style="color:#5c606a;font:400 11px system-ui,sans-serif;padding:18px 0 4px">Signature Lightboxes</td></tr>` +
     `</table></td></tr></table></div>`;
 
-  const send = (to, subject, html) => fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: "Signature Lightboxes <" + FROM + ">", to, subject, html }),
-  });
+  const send = (to, subject, html, replyTo) => {
+    const payload = { from: "Signature Lightboxes <" + FROM + ">", to, subject, html };
+    if (replyTo) payload.reply_to = replyTo;
+    return fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + env.RESEND_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  };
 
   try {
-    await send(OWNER, "🖨 New Lightbox order — " + (o.user_email || "customer"),
-      shell("New order received", "A concierge customer placed an order.", ownerRows, ownerBtn));
-    const custExtra = `<div style="margin-top:18px;color:#c7cbd2;font-size:13px;line-height:1.6">We&rsquo;re on it! Your lightbox will be printed and posted to the address above. We&rsquo;ll be in touch if we need anything, and again when it ships. Thank you for your order.</div>`;
     const customerEmail = ((sh && sh.email) || o.user_email || "").trim();
+    // Owner notification: reply-to the customer so you can respond to them directly.
+    await send(OWNER, "🖨 New Lightbox order — " + (o.user_email || "customer"),
+      shell("New order received", "A concierge customer placed an order.", ownerRows, ownerBtn),
+      (customerEmail.indexOf("@") > 0) ? customerEmail : REPLY_TO);
+    const custExtra = `<div style="margin-top:18px;color:#c7cbd2;font-size:13px;line-height:1.6">We&rsquo;re on it! Your lightbox will be printed and posted to the address above. We&rsquo;ll be in touch if we need anything, and again when it ships. Thank you for your order.</div>`;
+    // Customer confirmation: reply-to your support inbox.
     if (customerEmail.indexOf("@") > 0)
       await send([customerEmail], "Your Signature Lightboxes order is confirmed ✨",
-        shell("Thank you &mdash; your order is confirmed!", "We&rsquo;ve received your design and payment, and we&rsquo;re getting it ready to print.", core, custExtra));
+        shell("Thank you &mdash; your order is confirmed!", "We&rsquo;ve received your design and payment, and we&rsquo;re getting it ready to print.", core, custExtra),
+        REPLY_TO);
   } catch (e) { /* best-effort */ }
 }
 
