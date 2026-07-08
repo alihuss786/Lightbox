@@ -105,6 +105,7 @@ create table if not exists public.kiosk_orders (
 alter table public.kiosk_orders add column if not exists ticket_code text;
 alter table public.kiosk_orders add column if not exists price_pence int;
 alter table public.kiosk_orders add column if not exists fulfilment jsonb;  -- {mode, address:{}, collectDate}
+alter table public.kiosk_orders add column if not exists payment_method text; -- 'cash' | 'card' (recorded when merchant marks paid)
 
 alter table public.kiosk_orders enable row level security;
 
