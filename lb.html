@@ -2398,23 +2398,28 @@ function _ensureShaderType(mat,type,inject){
   mat.needsUpdate=true;
 }
 function _clearShaderState(mat){if(mat.userData&&mat.userData.__fin){mat.userData.__fin=null;mat.customProgramCacheKey=function(){return "";};mat.onBeforeCompile=function(){};mat.needsUpdate=true;}}
-function reassertGlow(){(window.__glowMats||[]).forEach(function(m){if(m&&m.emissive){m.emissive.copy(new THREE.Color(m.userData.__glowColor||"#ffffff").multiplyScalar(0.42));}});}
+function reassertGlow(){(window.__glowMats||[]).forEach(function(m){if(m&&m.emissive){m.emissive.copy(new THREE.Color(m.userData.__glowColor||"#ffffff").multiplyScalar(0.55));}});}
 var _glowRAF=false;
 function _glowRender(){if(_glowRAF)return;_glowRAF=true;requestAnimationFrame(function(){_glowRAF=false;try{renderNow();}catch(e){}});}
 function _setupGlow(active,color){
-  window.__glowMats=window.__glowMats||[];
+  window.__glowMats=window.__glowMats||[];window.__glowActive=!!active;
   try{
-    if(!window.__glowLight&&typeof scene!=="undefined"&&scene){var pl=new THREE.PointLight(0xffffff,0,300,2);pl.__baseI=110;scene.add(pl);window.__glowLight=pl;}
+    if(!window.__glowLight&&typeof scene!=="undefined"&&scene){var pl=new THREE.PointLight(0xffffff,0,200,2);pl.__baseI=55;scene.add(pl);window.__glowLight=pl;}
     var cv=(typeof renderer!=="undefined"&&renderer&&renderer.domElement)||document.querySelector("canvas");
     if(cv&&!window.__glowBound){window.__glowBound=true;window.__glowRay=new THREE.Raycaster();
+      // Soft glow spotlight ONLY while the cursor is actually over the model; off everywhere else.
       cv.addEventListener("pointermove",function(e){
-        if(!window.__glowLight||!window.__glowLight.visible||typeof pivot==="undefined"||!pivot)return;
+        if(!window.__glowLight||!window.__glowActive||typeof pivot==="undefined"||!pivot){return;}
         var r=cv.getBoundingClientRect();var nx=((e.clientX-r.left)/r.width)*2-1,ny=-((e.clientY-r.top)/r.height)*2+1;
         window.__glowRay.setFromCamera({x:nx,y:ny},camera);var hits=window.__glowRay.intersectObject(pivot,true);
-        if(hits&&hits.length){var p=hits[0].point;var toCam=camera.position.clone().sub(p).normalize();window.__glowLight.position.copy(p).addScaledVector(toCam,22);_glowRender();}
+        var hit=null;for(var i=0;i<hits.length;i++){if(hits[i].object&&hits[i].object.name!=="arSkip"){hit=hits[i];break;}}   // ignore the floor plane
+        if(hit){var p=hit.point;var toCam=camera.position.clone().sub(p).normalize();window.__glowLight.position.copy(p).addScaledVector(toCam,18);window.__glowLight.intensity=window.__glowLight.__baseI;_glowRender();}
+        else if(window.__glowLight.intensity!==0){window.__glowLight.intensity=0;_glowRender();}
       });
+      var _glowOff=function(){if(window.__glowLight&&window.__glowLight.intensity!==0){window.__glowLight.intensity=0;_glowRender();}};
+      cv.addEventListener("pointerleave",_glowOff);cv.addEventListener("pointerout",_glowOff);
     }
-    if(window.__glowLight){window.__glowLight.visible=!!active;window.__glowLight.color.set(color||"#ffffff");window.__glowLight.intensity=active?window.__glowLight.__baseI:0;}
+    if(window.__glowLight){window.__glowLight.visible=!!active;window.__glowLight.color.set(color||"#ffffff");window.__glowLight.intensity=0;}
   }catch(e){}
 }
 function applyFinishes(){
