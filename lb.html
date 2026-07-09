@@ -2362,16 +2362,17 @@ function _finMarble(mat,cols){
   mat.metalness=0.0;mat.roughness=0.82;mat.envMapIntensity=0.18;
 }
 function _finSparkle(mat,cols,dense){
+  // dense=true → Sparkle (bigger, brighter glitter). dense=false → Galaxy (fine, dense, subtle shimmer on a dark glossy base).
   mat.color.set(cols[0]||"#888888");
   var U=_mkU(mat);U.uThr=U.uThr||{value:0.96};U.uAmt=U.uAmt||{value:0.8};U.uScl=U.uScl||{value:3.0};
-  U.uThr.value=dense?0.90:0.965;U.uAmt.value=dense?0.55:0.95;U.uScl.value=dense?3.4:2.6;
+  U.uThr.value=dense?0.90:0.82;U.uAmt.value=dense?0.7:0.42;U.uScl.value=dense?3.2:4.6;
   _ensureShaderType(mat,"sparkle",function(sh){
     sh.uniforms.uThr=U.uThr;sh.uniforms.uAmt=U.uAmt;sh.uniforms.uScl=U.uScl;
     sh.vertexShader="varying vec3 vLP;\n"+sh.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\n vLP=position;");
     sh.fragmentShader="varying vec3 vLP;\nuniform float uThr;uniform float uAmt;uniform float uScl;\n"+_GLSL_NOISE+
-      sh.fragmentShader.replace("#include <emissivemap_fragment>","#include <emissivemap_fragment>\n float _sp=_h3(floor(vLP*uScl)); float _g=step(uThr,fract(_sp*57.31)); totalEmissiveRadiance += _g*vec3(1.0,0.96,0.85)*uAmt;");
+      sh.fragmentShader.replace("#include <emissivemap_fragment>","#include <emissivemap_fragment>\n float _sp=_h3(floor(vLP*uScl)); float _g=step(uThr,fract(_sp*57.31)); float _sp2=_h3(floor(vLP*uScl*1.9+7.1)); float _g2=step(uThr+0.06,fract(_sp2*41.7)); totalEmissiveRadiance += (_g+_g2*0.7)*vec3(1.0,0.97,0.88)*uAmt;");
   });
-  mat.metalness=0.55;mat.roughness=0.42;mat.envMapIntensity=1.15;
+  mat.metalness=dense?0.55:0.35;mat.roughness=0.42;mat.envMapIntensity=dense?1.15:1.05;
 }
 var _finId=1;
 function _mkU(mat){if(!mat.userData.__U)mat.userData.__U={};if(!mat.userData.__id)mat.userData.__id=(_finId++);return mat.userData.__U;}
@@ -2421,7 +2422,7 @@ function applyFinishes(){
     switch(fin){
       case "matte": mat.roughness=0.96;mat.envMapIntensity=0.12;break;
       case "silk": mat.roughness=0.14;mat.metalness=0.55;mat.envMapIntensity=1.15;break;
-      case "metal": mat.roughness=0.3;mat.metalness=0.92;mat.envMapIntensity=1.35;break;
+      case "metal": mat.roughness=0.4;mat.metalness=0.55;mat.envMapIntensity=1.8;break;
       case "wood": mat.roughness=0.9;mat.envMapIntensity=0.1;break;
       case "translucent": mat.transparent=true;mat.opacity=0.55;mat.roughness=0.18;mat.envMapIntensity=0.85;break;
       case "sparkle": _finSparkle(mat,cols,true);break;
