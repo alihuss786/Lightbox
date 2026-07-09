@@ -554,6 +554,11 @@ body.ar-open #acct{display:none!important}
   .controls .pl-title .pl-ic{display:flex;align-items:center;justify-content:center;width:27px;height:27px;border-radius:8px;background:var(--accdim);color:var(--acc);font-size:14px;font-style:normal;flex:none}
   .controls .pl-title .pl-chev{display:inline;margin-left:auto;color:var(--txt2);font-style:normal;transition:transform .2s}
   .controls.pl-collapsed .pl-title .pl-chev{transform:rotate(-90deg)}
+  /* Collapsed: shrink the WHOLE card away to just the title pill, freeing the stage */
+  .controls.pl-collapsed{bottom:auto!important;height:auto!important;width:auto!important;max-width:320px;
+    background:transparent!important;border:none!important;box-shadow:none!important;overflow:visible!important}
+  .controls.pl-collapsed .pl-head{position:static;padding:0!important;background:transparent!important}
+  .controls.pl-collapsed .pl-dice{display:none!important}
   .controls .pl-dice{width:48px;height:48px;flex:none;border-radius:14px;background:var(--soft)!important;border:1px solid var(--cardline)!important;color:var(--acc);font-size:19px;box-shadow:none}
   .controls .pl-dice:hover{border-color:var(--acc)!important}
 
