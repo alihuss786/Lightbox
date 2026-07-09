@@ -1136,26 +1136,23 @@ const PRESETS=["#FFFFFF","#F4E9D8","#E8C99B","#C9A36A","#B0B5BB","#7E848B","#3A3
    string, or an array of hexes for dual-colour / multi-colour / marble / gradient filaments
    (rendered as a gradient chip; the first colour is used when applied to the model). */
 const BAMBU_GROUPS=[
- {t:"PLA Basic",c:[["Jade White","#FFFFFF"],["Beige","#F7E6DE"],["Gold","#E4BD68"],["Silver","#A6A9AA"],["Gray","#8E9089"],["Black","#000000"],["Blue","#0A2989"],["Blue Gray","#5B6579"],["Cyan","#0086D6"],["Turquoise","#00B1B7"],["Bambu Green","#00AE42"],["Mistletoe Green","#3F8E43"],["Yellow","#F4EE2A"],["Sunflower Yellow","#FEC600"],["Orange","#FF6A13"],["Pumpkin Orange","#FF9016"],["Red","#C12E1F"],["Maroon Red","#9D2235"],["Magenta","#EC008C"],["Pink","#F55A74"],["Hot Pink","#F5547C"],["Purple","#5E43B7"],["Indigo Purple","#482960"],["Brown","#9B6839"],["Cocoa Brown","#6F5034"]]},
- {t:"PLA Matte",c:[["Ivory White","#FFFFFF"],["Bone White","#CBC6B8"],["Lemon Yellow","#F7D959"],["Yellow","#F0C51B"],["Mandarin Orange","#F99963"],["Sakura Pink","#F7ADA6"],["Pink","#F9C1BD"],["Plum","#950051"],["Dark Red","#BB3D43"],["Scarlet Red","#DE4343"],["Terracotta","#B15533"],["Caramel","#AE835B"],["Latte Brown","#D3B7A7"],["Dark Brown","#7D6556"],["Desert Tan","#E8DBB7"],["Lilac Purple","#AE96D4"],["Ice Blue","#A3D8E1"],["Sky Blue","#56B9E3"],["Marine Blue","#0078BF"],["Dark Blue","#042F56"],["Grass Green","#61C680"],["Apple Green","#C2E189"],["Dark Green","#68724D"],["Ash Grey","#9B9EA0"],["Nardo Grey","#757575"],["Charcoal","#1A1A1A"]]},
- {t:"PLA Silk+",c:[["Gold","#E5B23B"],["Silver","#C8CCCE"],["Titan Gray","#8E9BA3"],["Blue","#008BDA"],["Baby Blue","#9BC8E2"],["Purple","#8B4FE0"],["Pink","#F6A9C9"],["Rose Gold","#EBA69E"],["Green","#2FA84F"],["Mint","#8FDBB0"],["Red","#D1001F"],["Champagne","#E4C99B"]]},
- {t:"PLA Silk Dual Colour",c:[["Blue / Magenta",["#2372E0","#E0219E"]],["Gold / Silver",["#E5B23B","#C8CCCE"]],["Green / Purple",["#2FA84F","#7A3BE2"]],["Pink / Blue",["#F6A9C9","#4FA9E0"]],["Orange / Silver",["#FF7A2F","#C8CCCE"]],["Red / Blue",["#D1001F","#2372E0"]],["Cyan / Purple",["#00B7C7","#7A3BE2"]],["Neon City",["#2372E0","#F4EE2A"]]]},
- {t:"PLA Silk Multi-Colour",c:[["Aurora Purple",["#5E43B7","#E0219E","#2372E0"]],["Gilded Rose",["#EBA69E","#E5B23B","#F6A9C9"]],["Velvet Dawn",["#7A3BE2","#E0219E","#FF7A2F"]],["Southern Night Sky",["#0A2989","#2372E0","#00B7C7"]],["Dawn Radiance",["#F4EE2A","#FF7A2F","#E0219E"]]]},
- {t:"PLA Galaxy",c:[["Galaxy Purple","#3B2E5A"],["Galaxy Green","#1F4A3F"],["Galaxy Nebula","#2A2E52"],["Galaxy Brown","#4A3B32"]]},
- {t:"PLA Sparkle",c:[["Crimson Red","#8E2036"],["Onyx Black","#1A1A1A"],["Slate Gray","#5A5E63"],["Royal Purple","#4B2E83"],["Alpine Green","#25543E"],["Classic Gold","#B8892E"],["Midnight Blue","#1E2A52"]]},
- {t:"PLA Marble",c:[["White Marble",["#F2ECDE","#B7B0A3"]],["Red Granite",["#8A4A3C","#D8C9B8"]],["Black Marble",["#2B2B2B","#8A8A8A"]]]},
- {t:"PLA Metal",c:[["Iron Gray","#6E7377"],["Copper Brown","#8E5A3B"],["Iridium Gold","#B8963E"],["Nickel Silver","#B8BCBE"],["Cobalt Blue","#2E4A7A"]]},
- {t:"PLA Glow",c:[["Glow Green","#B6E5A0"],["Glow Blue","#A7D8E8"],["Glow Pink","#F2B6C8"],["Glow Orange","#F5C48A"],["Glow Yellow","#EDE7A0"]]},
- {t:"PLA Wood",c:[["Rosewood","#6E4A32"],["Walnut","#5A4230"],["Oak","#B08D5B"],["Clay Brown","#9A6B47"],["Classic Birch","#C9A77B"],["White Oak","#D8C3A0"],["Black Walnut","#3E2E22"]]},
- {t:"PLA Aero",c:[["White","#F2F0EA"],["Black","#1A1A1A"],["Gray","#8E9089"]]},
- {t:"PLA Gradient",c:[["Sunset",["#F4EE2A","#FF7A2F","#D1001F"]],["Ocean",["#00B7C7","#2372E0","#0A2989"]],["Aurora",["#2FA84F","#00B7C7","#7A3BE2"]],["Cotton Candy",["#F6A9C9","#B5D4F4","#CECBF6"]],["Dawn",["#F7D959","#F99963","#E0219E"]]]},
- {t:"PETG HF",c:[["White","#FFFFFF"],["Black","#000000"],["Gray","#8E9089"],["Dark Gray","#4B4F54"],["Red","#C12E1F"],["Orange","#FF6A13"],["Yellow","#FEC600"],["Green","#00AE42"],["Lime Green","#7FB23B"],["Blue","#0A55D8"],["Cyan","#00A5C6"],["Peanut Brown","#9B6839"]]},
- {t:"PETG Translucent",c:[["Clear","#EAF0F0"],["Gray","#B7BCC0"],["Olive","#8B8B4B"],["Teal","#4FB3B0"],["Brown","#9A6B47"],["Orange","#F5934B"],["Pink","#F2A9C4"],["Purple","#9E7BD0"]]},
- {t:"ABS",c:[["White","#FFFFFF"],["Black","#000000"],["Gray","#8E9089"],["Silver","#A6A9AA"],["Red","#C12E1F"],["Orange","#FF6A13"],["Yellow","#FEC600"],["Bambu Green","#00AE42"],["Blue","#0A55D8"],["Navy Blue","#042F56"]]},
- {t:"ASA",c:[["White","#FFFFFF"],["Black","#000000"],["Gray","#8E9089"],["Red","#C12E1F"],["Green","#00AE42"],["Blue","#0A55D8"]]},
- {t:"TPU 95A",c:[["White","#FFFFFF"],["Black","#000000"],["Gray","#8E9089"],["Red","#C12E1F"],["Blue","#0A55D8"],["Yellow","#FEC600"],["Neon Green","#7FF23B"]]}
+ {t:"PLA Basic",f:"basic",c:[["Jade White","#FFFFFF"],["Beige","#F7E6DE"],["Gold","#E4BD68"],["Silver","#A6A9AA"],["Gray","#8E9089"],["Black","#000000"],["Blue","#0A2989"],["Blue Gray","#5B6579"],["Cyan","#0086D6"],["Turquoise","#00B1B7"],["Bambu Green","#00AE42"],["Mistletoe Green","#3F8E43"],["Yellow","#F4EE2A"],["Sunflower Yellow","#FEC600"],["Orange","#FF6A13"],["Pumpkin Orange","#FF9016"],["Red","#C12E1F"],["Maroon Red","#9D2235"],["Magenta","#EC008C"],["Pink","#F55A74"],["Hot Pink","#F5547C"],["Purple","#5E43B7"],["Indigo Purple","#482960"],["Brown","#9B6839"],["Cocoa Brown","#6F5034"]]},
+ {t:"PLA Matte",f:"matte",c:[["Ivory White","#FFFFFF"],["Bone White","#CBC6B8"],["Lemon Yellow","#F7D959"],["Yellow","#F0C51B"],["Mandarin Orange","#F99963"],["Sakura Pink","#F7ADA6"],["Pink","#F9C1BD"],["Plum","#950051"],["Dark Red","#BB3D43"],["Scarlet Red","#DE4343"],["Terracotta","#B15533"],["Caramel","#AE835B"],["Latte Brown","#D3B7A7"],["Dark Brown","#7D6556"],["Desert Tan","#E8DBB7"],["Lilac Purple","#AE96D4"],["Ice Blue","#A3D8E1"],["Sky Blue","#56B9E3"],["Marine Blue","#0078BF"],["Dark Blue","#042F56"],["Grass Green","#61C680"],["Apple Green","#C2E189"],["Dark Green","#68724D"],["Ash Grey","#9B9EA0"],["Nardo Grey","#757575"],["Charcoal","#1A1A1A"]]},
+ {t:"PLA Silk+",f:"silk",c:[["Gold","#E5B23B"],["Silver","#C8CCCE"],["Titan Gray","#8E9BA3"],["Blue","#008BDA"],["Baby Blue","#9BC8E2"],["Purple","#8B4FE0"],["Pink","#F6A9C9"],["Rose Gold","#EBA69E"],["Green","#2FA84F"],["Mint","#8FDBB0"],["Red","#D1001F"],["Champagne","#E4C99B"]]},
+ {t:"PLA Silk Dual Colour",f:"dual",c:[["Blue / Magenta",["#2372E0","#E0219E"]],["Gold / Silver",["#E5B23B","#C8CCCE"]],["Green / Purple",["#2FA84F","#7A3BE2"]],["Pink / Blue",["#F6A9C9","#4FA9E0"]],["Orange / Silver",["#FF7A2F","#C8CCCE"]],["Red / Blue",["#D1001F","#2372E0"]],["Cyan / Purple",["#00B7C7","#7A3BE2"]],["Neon City",["#2372E0","#F4EE2A"]]]},
+ {t:"PLA Silk Multi-Colour",f:"multi",c:[["Aurora Purple",["#5E43B7","#E0219E","#2372E0"]],["Gilded Rose",["#EBA69E","#E5B23B","#F6A9C9"]],["Velvet Dawn",["#7A3BE2","#E0219E","#FF7A2F"]],["Southern Night Sky",["#0A2989","#2372E0","#00B7C7"]],["Dawn Radiance",["#F4EE2A","#FF7A2F","#E0219E"]]]},
+ {t:"PLA Galaxy",f:"galaxy",c:[["Galaxy Purple","#3B2E5A"],["Galaxy Green","#1F4A3F"],["Galaxy Nebula","#2A2E52"],["Galaxy Brown","#4A3B32"]]},
+ {t:"PLA Sparkle",f:"sparkle",c:[["Crimson Red","#8E2036"],["Onyx Black","#1A1A1A"],["Slate Gray","#5A5E63"],["Royal Purple","#4B2E83"],["Alpine Green","#25543E"],["Classic Gold","#B8892E"],["Midnight Blue","#1E2A52"]]},
+ {t:"PLA Marble",f:"marble",c:[["White Marble",["#F2ECDE","#8F887A"]],["Red Granite",["#8A4A3C","#E4D8C8"]],["Black Marble",["#232323","#9AA0A6"]]]},
+ {t:"PLA Metal",f:"metal",c:[["Iron Gray","#6E7377"],["Copper Brown","#8E5A3B"],["Iridium Gold","#B8963E"],["Nickel Silver","#B8BCBE"],["Cobalt Blue","#2E4A7A"]]},
+ {t:"PLA Glow",f:"glow",c:[["Glow Green","#B6E5A0"],["Glow Blue","#A7D8E8"],["Glow Pink","#F2B6C8"],["Glow Orange","#F5C48A"],["Glow Yellow","#EDE7A0"]]},
+ {t:"PLA Wood",f:"wood",c:[["Rosewood","#6E4A32"],["Walnut","#5A4230"],["Oak","#B08D5B"],["Clay Brown","#9A6B47"],["Classic Birch","#C9A77B"],["White Oak","#D8C3A0"],["Black Walnut","#3E2E22"]]},
+ {t:"PLA Gradient",f:"gradient",c:[["Sunset",["#F4EE2A","#FF7A2F","#D1001F"]],["Ocean",["#00B7C7","#2372E0","#0A2989"]],["Aurora",["#2FA84F","#00B7C7","#7A3BE2"]],["Cotton Candy",["#F6A9C9","#B5D4F4","#CECBF6"]],["Dawn",["#F7D959","#F99963","#E0219E"]]]},
+ {t:"PETG Translucent",f:"translucent",c:[["Clear","#EAF0F0"],["Gray","#B7BCC0"],["Olive","#8B8B4B"],["Teal","#4FB3B0"],["Brown","#9A6B47"],["Orange","#F5934B"],["Pink","#F2A9C4"],["Purple","#9E7BD0"]]}
 ];
-function buildBambuGrid(){var wrap=g("palBambu");if(!wrap||wrap.childElementCount)return;var html="";BAMBU_GROUPS.forEach(function(grp,gi){html+='<div class="pal-lbl">Bambu <b>'+grp.t+'</b></div><div class="pal-grid" data-bg="'+gi+'"></div>';});wrap.innerHTML=html;BAMBU_GROUPS.forEach(function(grp,gi){var grid=wrap.querySelector('.pal-grid[data-bg="'+gi+'"]');if(!grid)return;grp.c.forEach(function(f){var name=f[0],v=f[1];var c=document.createElement("div");c.className="c";var pick;if(typeof v==="string"){c.style.background=v;c.title=name+" · "+v;pick=v;}else{c.style.background="linear-gradient(135deg,"+v.join(",")+")";c.title=name+" (multi-colour)";pick=v[0];}c.onclick=function(){pickColor(pick);};grid.appendChild(c);});});}
+function buildBambuGrid(){var wrap=g("palBambu");if(!wrap||wrap.childElementCount)return;var html="";BAMBU_GROUPS.forEach(function(grp,gi){html+='<div class="pal-lbl">Bambu <b>'+grp.t+'</b></div><div class="pal-grid" data-bg="'+gi+'"></div>';});wrap.innerHTML=html;BAMBU_GROUPS.forEach(function(grp,gi){var grid=wrap.querySelector('.pal-grid[data-bg="'+gi+'"]');if(!grid)return;grp.c.forEach(function(f){var name=f[0],v=f[1];var cols=(typeof v==="string")?[v]:v;var c=document.createElement("div");c.className="c";if(typeof v==="string"){c.style.background=v;c.title=name+" · "+v;}else{c.style.background="linear-gradient(135deg,"+v.join(",")+")";c.title=name+" (multi-colour)";}c.onclick=function(){pickFilament(cols,grp.f);};grid.appendChild(c);});});}
+/* Record which Bambu finish a swatch uses for the current target, then apply colour + finish. */
+function pickFilament(cols,finish){window.__matFinish=window.__matFinish||{};if(typeof palTarget==="string"&&["front","body","name","image","model"].indexOf(palTarget)>=0){window.__matFinish[palTarget]={finish:finish,colors:cols.slice()};}pickColor(cols[0]);try{applyFinishes();}catch(e){}}
 let palTarget=null;
 window.__amsPalette=window.__amsPalette||["#FFFFFF","#1B1B1B","#2B6BE4","#E23B7A"];
 function rebuildPalGrid(){const grid=g("palGrid");if(!grid)return;grid.innerHTML="";const addSw=(hex,ams)=>{const c=document.createElement("div");c.className="c";c.style.background=hex;if(ams)c.style.outline="2px solid var(--gold,#d8b877)";c.onclick=()=>pickColor(hex);grid.appendChild(c);};const editingSlot=(typeof palTarget==="string"&&palTarget.indexOf("ams:")===0);if(window.__hasAMS&&window.__amsPalette&&window.__amsPalette.length&&!editingSlot){window.__amsPalette.forEach(h=>addSw(h,true));}var _mp=window.__merchantPalette;if(_mp&&_mp.length){_mp.forEach(h=>addSw(h,false));}else{PRESETS.forEach(h=>addSw(h,false));}try{buildBambuGrid();}catch(e){}}
@@ -1189,6 +1186,7 @@ function applyLight(){{var _lbl=g("lightLbl");if(_lbl)_lbl.textContent=lightOn?"
   if(pivot)pivot.traverse(o=>{if(o.userData&&o.userData.textId!=null)o.traverse(m=>{if(m.isMesh&&m.material&&m.material.emissive)m.material.emissive.copy(lightOn?new THREE.Color(m.material.color.getHex()).multiplyScalar(0.65):new THREE.Color(0));});});
   if(glowFace){glowFace.visible=lightOn;glowFace.material.color.copy(fc.clone().lerp(new THREE.Color(0xffffff),0.06));glowFace.material.opacity=diffOn?0.8:0.92;}
   (window.__glowSpots||[]).forEach(function(g){g.color.copy(fc);g.intensity=lightOn?(g.userData.baseI||13):0;});
+  try{if(typeof reassertGlow==="function")reassertGlow();}catch(e){}   // glow filaments stay lit even with the lamp off
 }
 
 function handleUpload(inp){const files=inp.files;if(!files||!files.length)return;Array.from(files).forEach(file=>{const ext=(file.name.split(".").pop()||"").toLowerCase();if(ext==="stl"||ext==="3mf"){uiAlert("Custom 3D uploads have been replaced by the Model catalog below — pick a model from there.");return;}loadImage(file);});inp.value="";}
@@ -2317,10 +2315,129 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     renderPlateList();renderPrinter();
   }catch(e){}
   applyColors();applyLight();
+  try{applyFinishes();}catch(e){}   // re-apply Bambu filament finishes after every rebuild
   try{if(typeof updatePhotoPreview==="function")updatePhotoPreview();}catch(e){}
   try{updateFitWarn();}catch(e){}
   try{applyExplode();}catch(e){}   // re-apply the exploded-view offset after every rebuild
 }
+/* ===== Bambu filament FINISHES (preview only — never touches exported geometry) =====
+   Each finish makes the material actually look like that filament: silk sheen, matte flat,
+   metallic, sparkle/galaxy glints, marble veining, glow self-illumination + a pointer glow,
+   and dual/multi/gradient print a real colour transition up the model via a shader. */
+window.__matFinish=window.__matFinish||{};
+function _srgbLin(hex){return new THREE.Color(hex).convertSRGBToLinear();}
+function _sampleGrad(cols,t){ // piecewise-linear sample of a colour list at t in [0,1] → THREE.Color (linear)
+  if(cols.length===1)return _srgbLin(cols[0]);
+  var seg=t*(cols.length-1),i=Math.min(cols.length-2,Math.floor(seg)),f=seg-i;
+  var a=_srgbLin(cols[i]),b=_srgbLin(cols[i+1]);return a.clone().lerp(b,f);
+}
+function _matLocalYRange(mat){var mn=1e9,mx=-1e9;if(typeof pivot!=="undefined"&&pivot)pivot.traverse(function(o){if(o.isMesh&&o.material===mat&&o.geometry){if(!o.geometry.boundingBox)o.geometry.computeBoundingBox();var b=o.geometry.boundingBox;if(b){mn=Math.min(mn,b.min.y);mx=Math.max(mx,b.max.y);}}});if(mx<=mn){mn=0;mx=1;}return[mn,mx];}
+var _GLSL_NOISE="float _h3(vec3 p){return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453);}\nfloat _vn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(mix(_h3(i+vec3(0.,0.,0.)),_h3(i+vec3(1.,0.,0.)),f.x),mix(_h3(i+vec3(0.,1.,0.)),_h3(i+vec3(1.,1.,0.)),f.x),f.y),mix(mix(_h3(i+vec3(0.,0.,1.)),_h3(i+vec3(1.,0.,1.)),f.x),mix(_h3(i+vec3(0.,1.,1.)),_h3(i+vec3(1.,1.,1.)),f.x),f.y),f.z);}\nfloat _fbm(vec3 p){float a=0.5,s=0.0;for(int i=0;i<4;i++){s+=a*_vn(p);p*=2.0;a*=0.5;}return s;}\n";
+function _finGradient(mat,cols){
+  var yr=_matLocalYRange(mat);var U=_mkU(mat);
+  U.uYmin=U.uYmin||{value:0};U.uYmax=U.uYmax||{value:1};
+  U.uC0=U.uC0||{value:new THREE.Color()};U.uC1=U.uC1||{value:new THREE.Color()};U.uC2=U.uC2||{value:new THREE.Color()};U.uC3=U.uC3||{value:new THREE.Color()};
+  U.uYmin.value=yr[0];U.uYmax.value=yr[1];
+  U.uC0.value.copy(_sampleGrad(cols,0));U.uC1.value.copy(_sampleGrad(cols,1/3));U.uC2.value.copy(_sampleGrad(cols,2/3));U.uC3.value.copy(_sampleGrad(cols,1));
+  mat.color.set(0xffffff);
+  _ensureShaderType(mat,"grad",function(sh){
+    sh.uniforms.uYmin=U.uYmin;sh.uniforms.uYmax=U.uYmax;sh.uniforms.uC0=U.uC0;sh.uniforms.uC1=U.uC1;sh.uniforms.uC2=U.uC2;sh.uniforms.uC3=U.uC3;
+    sh.vertexShader="varying vec3 vLP;\n"+sh.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\n vLP=position;");
+    sh.fragmentShader="varying vec3 vLP;\nuniform float uYmin;uniform float uYmax;uniform vec3 uC0;uniform vec3 uC1;uniform vec3 uC2;uniform vec3 uC3;\n"+
+      sh.fragmentShader.replace("#include <color_fragment>","#include <color_fragment>\n float _t=clamp((vLP.y-uYmin)/max(0.0001,uYmax-uYmin),0.0,1.0);float _s=_t*3.0;vec3 _gc; if(_s<1.0)_gc=mix(uC0,uC1,_s); else if(_s<2.0)_gc=mix(uC1,uC2,_s-1.0); else _gc=mix(uC2,uC3,_s-2.0); diffuseColor.rgb*=_gc;");
+  });
+  mat.metalness=0.35;mat.roughness=0.2;mat.envMapIntensity=0.9;
+}
+function _finMarble(mat,cols){
+  // Bambu Marble = matte stone with FINE, evenly-dispersed specks (granite/terrazzo) — not veins.
+  var U=_mkU(mat);U.uBase=U.uBase||{value:new THREE.Color()};U.uVein=U.uVein||{value:new THREE.Color()};
+  U.uBase.value.copy(_srgbLin(cols[0]));U.uVein.value.copy(_srgbLin(cols[1]||cols[0]));
+  mat.color.set(0xffffff);
+  _ensureShaderType(mat,"marble",function(sh){
+    sh.uniforms.uBase=U.uBase;sh.uniforms.uVein=U.uVein;
+    sh.vertexShader="varying vec3 vLP;\n"+sh.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\n vLP=position;");
+    sh.fragmentShader="varying vec3 vLP;\nuniform vec3 uBase;uniform vec3 uVein;\n"+_GLSL_NOISE+
+      sh.fragmentShader.replace("#include <color_fragment>","#include <color_fragment>\n float _s1=_h3(floor(vLP*6.0)); float _s2=_h3(floor(vLP*9.3+13.7)); float _s3=_h3(floor(vLP*14.1+41.2)); float _spk=max(max(smoothstep(0.70,0.80,_s1),smoothstep(0.82,0.90,_s2)),smoothstep(0.88,0.95,_s3)); float _mott=0.93+0.07*_fbm(vLP*0.22); vec3 _mc=mix(uBase*_mott,uVein,_spk*0.8); diffuseColor.rgb*=_mc;");
+  });
+  mat.metalness=0.0;mat.roughness=0.82;mat.envMapIntensity=0.18;
+}
+function _finSparkle(mat,cols,dense){
+  mat.color.set(cols[0]||"#888888");
+  var U=_mkU(mat);U.uThr=U.uThr||{value:0.96};U.uAmt=U.uAmt||{value:0.8};U.uScl=U.uScl||{value:3.0};
+  U.uThr.value=dense?0.90:0.965;U.uAmt.value=dense?0.55:0.95;U.uScl.value=dense?3.4:2.6;
+  _ensureShaderType(mat,"sparkle",function(sh){
+    sh.uniforms.uThr=U.uThr;sh.uniforms.uAmt=U.uAmt;sh.uniforms.uScl=U.uScl;
+    sh.vertexShader="varying vec3 vLP;\n"+sh.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\n vLP=position;");
+    sh.fragmentShader="varying vec3 vLP;\nuniform float uThr;uniform float uAmt;uniform float uScl;\n"+_GLSL_NOISE+
+      sh.fragmentShader.replace("#include <emissivemap_fragment>","#include <emissivemap_fragment>\n float _sp=_h3(floor(vLP*uScl)); float _g=step(uThr,fract(_sp*57.31)); totalEmissiveRadiance += _g*vec3(1.0,0.96,0.85)*uAmt;");
+  });
+  mat.metalness=0.55;mat.roughness=0.42;mat.envMapIntensity=1.15;
+}
+var _finId=1;
+function _mkU(mat){if(!mat.userData.__U)mat.userData.__U={};if(!mat.userData.__id)mat.userData.__id=(_finId++);return mat.userData.__U;}
+/* Recompile only when the finish TYPE changes (per material). Same-type colour swaps reuse the
+   program and just update uniform values, dodging Three's shader-source program cache. */
+function _ensureShaderType(mat,type,inject){
+  _mkU(mat);
+  if(mat.userData.__fin===type)return;
+  mat.userData.__fin=type;
+  var key="slfin_"+type+"_"+mat.userData.__id;
+  mat.customProgramCacheKey=function(){return key;};
+  mat.onBeforeCompile=inject;
+  mat.needsUpdate=true;
+}
+function _clearShaderState(mat){if(mat.userData&&mat.userData.__fin){mat.userData.__fin=null;mat.customProgramCacheKey=function(){return "";};mat.onBeforeCompile=function(){};mat.needsUpdate=true;}}
+function reassertGlow(){(window.__glowMats||[]).forEach(function(m){if(m&&m.emissive){m.emissive.copy(new THREE.Color(m.userData.__glowColor||"#ffffff").multiplyScalar(0.42));}});}
+var _glowRAF=false;
+function _glowRender(){if(_glowRAF)return;_glowRAF=true;requestAnimationFrame(function(){_glowRAF=false;try{renderNow();}catch(e){}});}
+function _setupGlow(active,color){
+  window.__glowMats=window.__glowMats||[];
+  try{
+    if(!window.__glowLight&&typeof scene!=="undefined"&&scene){var pl=new THREE.PointLight(0xffffff,0,300,2);pl.__baseI=110;scene.add(pl);window.__glowLight=pl;}
+    var cv=(typeof renderer!=="undefined"&&renderer&&renderer.domElement)||document.querySelector("canvas");
+    if(cv&&!window.__glowBound){window.__glowBound=true;window.__glowRay=new THREE.Raycaster();
+      cv.addEventListener("pointermove",function(e){
+        if(!window.__glowLight||!window.__glowLight.visible||typeof pivot==="undefined"||!pivot)return;
+        var r=cv.getBoundingClientRect();var nx=((e.clientX-r.left)/r.width)*2-1,ny=-((e.clientY-r.top)/r.height)*2+1;
+        window.__glowRay.setFromCamera({x:nx,y:ny},camera);var hits=window.__glowRay.intersectObject(pivot,true);
+        if(hits&&hits.length){var p=hits[0].point;var toCam=camera.position.clone().sub(p).normalize();window.__glowLight.position.copy(p).addScaledVector(toCam,22);_glowRender();}
+      });
+    }
+    if(window.__glowLight){window.__glowLight.visible=!!active;window.__glowLight.color.set(color||"#ffffff");window.__glowLight.intensity=active?window.__glowLight.__baseI:0;}
+  }catch(e){}
+}
+function applyFinishes(){
+  if(typeof MATS==="undefined")return;
+  window.__matFinish=window.__matFinish||{};window.__glowMats=[];
+  var TARGETS=["front","body","name","image","model"];var anyGlow=false,glowCol=null;
+  TARGETS.forEach(function(k){
+    var mat=MATS[k];if(!mat)return;
+    var rec=window.__matFinish[k]||{};var fin=rec.finish||"basic";var cols=rec.colors||[COLORS[k]||"#ffffff"];
+    // plain defaults (numeric params update live; no recompile needed for these)
+    mat.metalness=0.0;mat.roughness=(k==="body"?0.62:0.5);mat.envMapIntensity=(k==="body"?0.3:0.35);
+    mat.transparent=false;mat.opacity=1;mat.userData.__glowColor=null;
+    var shaderFin=(fin==="gradient"||fin==="dual"||fin==="multi"||fin==="marble"||fin==="sparkle"||fin==="galaxy");
+    if(!shaderFin)_clearShaderState(mat);
+    switch(fin){
+      case "matte": mat.roughness=0.96;mat.envMapIntensity=0.12;break;
+      case "silk": mat.roughness=0.14;mat.metalness=0.55;mat.envMapIntensity=1.15;break;
+      case "metal": mat.roughness=0.3;mat.metalness=0.92;mat.envMapIntensity=1.35;break;
+      case "wood": mat.roughness=0.9;mat.envMapIntensity=0.1;break;
+      case "translucent": mat.transparent=true;mat.opacity=0.55;mat.roughness=0.18;mat.envMapIntensity=0.85;break;
+      case "sparkle": _finSparkle(mat,cols,true);break;
+      case "galaxy": _finSparkle(mat,cols,false);break;
+      case "marble": _finMarble(mat,cols);break;
+      case "dual": case "multi": case "gradient": _finGradient(mat,cols);break;
+      case "glow": mat.roughness=0.55;mat.userData.__glowColor=cols[0];window.__glowMats.push(mat);anyGlow=true;glowCol=cols[0];break;
+      default: break; // basic
+    }
+    if(!shaderFin&&mat.color)mat.color.set(cols[0]||COLORS[k]||"#ffffff");
+  });
+  reassertGlow();_setupGlow(anyGlow,glowCol);
+  try{renderNow();}catch(e){}
+}
+window.__applyFinishes=applyFinishes;
+
 /* ===== Exploded-view assembly slider: pull the printed parts apart along the depth axis ===== */
 window.__explodeAmt=window.__explodeAmt||0;
 function applyExplode(){
