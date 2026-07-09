@@ -823,6 +823,16 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
     <div class="acc-h" onclick="accT(this)">Dimensions <i class="chev">⌄</i></div>
     <div class="acc-b" id="dimRows"></div>
   </div>
+  <div class="acc" data-feat="assembly">
+    <div class="acc-h" onclick="accT(this)">Assembly <i class="chev">⌄</i></div>
+    <div class="acc-b">
+      <div class="hint">Slide to pull the lightbox apart and see how the printed parts fit together — the lit front, the body, and the layers on top.</div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
+        <span class="lbl">Assembled ⟶ Exploded</span>
+        <input type="range" id="explodeSlider" min="0" max="100" step="1" value="0" oninput="try{window.__setExplode(+this.value)}catch(e){}">
+      </div>
+    </div>
+  </div>
   <div class="acc">
     <div class="acc-h" onclick="accT(this)">Structure <i class="chev">⌄</i></div>
     <div class="acc-b">
@@ -2251,7 +2261,11 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       g("dims").style.display="none";
       pivot.position.set(-ctr.x,-ctr.y,-ctr.z);
       baseY=sz.y*0.10;baseDist=Math.max(sz.x,sz.y)*1.5+sz.z*1.1+150;applyZoom();
+      // tag each printed part for the Assembly slider: body pulls back, lid forward, lit layers furthest forward
+      window.__explodeParts=partList; window.__explodeD=Math.max(55,(DIM&&DIM.z?DIM.z:45)*1.6);
+      partList.forEach(function(p){var n=(p.name||"");var dir=(p.isLid)?0.5:(p.textPlate)?1.2:(p.modelId||p.isStl||/Image|Photo/i.test(n))?1.2:-0.6;p.group.userData=p.group.userData||{};p.group.userData.__exDir=dir;p.group.userData.__exBaseZ=p.group.position.z;});
     } else {
+      window.__explodeParts=[];
       const idx=Math.min(selPlate,partList.length-1);const part=partList[idx];
       if(part.textPlate)layoutTextPlate(part.group);   // pack the combined text layers into a tidy row
       part.group.rotation.x=part.flip?Math.PI/2:-Math.PI/2;part.group.updateMatrixWorld(true);
@@ -2270,7 +2284,17 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
   applyColors();applyLight();
   try{if(typeof updatePhotoPreview==="function")updatePhotoPreview();}catch(e){}
   try{updateFitWarn();}catch(e){}
+  try{applyExplode();}catch(e){}   // re-apply the exploded-view offset after every rebuild
 }
+/* ===== Exploded-view assembly slider: pull the printed parts apart along the depth axis ===== */
+window.__explodeAmt=window.__explodeAmt||0;
+function applyExplode(){
+  var amt=Math.max(0,Math.min(1,+window.__explodeAmt||0)), D=+window.__explodeD||80;
+  (window.__explodeParts||[]).forEach(function(p){if(!p||!p.group)return;var g=p.group,u=g.userData||{};g.position.z=(u.__exBaseZ||0)+(u.__exDir||0)*amt*D;});
+  try{if(typeof renderNow==="function")renderNow();else if(typeof renderer!=="undefined"&&renderer&&scene&&camera)renderer.render(scene,camera);}catch(e){}
+}
+window.__applyExplode=applyExplode;
+window.__setExplode=function(v){window.__explodeAmt=Math.max(0,Math.min(1,(+v)/100));applyExplode();};
 function renderPlateList(){const el=g("platelist");if(!el)return;if(mode!=="plates"){el.style.display="none";return;}el.style.display="flex";
   el.innerHTML=`<div class="plbl">Plates</div>`+PLATES.map((p,i)=>{const extra=p.flip?" · face-down":"";const th=PLATE_THUMBS[i]?`<img src="${PLATE_THUMBS[i]}">`:"";return `<div class="pcard${i===selPlate?' sel':''}" data-i="${i}"><div class="pth">${th}</div><div><div class="pnm">Plate ${i+1}</div><div class="psub">${p.name}${extra}</div></div></div>`;}).join("");
   el.querySelectorAll(".pcard").forEach(d=>d.onclick=()=>{selPlate=+d.dataset.i;zoom=1;buildModel();});}
