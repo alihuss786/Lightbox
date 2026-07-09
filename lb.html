@@ -2361,6 +2361,16 @@ function _finMarble(mat,cols){
   });
   mat.metalness=0.0;mat.roughness=0.82;mat.envMapIntensity=0.18;
 }
+function _finWood(mat,cols){
+  // Bambu Wood = very matte, fine grainy texture with faint layer-following banding.
+  mat.color.set(cols[0]||"#8A6A44");
+  _ensureShaderType(mat,"wood",function(sh){
+    sh.vertexShader="varying vec3 vLP;\n"+sh.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\n vLP=position;");
+    sh.fragmentShader="varying vec3 vLP;\n"+_GLSL_NOISE+
+      sh.fragmentShader.replace("#include <color_fragment>","#include <color_fragment>\n float _wg=_fbm(vLP*0.9); float _wb=0.5+0.5*sin(vLP.y*1.7+_fbm(vLP*0.3)*2.2); float _w=0.90+0.07*_wg+0.03*_wb; diffuseColor.rgb*=_w;");
+  });
+  mat.metalness=0.0;mat.roughness=0.96;mat.envMapIntensity=0.07;
+}
 function _finSparkle(mat,cols,dense){
   // dense=true → Sparkle (bigger, brighter glitter). dense=false → Galaxy (fine, dense, subtle shimmer on a dark glossy base).
   mat.color.set(cols[0]||"#888888");
@@ -2417,13 +2427,13 @@ function applyFinishes(){
     // plain defaults (numeric params update live; no recompile needed for these)
     mat.metalness=0.0;mat.roughness=(k==="body"?0.62:0.5);mat.envMapIntensity=(k==="body"?0.3:0.35);
     mat.transparent=false;mat.opacity=1;mat.userData.__glowColor=null;
-    var shaderFin=(fin==="gradient"||fin==="dual"||fin==="multi"||fin==="marble"||fin==="sparkle"||fin==="galaxy");
+    var shaderFin=(fin==="gradient"||fin==="dual"||fin==="multi"||fin==="marble"||fin==="sparkle"||fin==="galaxy"||fin==="wood");
     if(!shaderFin)_clearShaderState(mat);
     switch(fin){
       case "matte": mat.roughness=0.96;mat.envMapIntensity=0.12;break;
       case "silk": mat.roughness=0.1;mat.metalness=0.45;mat.envMapIntensity=1.6;break;
       case "metal": mat.roughness=0.4;mat.metalness=0.55;mat.envMapIntensity=1.8;break;
-      case "wood": mat.roughness=0.9;mat.envMapIntensity=0.1;break;
+      case "wood": _finWood(mat,cols);break;
       case "translucent": mat.transparent=true;mat.opacity=0.55;mat.roughness=0.18;mat.envMapIntensity=0.85;break;
       case "sparkle": _finSparkle(mat,cols,true);break;
       case "galaxy": _finSparkle(mat,cols,false);break;
