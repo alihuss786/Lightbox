@@ -2346,7 +2346,7 @@ function _finGradient(mat,cols){
     sh.fragmentShader="varying vec3 vLP;\nuniform float uYmin;uniform float uYmax;uniform vec3 uC0;uniform vec3 uC1;uniform vec3 uC2;uniform vec3 uC3;\n"+
       sh.fragmentShader.replace("#include <color_fragment>","#include <color_fragment>\n float _t=clamp((vLP.y-uYmin)/max(0.0001,uYmax-uYmin),0.0,1.0);float _s=_t*3.0;vec3 _gc; if(_s<1.0)_gc=mix(uC0,uC1,_s); else if(_s<2.0)_gc=mix(uC1,uC2,_s-1.0); else _gc=mix(uC2,uC3,_s-2.0); diffuseColor.rgb*=_gc;");
   });
-  mat.metalness=0.35;mat.roughness=0.2;mat.envMapIntensity=0.9;
+  mat.metalness=0.4;mat.roughness=0.14;mat.envMapIntensity=1.4;   // silk-glossy gradient (Silk Dual/Multi-Colour)
 }
 function _finMarble(mat,cols){
   // Bambu Marble = matte stone with FINE, evenly-dispersed specks (granite/terrazzo) — not veins.
