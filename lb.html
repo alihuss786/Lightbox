@@ -2228,7 +2228,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // Text layers are physically small — group EVERY text element onto ONE shared text build plate instead
     // of one plate per layer. The combined group holds each layer at its design position (so the assembled
     // render is unchanged); on the plate it is auto-packed into a non-overlapping row (see layoutTextPlate).
-    if(nameGroups.length){if(window.__hasAMS&&nameMode){nameGroups.forEach(gr=>capGroup.add(gr));partList[0].name="Lid + Name";}else{const textPlate=new THREE.Group();nameGroups.forEach(gr=>textPlate.add(gr));partList.push({group:textPlate,name:(nameGroups.length>1?("Text · "+nameGroups.length+" layers"):"Text"),flip:false,textPlate:true,color:COLORS.front});}}
+    if(nameGroups.length){if(window.__hasAMS&&(nameMode||logoMode)){nameGroups.forEach(gr=>capGroup.add(gr));partList[0].name="Lid + "+(logoMode?"Logo":"Name");}else{const textPlate=new THREE.Group();nameGroups.forEach(gr=>textPlate.add(gr));partList.push({group:textPlate,name:(nameGroups.length>1?("Text · "+nameGroups.length+" layers"):"Text"),flip:false,textPlate:true,color:COLORS.front});}}
     imgGroups.forEach((gr,i)=>partList.push({group:gr,name:"Image "+(i+1),flip:false,color:COLORS.image}));
     if(typeof photoPanelGroup!=="undefined"&&photoPanelGroup)partList.push({group:photoPanelGroup,name:"Photo panel",flip:false,color:"#FFFFFF"});
     if(stlParts&&stlParts.length){stlParts.forEach(p=>partList.push(p));}
