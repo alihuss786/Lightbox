@@ -1,10 +1,6 @@
 // Shared helpers for the API endpoints. Plain fetch against the Supabase + Stripe
-// REST APIs — no npm dependencies, matching the rest of api/.
-//
-// (The old Concierge print-to-order helpers — SIZE_PRICES, order emails,
-// confirmPaidOrder, signed download links — were removed when the Concierge tier
-// was retired. Only the shared auth/rate-limit helpers and the KIOSK card-payment
-// confirmation remain.)
+// REST APIs — no npm dependencies, matching the rest of api/. Holds the shared
+// auth/rate-limit helpers and the kiosk card-payment confirmation.
 
 // Best-effort in-memory rate limiter (per warm serverless instance). Not a hard
 // guarantee across instances, but it stops naive hammering of the public GET
