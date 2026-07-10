@@ -861,6 +861,8 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
 
 <div class="palette" id="palette">
   <div class="pal-hex"><input type="text" id="palHex" placeholder="#FFFFFF" oninput="palHexIn()"><span style="font-size:11px;color:var(--txt3)">hex</span></div>
+  <div class="pal-lbl" id="palAmsLbl" style="display:none">🎛 Your AMS filaments</div>
+  <div class="pal-grid" id="palAms" style="display:none"></div>
   <div class="pal-lbl" id="palLblQuick">Quick colours</div>
   <div class="pal-grid" id="palGrid"></div>
   <div id="palBambu"></div>
@@ -1172,7 +1174,15 @@ var _BAMBU_PRESET={"PLA Basic":"Bambu PLA Basic","PLA Matte":"Bambu PLA Matte","
 function bambuFilamentFor(hex){var t=_rgbOf(hex),best=null,bd=1e18;try{BAMBU_GROUPS.forEach(function(grp){grp.c.forEach(function(f){var v=f[1],cs=(typeof v==="string")?[v]:v;cs.forEach(function(cx){var c=_rgbOf(cx),d=(c[0]-t[0])*(c[0]-t[0])+(c[1]-t[1])*(c[1]-t[1])+(c[2]-t[2])*(c[2]-t[2]);if(d<bd){bd=d;best={group:grp.t,name:f[0]};}});});});}catch(e){}var g=best?best.group:"PLA Basic";return {preset:_BAMBU_PRESET[g]||"Bambu PLA Basic",name:best?best.name:"",group:g};}
 let palTarget=null;
 window.__amsPalette=window.__amsPalette||["#FFFFFF","#1B1B1B","#2B6BE4","#E23B7A"];
-function rebuildPalGrid(){const grid=g("palGrid");if(!grid)return;grid.innerHTML="";const addSw=(hex,ams)=>{const c=document.createElement("div");c.className="c";c.style.background=hex;if(ams)c.style.outline="2px solid var(--gold,#d8b877)";c.onclick=()=>pickColor(hex);grid.appendChild(c);};const editingSlot=(typeof palTarget==="string"&&palTarget.indexOf("ams:")===0);if(window.__hasAMS&&window.__amsPalette&&window.__amsPalette.length&&!editingSlot){window.__amsPalette.forEach(h=>addSw(h,true));}var _mp=window.__merchantPalette;if(_mp&&_mp.length){_mp.forEach(h=>addSw(h,false));}else{PRESETS.forEach(h=>addSw(h,false));}try{buildBambuGrid();}catch(e){}}
+function rebuildPalGrid(){const grid=g("palGrid");if(!grid)return;grid.innerHTML="";
+  const mkSw=(hex,ams)=>{const c=document.createElement("div");c.className="c";c.style.background=hex;if(ams)c.style.outline="2px solid var(--gold,#d8b877)";c.title=hex;c.onclick=()=>pickColor(hex);return c;};
+  const addSw=(hex,ams)=>{grid.appendChild(mkSw(hex,ams));};
+  const editingSlot=(typeof palTarget==="string"&&palTarget.indexOf("ams:")===0);
+  // Dedicated "Your AMS filaments" row — the slots you've loaded, easy to see and reuse when colouring parts.
+  var amsBox=g("palAms"),amsLbl=g("palAmsLbl");
+  if(amsBox&&amsLbl){amsBox.innerHTML="";var showAms=!!(window.__hasAMS&&window.__amsPalette&&window.__amsPalette.length&&!editingSlot);amsBox.style.display=showAms?"":"none";amsLbl.style.display=showAms?"":"none";if(showAms)window.__amsPalette.forEach(function(h){amsBox.appendChild(mkSw(h,true));});}
+  var _mp=window.__merchantPalette;if(_mp&&_mp.length){_mp.forEach(h=>addSw(h,false));}else{PRESETS.forEach(h=>addSw(h,false));}
+  try{buildBambuGrid();}catch(e){}}
 rebuildPalGrid();
 function renderAmsSwatches(){const el=g("amsSwatches");if(!el)return;el.innerHTML=window.__amsPalette.map((c,i)=>'<div class="sw-item"><span class="sw" id="amssw_'+i+'" style="background:'+c+'" onclick="openPal(\'ams:'+i+'\',event)"></span><span class="swl">AMS '+(i+1)+'</span></div>').join("");}
 function toggleAMS(on){window.__hasAMS=!!on;const el=g("amsPal");if(el)el.style.display=on?"block":"none";const cb=g("amsToggle");if(cb)cb.checked=!!on;renderAmsSwatches();if(typeof buildModel==="function")buildModel();}
@@ -2757,7 +2767,10 @@ async function exportPlates(deliver){deliver=deliver||"download";
     const AMS=!!window.__hasAMS;
     const groups=[];window.__amsFilaments=null;
     if(AMS){
-      const pal=(window.__amsPalette&&window.__amsPalette.length)?window.__amsPalette.map(_hex6):[];const idxOf=c=>{c=_hex6(c);var kk=pal.indexOf(c);if(kk<0){kk=pal.length;pal.push(c);}return kk+1;};
+      const pal=(window.__amsPalette&&window.__amsPalette.length)?window.__amsPalette.map(_hex6):[];
+      // Only the loaded AMS filaments exist — a part colour that isn't one of them SNAPS to the nearest loaded
+      // slot instead of adding a 5th/6th filament, so the export never declares more filaments than your AMS.
+      const idxOf=c=>{c=_hex6(c);var kk=pal.indexOf(c);if(kk>=0)return kk+1;if(!pal.length){pal.push(c);return 1;}var t=_rgbOf(c),bi=0,bd=1e18;for(var i=0;i<pal.length;i++){var r=_rgbOf(pal[i]),d=(r[0]-t[0])*(r[0]-t[0])+(r[1]-t[1])*(r[1]-t[1])+(r[2]-t[2])*(r[2]-t[2]);if(d<bd){bd=d;bi=i;}}return bi+1;};
       PLATES.forEach((part,pi)=>{const cols=partTrianglesByColor(part,false);if(!cols||!cols.length)return;
         const base=(part.name||("part "+(pi+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
         const catA=part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
