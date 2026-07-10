@@ -7,7 +7,7 @@ Four throwaway accounts so you can test each tier without real emails. They use
 
 | Tier | Email | Password |
 |------|-------|----------|
-| Concierge | `concierge@sltest.com` | `Concierge123!` |
+| Spark | `spark@sltest.com` | `Spark123!` |
 | Hobby | `hobby@sltest.com` | `Hobby123!` |
 | Studio | `studio@sltest.com` | `Studio123!` |
 | Merchant | `merchant@sltest.com` | `Merchant123!` |
@@ -24,10 +24,10 @@ Supabase → **Authentication → Users → Add user** (do this 4 times):
 Supabase → **SQL Editor → New query** → paste → Run:
 
 ```sql
--- Concierge: design + order prints on site, no STL downloads
-insert into public.licenses (user_id, tier, quota_type, quota_limit)
-select id, 'concierge', 'total', 0 from auth.users where email = 'concierge@sltest.com'
-on conflict (user_id) do update set tier='concierge', quota_type='total', quota_limit=0;
+-- Spark: 3-month trial, 5 downloads (personal)
+insert into public.licenses (user_id, tier, quota_type, quota_limit, expires_at)
+select id, 'spark', 'total', 5, now() + interval '3 months' from auth.users where email = 'spark@sltest.com'
+on conflict (user_id) do update set tier='spark', quota_type='total', quota_limit=5, expires_at=now() + interval '3 months';
 
 -- Hobby: up to 30 downloads (personal)
 insert into public.licenses (user_id, tier, quota_type, quota_limit)
@@ -45,18 +45,17 @@ select id, 'merchant', 'unlimited', 0 from auth.users where email = 'merchant@sl
 on conflict (user_id) do update set tier='merchant', quota_type='unlimited', quota_limit=0;
 ```
 
-> This uses only the four columns every `licenses` table has, so it will run
-> as-is. (Hobby won't have a 12-month expiry date in the test — not needed to
-> verify the tier.) If you ever see a red error mentioning a column name, paste
-> it to me and I'll adjust.
+> This uses only the columns every `licenses` table has, so it will run as-is.
+> If you ever see a red error mentioning a column name, paste it to me and I'll
+> adjust.
 
 ## Step 3 — sign in
 
 On the site: **Sign in → type the email → "Have a password? Sign in" → enter the
-password**. The account panel will show the tier (Concierge / Hobby / Studio /
+password**. The account panel will show the tier (Spark / Hobby / Studio /
 Merchant), the licence type (Personal/Commercial), and the export allowance.
 
-- **Concierge** → export button reads **"🖨 Print for me"** (no download)
+- **Spark** → **5** exports, counts down as you export, expires in 3 months
 - **Hobby** → **30** exports, counts down as you export, expires in 12 months
 - **Studio / Merchant** → **Unlimited** exports
 - **Merchant** → licence row shows **Commercial**
