@@ -2456,7 +2456,12 @@ function applyFinishes(){
   var TARGETS=["front","body","name","image","model"];var anyGlow=false,glowCol=null;
   TARGETS.forEach(function(k){
     var mat=MATS[k];if(!mat)return;
-    var rec=window.__matFinish[k]||{};var fin=rec.finish||"basic";var cols=rec.colors||[COLORS[k]||"#ffffff"];
+    var rec=window.__matFinish[k]||{};var fin=rec.finish||"basic";
+    // Solid / sparkle / galaxy / glow / wood follow the LIVE picker colour (COLORS[k]); only true
+    // multi-colour finishes keep their stored palette. Stops a stale finish colour from overriding a
+    // later plain colour pick on the next full rebuild (e.g. when switching to Plates).
+    var _multiFin=(fin==="dual"||fin==="multi"||fin==="gradient"||fin==="marble");
+    var cols=_multiFin?(rec.colors||[COLORS[k]||"#ffffff"]):[COLORS[k]||"#ffffff"];
     // plain defaults (numeric params update live; no recompile needed for these)
     mat.metalness=0.0;mat.roughness=(k==="body"?0.62:0.5);mat.envMapIntensity=(k==="body"?0.3:0.35);
     mat.transparent=false;mat.opacity=1;mat.userData.__glowColor=null;
