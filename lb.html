@@ -919,7 +919,7 @@ function featState(k){var cfg=window.__siteConfig||{};var tier=window.__viewAsTi
 function applyFeatureGates(){try{[].forEach.call(document.querySelectorAll(".controls .acc[data-feat]"),function(acc){var st=featState(acc.getAttribute("data-feat"));acc.style.display=(st==="hidden")?"none":"";var body=acc.querySelector(".acc-b");var ov=body?body.querySelector(".soon-ov"):null;if(st==="soon"){acc.classList.add("feat-soon");if(!ov&&body){ov=document.createElement("div");ov.className="soon-ov soon-card";ov.innerHTML='<div class="soon-badge">Coming soon</div><div class="soon-txt">This feature isn\u2019t available yet \u2014 it\u2019s on the roadmap.</div>';body.insertBefore(ov,body.firstChild);}}else{acc.classList.remove("feat-soon");if(ov)ov.remove();}});}catch(e){}}
 window.__refreshGates=function(){try{applyFeatureGates();}catch(e){}try{var wrap=document.querySelector(".controls");if(wrap){var bar=wrap.querySelector(".pl-tabs");if(bar){bar.parentNode.removeChild(bar);if(typeof plBuildTabs==="function")plBuildTabs();if(typeof immersiveInit==="function")immersiveInit();}}}catch(e){}try{if(window.__arRefresh)window.__arRefresh();}catch(e){}};
 window.__applySiteConfig=function(cfg){window.__siteConfig=(cfg&&typeof cfg==="object")?cfg:{};try{localStorage.setItem("sl_cfg",JSON.stringify(window.__siteConfig));}catch(e){}if(document.querySelector(".controls .pl-tabs"))window.__refreshGates();};
-const MEAS=[["lh",50,400,1],["bd",15,150,1],["wall",1.5,8,.5],["topT",1,12,.5],["capW",1.5,8,.5],["skirt",3,120,1],["nameDepth",0,30,.5],["nameExt",1,30,.5],["imgSize",10,250,1]];
+const MEAS=[["lh",50,400,1],["bd",40,150,1],["wall",1.5,8,.5],["topT",1,12,.5],["capW",1.5,8,.5],["skirt",3,120,1],["nameDepth",0,30,.5],["nameExt",1,30,.5],["imgSize",10,250,1]];
 function mmOf(id){const raw=+v(id);if(isNaN(raw))return 0;return UNIT==="cm"?raw*10:raw;}
 function tidy(n){return (Math.round(n*100)/100).toString();}
 function fmt(mm){return UNIT==="cm"?(Math.round(mm/10*100)/100)+" cm":Math.round(mm)+" mm";}
@@ -1028,7 +1028,7 @@ renderNameGrid();
 // Auto-hydrate previously-uploaded custom fonts from IndexedDB on launch (non-blocking, additive).
 dbAllFonts().then(recs=>{recs.forEach(r=>{if(r&&r.id&&r.buf){if(r.kind==="letter")addCustomLetterFont(r.id,r.name||"Letter",r.buf,false);else addCustomFont(r.id,r.name||"Custom",r.buf,false);}});}).catch(()=>{});
 
-const DIMS=[{id:"lh",l:"Letter height",min:50,max:400,st:1,val:140},{id:"bd",l:"Light box depth",min:15,max:150,st:1,val:40},{id:"wall",l:"Wall thickness",min:1.5,max:8,st:.5,val:3},{id:"topT",l:"Lid top thickness",min:1,max:12,st:.5,val:3},{id:"capW",l:"Cap wall",min:1.5,max:8,st:.5,val:3},{id:"skirt",l:"Skirt depth",min:3,max:120,st:1,val:14}];
+const DIMS=[{id:"lh",l:"Letter height",min:50,max:400,st:1,val:140},{id:"bd",l:"Light box depth",min:40,max:150,st:1,val:40},{id:"wall",l:"Wall thickness",min:1.5,max:8,st:.5,val:2},{id:"topT",l:"Lid top thickness",min:1,max:12,st:.5,val:1},{id:"capW",l:"Cap wall",min:1.5,max:8,st:.5,val:3},{id:"skirt",l:"Skirt depth",min:3,max:120,st:1,val:14}];
 const dr=g("dimRows");
 const ut=document.createElement("div");ut.className="srow";ut.style.cssText="justify-content:flex-end;gap:10px;margin-bottom:2px";ut.innerHTML='<span class="lbl" style="margin-right:auto">Units</span><div class="useg"><button class="uchip" id="u_mm" onclick="setUnit(\'mm\')">mm</button><button class="uchip" id="u_cm" onclick="setUnit(\'cm\')">cm</button></div>';dr.appendChild(ut);
 DIMS.forEach(d=>{const row=document.createElement("div");row.className="row";row.id="dimrow_"+d.id;if(d.id==="skirt")row.style.display="none";row.innerHTML=`<span class="lbl">${d.l}</span><div class="srow"><input type="range" id="${d.id}R" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><div class="numbox wide"><input type="number" id="${d.id}" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><span class="u">mm</span></div></div>`;dr.appendChild(row);const R=g(d.id+"R"),N=g(d.id);R.oninput=()=>{N.value=UNIT==="cm"?tidy(R.value/10):R.value;rebuild();};N.oninput=()=>{R.value=UNIT==="cm"?Math.round(N.value*10):N.value;rebuild();};});
@@ -1151,6 +1151,11 @@ const BAMBU_GROUPS=[
 function buildBambuGrid(){var wrap=g("palBambu");if(!wrap||wrap.childElementCount)return;var html="";BAMBU_GROUPS.forEach(function(grp,gi){html+='<div class="pal-lbl">Bambu <b>'+grp.t+'</b></div><div class="pal-grid" data-bg="'+gi+'"></div>';});wrap.innerHTML=html;BAMBU_GROUPS.forEach(function(grp,gi){var grid=wrap.querySelector('.pal-grid[data-bg="'+gi+'"]');if(!grid)return;grp.c.forEach(function(f){var name=f[0],v=f[1];var cols=(typeof v==="string")?[v]:v;var c=document.createElement("div");c.className="c";if(typeof v==="string"){c.style.background=v;c.title=name+" · "+v;}else{c.style.background="linear-gradient(135deg,"+v.join(",")+")";c.title=name+" (multi-colour)";}c.onclick=function(){pickFilament(cols,grp.f);};grid.appendChild(c);});});}
 /* Record which Bambu finish a swatch uses for the current target, then apply colour + finish. */
 function pickFilament(cols,finish){window.__matFinish=window.__matFinish||{};if(typeof palTarget==="string"&&["front","body","name","image","model"].indexOf(palTarget)>=0){window.__matFinish[palTarget]={finish:finish,colors:cols.slice()};}pickColor(cols[0]);try{applyFinishes();}catch(e){}}
+/* Map any colour to the nearest real Bambu Lab filament so the exported 3MF carries the correct
+   filament preset + colour (instead of generic "colour 1/2/3/4"). */
+function _rgbOf(h){h=_hex6(h);return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+var _BAMBU_PRESET={"PLA Basic":"Bambu PLA Basic","PLA Matte":"Bambu PLA Matte","PLA Silk+":"Bambu PLA Silk","PLA Silk Multi-Color":"Bambu PLA Silk Multi-Color","PLA Galaxy":"Bambu PLA Galaxy","PLA Sparkle":"Bambu PLA Sparkle","PLA Marble":"Bambu PLA Marble","PLA Metal":"Bambu PLA Metal","PLA Glow":"Bambu PLA Glow","PLA Wood":"Bambu PLA Wood"};
+function bambuFilamentFor(hex){var t=_rgbOf(hex),best=null,bd=1e18;try{BAMBU_GROUPS.forEach(function(grp){grp.c.forEach(function(f){var v=f[1],cs=(typeof v==="string")?[v]:v;cs.forEach(function(cx){var c=_rgbOf(cx),d=(c[0]-t[0])*(c[0]-t[0])+(c[1]-t[1])*(c[1]-t[1])+(c[2]-t[2])*(c[2]-t[2]);if(d<bd){bd=d;best={group:grp.t,name:f[0]};}});});});}catch(e){}var g=best?best.group:"PLA Basic";return {preset:_BAMBU_PRESET[g]||"Bambu PLA Basic",name:best?best.name:"",group:g};}
 let palTarget=null;
 window.__amsPalette=window.__amsPalette||["#FFFFFF","#1B1B1B","#2B6BE4","#E23B7A"];
 function rebuildPalGrid(){const grid=g("palGrid");if(!grid)return;grid.innerHTML="";const addSw=(hex,ams)=>{const c=document.createElement("div");c.className="c";c.style.background=hex;if(ams)c.style.outline="2px solid var(--gold,#d8b877)";c.onclick=()=>pickColor(hex);grid.appendChild(c);};const editingSlot=(typeof palTarget==="string"&&palTarget.indexOf("ams:")===0);if(window.__hasAMS&&window.__amsPalette&&window.__amsPalette.length&&!editingSlot){window.__amsPalette.forEach(h=>addSw(h,true));}var _mp=window.__merchantPalette;if(_mp&&_mp.length){_mp.forEach(h=>addSw(h,false));}else{PRESETS.forEach(h=>addSw(h,false));}try{buildBambuGrid();}catch(e){}}
@@ -2109,8 +2114,8 @@ async function buildModel(){
   if(!renderer||!pivot)return;clearPivot();glowFace=null;glowSpot=null;floorPlane=null;DIM=null;
   const letter=(v("letter")||"A").toUpperCase()[0];if(featState("textures")!=="on"){LIDTEX=null;window.__lidTexId="none";}const logoMode=(featState("logo")==="on")&&(typeof LOGO!=="undefined")&&LOGO&&LOGO.length>0;const nameMode=!logoMode&&(featState("name")==="on")&&(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0&&(window.__moderateText?window.__moderateText(LIDNAME).ok:true);window.__nameFlat=nameMode||logoMode;window.__logoFlat=logoMode;window.__logoInk=null;window.__plateFoot=null;try{var _skRow=document.getElementById("dimrow_skirt");if(_skRow)_skRow.style.display="none";}catch(e){}   // single depth control everywhere: Light box depth drives the skirt (hidden on every build path)
       const name=texts.map(t=>(t.str||"").trim()).filter(Boolean).join(" ");
-  const lh=mmOf("lh")||140,depth=mmOf("bd")||40,wall=mmOf("wall")||3;
-  const topT=mmOf("topT")||3,capW=mmOf("capW")||3,skirtD=mmOf("skirt")||14,clearance=0.4;
+  const lh=mmOf("lh")||140,depth=Math.max(40,mmOf("bd")||40),wall=mmOf("wall")||2;
+  const topT=mmOf("topT")||1,capW=mmOf("capW")||3,skirtD=mmOf("skirt")||14,clearance=0.4;
   const nameExt=mmOf("nameExt")||10;
   let pocket=mmOf("nameDepth");if(isNaN(pocket))pocket=0;pocket=Math.max(0,Math.min(pocket,nameExt));
   const above=Math.round((nameExt-pocket)*10)/10,TT=Math.max(topT,pocket+FLOOR_MIN);
@@ -2657,7 +2662,13 @@ function build3MFModelXML(groups,bedX,bedY){
 function buildModelSettingsXML(groups){
   let s=`<?xml version="1.0" encoding="UTF-8"?>\n<config>`;
   groups.forEach(grp=>grp.objects.forEach(o=>{const fc=o.faceCount||0;
-    s+=`<object id="${o.wrapId}"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="extruder" value="${o.extruder||1}"/><metadata face_count="${fc}"/><part id="${o.meshId}" subtype="normal_part"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/><mesh_stat face_count="${fc}" edges_fixed="0" degenerate_facets="0" facets_removed="0" facets_reversed="0" backwards_edges="0"/></part></object>`;}));
+    // Per-part slicer presets for optimal LED diffusion, read by Bambu Studio on import:
+    //  · Lid (front diffuser): 100% infill, 5 bottom shell layers, monotonic-line top surface
+    //  · Main Box (light blocker): 4 wall loops to stop side light bleed
+    let ov="";
+    if(o.cat==="lid")ov=`<metadata key="sparse_infill_density" value="100%"/><metadata key="bottom_shell_layers" value="5"/><metadata key="top_surface_pattern" value="monotonicline"/><metadata key="top_shell_layers" value="5"/>`;
+    else if(o.cat==="box")ov=`<metadata key="wall_loops" value="4"/>`;
+    s+=`<object id="${o.wrapId}"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="extruder" value="${o.extruder||1}"/>${ov}<metadata face_count="${fc}"/><part id="${o.meshId}" subtype="normal_part"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/><mesh_stat face_count="${fc}" edges_fixed="0" degenerate_facets="0" facets_removed="0" facets_reversed="0" backwards_edges="0"/></part></object>`;}));
   let iid=100;
   groups.forEach((grp,gi)=>{const pid=gi+1;
     s+=`<plate><metadata key="plater_id" value="${pid}"/><metadata key="plater_name" value="${xmlEsc(grp.name)}"/><metadata key="locked" value="false"/><metadata key="filament_map_mode" value="Auto For Flush"/><metadata key="filament_maps" value="1"/>`;
@@ -2676,8 +2687,11 @@ function bambuPrinterIds(p){const n=(p&&p.n)||"X1 Carbon";const model="Bambu Lab
 function bambuCode(n){const m={"A1 mini":"A1M","A1":"A1","P1P":"P1P","P1S":"P1S","X1 Carbon":"X1C","X1":"X1","X1E":"X1E","H2D":"H2D","H2S":"H2S"};return m[n]||(n||"X1C").replace(/\s+/g,"");}
 function buildProjectSettings(p){const b=bambuPrinterIds(p),code=bambuCode((p&&p.n)||"X1 Carbon");
   var pal=(typeof window!=="undefined"&&window.__amsFilaments&&window.__amsFilaments.length)?window.__amsFilaments:null;
-  var base={name:"project_settings",from:"project",version:"02.07.01.57",is_bbl_printer:"1",printer_settings_id:b.settingsId,printer_model:b.model,printer_variant:b.variant,print_settings_id:"0.20mm Standard @BBL "+code,filament_settings_id:["Bambu PLA Basic @BBL "+code],nozzle_diameter:["0.4"],curr_bed_type:"Textured PEI Plate"};
-  if(pal&&pal.length){var N=pal.length,fsid=[],ftype=[];for(var i=0;i<N;i++){fsid.push("Bambu PLA Basic @BBL "+code);ftype.push("PLA");}base.filament_settings_id=fsid;base.filament_type=ftype;base.filament_colour=pal.map(_hex6);}
+  var _fc=(typeof COLORS!=="undefined"&&COLORS.front)?COLORS.front:"#FFFFFF";var _sf=bambuFilamentFor(_fc);
+  var base={name:"project_settings",from:"project",version:"02.07.01.57",is_bbl_printer:"1",printer_settings_id:b.settingsId,printer_model:b.model,printer_variant:b.variant,print_settings_id:"0.20mm Standard @BBL "+code,
+    filament_settings_id:[_sf.preset+" @BBL "+code],filament_type:["PLA"],filament_colour:[_hex6(_fc)],
+    nozzle_diameter:["0.4"],curr_bed_type:"Textured PEI Plate",layer_height:"0.2",initial_layer_print_height:"0.2"};
+  if(pal&&pal.length){var N=pal.length,fsid=[],ftype=[],fcol=[];for(var i=0;i<N;i++){var bf=bambuFilamentFor(pal[i]);fsid.push(bf.preset+" @BBL "+code);ftype.push("PLA");fcol.push(_hex6(pal[i]));}base.filament_settings_id=fsid;base.filament_type=ftype;base.filament_colour=fcol;}
   return JSON.stringify(base,null,4);
 }
 // Redundant config-style carrier for the printer identifier (some Bambu importers inspect BBL_Config.config).
@@ -2735,7 +2749,8 @@ async function exportPlates(deliver){deliver=deliver||"download";
       const pal=(window.__amsPalette&&window.__amsPalette.length)?window.__amsPalette.map(_hex6):[];const idxOf=c=>{c=_hex6(c);var kk=pal.indexOf(c);if(kk<0){kk=pal.length;pal.push(c);}return kk+1;};
       PLATES.forEach((part,pi)=>{const cols=partTrianglesByColor(part,false);if(!cols||!cols.length)return;
         const base=(part.name||("part "+(pi+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
-        const objects=cols.map((cg,ci)=>({name:base+(cols.length>1?(" #"+(ci+1)):""),tris:cg.tris,extruder:idxOf(cg.color)}));
+        const catA=part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
+        const objects=cols.map((cg,ci)=>({name:base+(cols.length>1?(" #"+(ci+1)):""),tris:cg.tris,extruder:idxOf(cg.color),cat:catA}));
         groups.push({name:"Plate "+(groups.length+1)+" - "+base,overlay:objects.length>1,objects:objects});});
       window.__amsFilaments=pal.slice();
     } else {
@@ -2743,7 +2758,7 @@ async function exportPlates(deliver){deliver=deliver||"download";
       PLATES.forEach((part,i)=>{const tris=partTriangles(part);if(!tris||!tris.length)return;
         const clean=(part.name||("part "+(i+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
         const cat=part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
-        bucket[cat].push({name:clean,tris:tris});});
+        bucket[cat].push({name:clean,tris:tris,cat:cat});});
       if(bucket.box.length)groups.push({name:"Plate "+(groups.length+1)+" - Main Box",objects:bucket.box});
       if(bucket.lid.length)groups.push({name:"Plate "+(groups.length+1)+" - Lid",objects:bucket.lid});
       if(bucket.text.length)groups.push({name:"Plate "+(groups.length+1)+" - Text Layers",objects:bucket.text});
