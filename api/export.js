@@ -47,6 +47,14 @@ export default async function handler(req, res) {
     return;
   }
 
+  // Owner accounts get unlimited exports (for testing) — no licence row required.
+  const OWNERS = (process.env.OWNER_EMAIL || "ali.hussain755@outlook.com")
+    .split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+  if (user.email && OWNERS.includes(user.email.toLowerCase())) {
+    res.status(200).json({ allowed: true, unlimited: true, owner: true, remaining: null });
+    return;
+  }
+
   // 2) Atomically check + decrement the quota (SECRET key bypasses RLS).
   try {
     const cres = await fetch(SUPA_URL + "/rest/v1/rpc/consume_export", {

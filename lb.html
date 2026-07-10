@@ -2745,7 +2745,8 @@ async function exportPlates(deliver){deliver=deliver||"download";
     if(!(await uiConfirm(__cmsg))){return;}
     if(btn){btn.disabled=true;btn.textContent="⏳ Preparing…";}
     // ===== LICENCE GATE: sign-in + an available export required before producing a file =====
-    if(typeof window.__consumeExport==="function"){var __lic=await window.__consumeExport();if(!__lic||!__lic.allowed){if(btn)btn.textContent=orig;return;}}
+    var _ownerFree=!!(window.__isOwner&&window.__isOwner());   // owner exports unlimited (testing) — no licence needed
+    if(!_ownerFree&&typeof window.__consumeExport==="function"){var __lic=await window.__consumeExport();if(!__lic||!__lic.allowed){if(btn)btn.textContent=orig;return;}}
     // Categorise every printable part, then enforce the STRICT 4-plate split:
     //   Plate 1 = Main Box (body) · Plate 2 = Lid · Plate 3 = ALL text layers · Plate 4 = ALL catalog models.
     // The lid is the only face-down (flip) part; text/models are detected by their flags.
@@ -3958,6 +3959,7 @@ window.USDZExporter=USDZExporter;})();
   window.__ownerEmail=OWNER_EMAIL;
   window.__isMerchant=function(){return (window.__viewAsTier||(window.__license&&window.__license.tier))==="merchant";};
   function isOwner(){return !!(window.__user&&window.__user.email&&window.__user.email.toLowerCase()===OWNER_EMAIL);}
+  window.__isOwner=isOwner;   // owner = unlimited exports (skips the licence gate for testing)
 
 
 
