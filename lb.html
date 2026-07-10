@@ -2698,12 +2698,15 @@ function bambuPrinterIds(p){const n=(p&&p.n)||"X1 Carbon";const model="Bambu Lab
 // Bambu's short machine code used in process/filament preset suffixes ("@BBL <code>").
 function bambuCode(n){const m={"A1 mini":"A1M","A1":"A1","P1P":"P1P","P1S":"P1S","X1 Carbon":"X1C","X1":"X1","X1E":"X1E","H2D":"H2D","H2S":"H2S"};return m[n]||(n||"X1C").replace(/\s+/g,"");}
 function buildProjectSettings(p){const b=bambuPrinterIds(p),code=bambuCode((p&&p.n)||"X1 Carbon");
+  // Bambu filament preset IDs carry a nozzle suffix ("… @BBL X2D 0.4 nozzle"). Without it the slicer can't
+  // match the preset and shows the raw project filename on every slot but the first (which it seeds itself).
+  const fsuf=" @BBL "+code+" 0.4 nozzle";
   var pal=(typeof window!=="undefined"&&window.__amsFilaments&&window.__amsFilaments.length)?window.__amsFilaments:null;
   var _fc=(typeof COLORS!=="undefined"&&COLORS.front)?COLORS.front:"#FFFFFF";var _sf=bambuFilamentFor(_fc);
   var base={name:"project_settings",from:"project",version:"02.07.01.57",is_bbl_printer:"1",printer_settings_id:b.settingsId,printer_model:b.model,printer_variant:b.variant,print_settings_id:"0.20mm Standard @BBL "+code,
-    filament_settings_id:[_sf.preset+" @BBL "+code],filament_type:["PLA"],filament_colour:[_hex6(_fc)],
+    filament_settings_id:[_sf.preset+fsuf],filament_type:["PLA"],filament_colour:[_hex6(_fc)],
     nozzle_diameter:["0.4"],curr_bed_type:"Textured PEI Plate",layer_height:"0.2",initial_layer_print_height:"0.2"};
-  if(pal&&pal.length){var N=pal.length,fsid=[],ftype=[],fcol=[];for(var i=0;i<N;i++){var bf=bambuFilamentFor(pal[i]);fsid.push(bf.preset+" @BBL "+code);ftype.push("PLA");fcol.push(_hex6(pal[i]));}base.filament_settings_id=fsid;base.filament_type=ftype;base.filament_colour=fcol;}
+  if(pal&&pal.length){var N=pal.length,fsid=[],ftype=[],fcol=[];for(var i=0;i<N;i++){var bf=bambuFilamentFor(pal[i]);fsid.push(bf.preset+fsuf);ftype.push("PLA");fcol.push(_hex6(pal[i]));}base.filament_settings_id=fsid;base.filament_type=ftype;base.filament_colour=fcol;}
   return JSON.stringify(base,null,4);
 }
 // Redundant config-style carrier for the printer identifier (some Bambu importers inspect BBL_Config.config).
