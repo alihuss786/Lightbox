@@ -4003,7 +4003,10 @@ window.USDZExporter=USDZExporter;})();
   function applyMerchantConfig(m){
     window.__merchant=m||null;
     try{var raw=(m&&m.filaments)||[],on=[];for(var i=0;i<raw.length;i++){var f=raw[i];if(typeof f==="string"){if(f)on.push(f);}else if(f&&f.hex&&f.on!==false){on.push(f.hex);}}window.__merchantPalette=on.length?on:null;if(on.length){window.__amsPalette=on.slice(0,4);}try{if(typeof rebuildPalGrid==="function")rebuildPalGrid();}catch(e){}try{if(typeof renderAmsSwatches==="function")renderAmsSwatches();}catch(e){}}catch(e){}
-    try{if(m&&+m.max_x_mm>0&&+m.max_y_mm>0&&typeof PRINTERS!=="undefined"){var ent={n:((m.store_name||"Store")+" printer"),x:+m.max_x_mm,y:+m.max_y_mm,z:+(m.max_z_mm||256),_merchant:true};var idx=-1;for(var j=0;j<PRINTERS.length;j++){if(PRINTERS[j]._merchant){idx=j;break;}}if(idx>=0)PRINTERS[idx]=ent;else{PRINTERS.unshift(ent);idx=0;}selPrinter=idx;try{if(typeof renderPrinter==="function")renderPrinter();}catch(e){}try{if(typeof buildModel==="function")buildModel();}catch(e){}}}catch(e){}
+    // Only genuine Bambu Lab printers are ever selectable. A merchant's build size is kept solely for the
+    // kiosk fit-check (window.__merchantBed) — it is NOT injected into the printer list as a fake printer.
+    try{if(typeof PRINTERS!=="undefined"){var _mi=-1;for(var j=0;j<PRINTERS.length;j++){if(PRINTERS[j]._merchant){_mi=j;break;}}if(_mi>=0){PRINTERS.splice(_mi,1);if(selPrinter>=PRINTERS.length)selPrinter=3;try{if(typeof renderPrinter==="function")renderPrinter();}catch(e){}}}}catch(e){}
+    window.__merchantBed=(m&&+m.max_x_mm>0&&+m.max_y_mm>0)?{x:+m.max_x_mm,y:+m.max_y_mm,z:+(m.max_z_mm||256)}:null;
     window.__merchantLogo=(m&&m.logo_url)||null;window.__merchantStore=(m&&m.store_name)||"";window.__merchantIdle=(m&&+m.idle_secs>0)?+m.idle_secs:90;window.__merchantSaver=(m&&m.screensaver_url)||null;window.__merchantPricing=(m&&m.price_rules)||null;window.__merchantFulfil=(m&&m.fulfilment&&m.fulfilment.mode)?m.fulfilment:null;
     try{if(window.__kioskBrandSync)window.__kioskBrandSync();}catch(e){}
   }
