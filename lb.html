@@ -1031,7 +1031,20 @@ dbAllFonts().then(recs=>{recs.forEach(r=>{if(r&&r.id&&r.buf){if(r.kind==="letter
 const DIMS=[{id:"lh",l:"Letter height",min:50,max:400,st:1,val:140},{id:"bd",l:"Light box depth",min:40,max:150,st:1,val:40},{id:"wall",l:"Wall thickness",min:1.5,max:8,st:.5,val:2},{id:"topT",l:"Lid top thickness",min:1,max:12,st:.5,val:1},{id:"capW",l:"Cap wall",min:1.5,max:8,st:.5,val:3},{id:"skirt",l:"Skirt depth",min:3,max:120,st:1,val:14}];
 const dr=g("dimRows");
 const ut=document.createElement("div");ut.className="srow";ut.style.cssText="justify-content:flex-end;gap:10px;margin-bottom:2px";ut.innerHTML='<span class="lbl" style="margin-right:auto">Units</span><div class="useg"><button class="uchip" id="u_mm" onclick="setUnit(\'mm\')">mm</button><button class="uchip" id="u_cm" onclick="setUnit(\'cm\')">cm</button></div>';dr.appendChild(ut);
-DIMS.forEach(d=>{const row=document.createElement("div");row.className="row";row.id="dimrow_"+d.id;if(d.id==="skirt")row.style.display="none";row.innerHTML=`<span class="lbl">${d.l}</span><div class="srow"><input type="range" id="${d.id}R" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><div class="numbox wide"><input type="number" id="${d.id}" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><span class="u">mm</span></div></div>`;dr.appendChild(row);const R=g(d.id+"R"),N=g(d.id);R.oninput=()=>{N.value=UNIT==="cm"?tidy(R.value/10):R.value;rebuild();};N.oninput=()=>{R.value=UNIT==="cm"?Math.round(N.value*10):N.value;rebuild();};});
+// Everyday controls = Size + Depth. Wall/lid/cap thickness are pre-set for the best, even LED glow and
+// live under Advanced so casual users can't accidentally undo the diffusion tuning.
+const _dimNote=document.createElement("div");_dimNote.className="hint";_dimNote.style.cssText="margin:2px 0 10px;line-height:1.5";_dimNote.innerHTML='<b style="color:var(--acc)">✓ Set for the ideal LED glow.</b> Just pick your <b>size</b> and <b>depth</b> — the wall &amp; lid thickness are tuned for the brightest, most even glow. Tap <b>Advanced</b> to change everything.';dr.appendChild(_dimNote);
+const _dimAdv=document.createElement("div");_dimAdv.id="dimAdv";_dimAdv.style.cssText="flex-direction:column;gap:14px;margin-top:4px";
+const _advBtn=document.createElement("button");_advBtn.type="button";_advBtn.className="upfont";_advBtn.id="dimAdvBtn";_advBtn.style.cssText="margin-top:8px;width:100%";_advBtn.textContent="⚙ Advanced options";
+_advBtn.onclick=function(){var on=(_dimAdv.style.display==="none");_dimAdv.style.display=on?"flex":"none";_advBtn.textContent=on?"⚙ Hide advanced options":"⚙ Advanced options";};
+// attach the advanced container + toggle NOW so getElementById can find the rows we route into them
+dr.appendChild(_advBtn);dr.appendChild(_dimAdv);
+const _BASIC={lh:1,bd:1};
+DIMS.forEach(d=>{const row=document.createElement("div");row.className="row";row.id="dimrow_"+d.id;if(d.id==="skirt")row.style.display="none";row.innerHTML=`<span class="lbl">${d.l}</span><div class="srow"><input type="range" id="${d.id}R" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><div class="numbox wide"><input type="number" id="${d.id}" min="${d.min}" max="${d.max}" step="${d.st}" value="${d.val}"><span class="u">mm</span></div></div>`;if(_BASIC[d.id])dr.insertBefore(row,_advBtn);else _dimAdv.appendChild(row);const R=g(d.id+"R"),N=g(d.id);R.oninput=()=>{N.value=UNIT==="cm"?tidy(R.value/10):R.value;rebuild();};N.oninput=()=>{R.value=UNIT==="cm"?Math.round(N.value*10):N.value;rebuild();};});
+// "Set to default" — restore the LED-optimised thicknesses in one tap.
+const _dimReset=document.createElement("button");_dimReset.type="button";_dimReset.className="upfont";_dimReset.style.cssText="margin-top:2px;width:100%;opacity:.9";_dimReset.textContent="↺ Reset to LED-glow defaults";
+_dimReset.onclick=function(){DIMS.forEach(function(d){if(_BASIC[d.id])return;var R=g(d.id+"R"),N=g(d.id);if(R)R.value=d.val;if(N)N.value=(UNIT==="cm"?tidy(d.val/10):d.val);});if(typeof rebuild==="function")rebuild();};
+_dimAdv.appendChild(_dimReset);_dimAdv.style.display="none";   // advanced starts collapsed
 
 let images=[],selImg=-1,models=[],selModel=-1,uid=1,t1=null,mode="render",lightOn=true,diffOn=false,selPlate=0,DIM=null;
 // Dynamic, independent text layers on the lid. Each: {id, str, size(mm), x, y}. selText = active layer.
@@ -4124,6 +4137,7 @@ window.USDZExporter=USDZExporter;})();
     var conc=window.__isConcierge();
     [].forEach.call(dr.children,function(ch){
       if(ch===cs){ch.style.display=conc?"block":"none";}
+      else if(ch.id==="dimAdv"){ch.style.display=conc?"none":(ch.style.display==="flex"?"flex":"none");}   // keep the advanced panel's own collapsed/expanded state
       else{ch.style.display=conc?"none":"";}
     });
     if(conc){ if(!window.__conciergeSize){setConciergeSize("medium",true);} else {renderSizeCards();} }
