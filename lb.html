@@ -117,9 +117,10 @@ input[type=text]:focus,input[type=number]:focus{border-color:var(--acc);box-shad
 .row{display:flex;flex-direction:column;gap:6px}
 .srow{display:flex;align-items:center;gap:10px}
 .srow input[type=range]{flex:1;accent-color:var(--acc)}
-.numbox{display:flex;align-items:center;background:var(--bg2);border:1px solid var(--line);border-radius:9px;overflow:hidden;width:82px;transition:border-color .15s}
+.numbox{display:flex;align-items:center;background:var(--bg2);border:1px solid var(--line);border-radius:9px;overflow:hidden;width:92px;flex:none;transition:border-color .15s}
 .numbox:focus-within{border-color:var(--acc)}
-.numbox input{border:none;background:transparent;width:50px;text-align:right;padding:9px 2px 9px 9px}
+.numbox input{border:none;background:transparent;width:56px;text-align:right;padding:9px 2px 9px 7px;-moz-appearance:textfield;appearance:textfield}
+.numbox input::-webkit-outer-spin-button,.numbox input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .numbox input:focus{box-shadow:none}
 .numbox .u,.numbox .u2{font-size:10px;color:var(--txt3);padding-right:9px;padding-left:3px}
 .numbox.wide{width:96px}.numbox.wide input{width:60px}
@@ -883,7 +884,7 @@ let selPrinter=3;
 window.__hasAMS=false;   // AMS = multi-colour: bake chosen colours into the .3mf
 const plateOpacity=0.12;        // build-plate translucency permanently locked at its lowest level
 let __plateMats=[];             // live references to the current plate's materials for instant opacity updates
-function maybeExitNameMode(){try{var wrap=document.querySelector(".controls");if(!wrap)return;var openAcc=wrap.querySelector(".acc.open");if(!openAcc)return;var hd=openAcc.querySelector(".acc-h");var nm="";if(hd)[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)nm+=n.textContent;});nm=nm.trim().toLowerCase();if((nm==="letter"||nm==="name")&&typeof LOGO!=="undefined"&&LOGO){LOGO=null;window.__logoSvg=null;try{_logoUIsync();}catch(e){}if(typeof rebuild==="function")rebuild();}if(nm==="letter"){if(typeof LIDNAME!=="undefined"&&LIDNAME.trim().length){LIDNAME="";var ta=document.getElementById("lidName");if(ta)ta.value="";if(typeof rebuild==="function")rebuild();}}else if(nm==="name"){if(typeof clearNameTexts==="function")clearNameTexts();}if(nm==="letter"||nm==="name"||nm==="logo"){var _ch=false;try{if(typeof images!=="undefined"&&images&&images.length){images.length=0;_ch=true;}}catch(e){}try{if(typeof models!=="undefined"&&models&&models.length){models.length=0;_ch=true;}}catch(e){}if(_ch){try{selImg=-1;}catch(e){}try{selModel=-1;}catch(e){}["renderImgList","renderModelList"].forEach(function(fn){try{if(typeof window[fn]==="function")window[fn]();}catch(e){}});try{var _ic=document.getElementById("imgControls");if(_ic)_ic.style.display="none";}catch(e){}try{if(typeof drawPad==="function")drawPad();}catch(e){}try{if(typeof rebuild==="function")rebuild();else if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}}}catch(e){}}
+function maybeExitNameMode(){try{var wrap=document.querySelector(".controls");if(!wrap)return;var openAcc=wrap.querySelector(".acc.open");if(!openAcc)return;var hd=openAcc.querySelector(".acc-h");var nm="";if(hd)[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)nm+=n.textContent;});nm=nm.trim().toLowerCase();if((nm==="letter"||nm==="name")&&typeof LOGO!=="undefined"&&LOGO){LOGO=null;window.__logoSvg=null;try{_logoUIsync();}catch(e){}if(typeof rebuild==="function")rebuild();}if(nm==="letter"){if(typeof LIDNAME!=="undefined"&&LIDNAME.trim().length){LIDNAME="";var ta=document.getElementById("lidName");if(ta)ta.value="";if(typeof rebuild==="function")rebuild();}}else if(nm==="name"){if(typeof clearNameTexts==="function")clearNameTexts();}if((nm==="letter"||nm==="name"||nm==="logo")&&window.__designFromTemplate){window.__designFromTemplate=false;var _ch=false;try{if(typeof images!=="undefined"&&images&&images.length){images.length=0;_ch=true;}}catch(e){}try{if(typeof models!=="undefined"&&models&&models.length){models.length=0;_ch=true;}}catch(e){}if(_ch){try{selImg=-1;}catch(e){}try{selModel=-1;}catch(e){}["renderImgList","renderModelList"].forEach(function(fn){try{if(typeof window[fn]==="function")window[fn]();}catch(e){}});try{var _ic=document.getElementById("imgControls");if(_ic)_ic.style.display="none";}catch(e){}try{if(typeof drawPad==="function")drawPad();}catch(e){}try{if(typeof rebuild==="function")rebuild();else if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}}}catch(e){}}
 function accT(h){const acc=h.parentElement;const open=acc.classList.contains("open");document.querySelectorAll(".controls .acc.open").forEach(a=>a.classList.remove("open"));if(!open)acc.classList.add("open");maybeExitNameMode();setTimeout(()=>{try{drawPad();}catch(e){}},0);}
 const FB="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/fonts/";
 const FONTS=[{name:"Sans",url:FB+"helvetiker_bold.typeface.json",css:"Arial Black,sans-serif"},{name:"Serif",url:FB+"optimer_bold.typeface.json",css:"Georgia,serif"},{name:"Soft",url:FB+"gentilis_bold.typeface.json",css:"Trebuchet MS,sans-serif"}];
@@ -2826,7 +2827,11 @@ function serializeDesign(){var d={v:1};try{
 var _asT=null;
 function autosave(){clearTimeout(_asT);_asT=setTimeout(function(){try{localStorage.setItem("sl_design_v1",JSON.stringify(serializeDesign()));}catch(e){}},700);}
 function _restoreModels(list){try{(list||[]).forEach(function(mm){var entry=(typeof STL_CATALOG!=="undefined")?STL_CATALOG.filter(function(c){return c.name===mm.name;})[0]:null;if(!entry)return;loadGeometry(entry.path,false).then(function(geo){try{placeCatalogGeo(geo,entry.name);var m=models[selModel];if(m){if(typeof mm.size==="number")m.size=mm.size;if(typeof mm.x==="number")m.x=mm.x;if(typeof mm.y==="number")m.y=mm.y;if(typeof mm.rz==="number")m.rz=mm.rz;renderModelList();try{drawStlPad();}catch(e){}scheduleBuild();}}catch(e){}}).catch(function(){});});}catch(e){}}
-function applyDesign(d,opts){if(!d||d.v!==1)return false;opts=opts||{};var _styleOnly=!!opts.styleOnly;try{
+function applyDesign(d,opts){if(!d||d.v!==1)return false;opts=opts||{};var _styleOnly=!!opts.styleOnly;
+  // mark that the current images/models came from a loaded template/design, so switching to the
+  // Letter/Name/Logo tab resets THEM (but never wipes images/models the user added themselves).
+  window.__designFromTemplate=true;
+  try{
   if(g("letter"))g("letter").value=(d.letter||"A");
   if(typeof d.name==="string"){LIDNAME=d.name;var _nel0=document.getElementById("lidName");if(_nel0)_nel0.value=d.name;}
   LIDICON=(typeof d.icon==="string")?d.icon:"";try{if(typeof refreshIconGrid==="function")refreshIconGrid();}catch(e){}
