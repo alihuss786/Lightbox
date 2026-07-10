@@ -2381,16 +2381,19 @@ function _finWood(mat,cols){
 function _finSparkle(mat,cols,dense){
   // dense=true → Sparkle (bigger, brighter glitter). dense=false → Galaxy (fine, dense, subtle shimmer on a dark glossy base).
   mat.color.set(cols[0]||"#888888");
-  var U=_mkU(mat);U.uThr=U.uThr||{value:0.96};U.uAmt=U.uAmt||{value:0.8};U.uScl=U.uScl||{value:3.0};
+  var U=_mkU(mat);U.uThr=U.uThr||{value:0.96};U.uAmt=U.uAmt||{value:0.8};U.uScl=U.uScl||{value:3.0};U.uTime=U.uTime||{value:0};
   U.uThr.value=dense?0.90:0.82;U.uAmt.value=dense?0.7:0.42;U.uScl.value=dense?3.2:4.6;
   _ensureShaderType(mat,"sparkle",function(sh){
-    sh.uniforms.uThr=U.uThr;sh.uniforms.uAmt=U.uAmt;sh.uniforms.uScl=U.uScl;
+    sh.uniforms.uThr=U.uThr;sh.uniforms.uAmt=U.uAmt;sh.uniforms.uScl=U.uScl;sh.uniforms.uTime=U.uTime;
     sh.vertexShader="varying vec3 vLP;\n"+sh.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\n vLP=position;");
-    sh.fragmentShader="varying vec3 vLP;\nuniform float uThr;uniform float uAmt;uniform float uScl;\n"+_GLSL_NOISE+
-      sh.fragmentShader.replace("#include <emissivemap_fragment>","#include <emissivemap_fragment>\n float _sp=_h3(floor(vLP*uScl)); float _g=step(uThr,fract(_sp*57.31)); float _sp2=_h3(floor(vLP*uScl*1.9+7.1)); float _g2=step(uThr+0.06,fract(_sp2*41.7)); totalEmissiveRadiance += (_g+_g2*0.7)*vec3(1.0,0.97,0.88)*uAmt;");
+    sh.fragmentShader="varying vec3 vLP;\nuniform float uThr;uniform float uAmt;uniform float uScl;uniform float uTime;\n"+_GLSL_NOISE+
+      sh.fragmentShader.replace("#include <emissivemap_fragment>","#include <emissivemap_fragment>\n vec3 _vd=normalize(vViewPosition); vec3 _c1=floor(vLP*uScl); float _f1=step(uThr,fract(_h3(_c1)*57.31)); vec3 _c2=floor(vLP*uScl*2.1+9.3); float _f2=step(uThr+0.04,fract(_h3(_c2)*41.7)); if(_f1+_f2>0.5){ vec3 _cc=_f1>0.5?_c1:_c2; vec3 _rn=normalize(vec3(_h3(_cc+3.1)-0.5,_h3(_cc+7.7)-0.5,_h3(_cc+11.3)-0.5)*1.7+normal); float _face=clamp(dot(_rn,_vd),0.0,1.0); float _flash=pow(_face,30.0); float _br=0.45+0.55*_h3(_cc+5.5); float _tw=pow(0.5+0.5*sin(uTime*3.5+_h3(_cc+2.2)*120.0),4.0); totalEmissiveRadiance += (_flash*2.6+_tw*1.5+0.06)*_br*vec3(1.0,0.98,0.92)*uAmt; }");
   });
   mat.metalness=dense?0.55:0.35;mat.roughness=0.42;mat.envMapIntensity=dense?1.15:1.05;
+  _sparkleStart();
 }
+// Gentle twinkle: advance uTime for any active sparkle/galaxy material and re-render; stops when none remain.
+function _sparkleStart(){if(window.__sparkleInt)return;window.__sparkleInt=setInterval(function(){window.__sparkleT=(window.__sparkleT||0)+0.066;var found=false;if(typeof MATS!=="undefined"){["front","body","name","image","model"].forEach(function(k){var m=MATS[k];if(m&&m.userData&&m.userData.__U&&m.userData.__U.uTime&&m.userData.__fin==="sparkle"){m.userData.__U.uTime.value=window.__sparkleT;found=true;}});}if(!found){clearInterval(window.__sparkleInt);window.__sparkleInt=null;return;}try{renderNow();}catch(e){}},66);}
 var _finId=1;
 function _mkU(mat){if(!mat.userData.__U)mat.userData.__U={};if(!mat.userData.__id)mat.userData.__id=(_finId++);return mat.userData.__U;}
 /* Recompile only when the finish TYPE changes (per material). Same-type colour swaps reuse the
