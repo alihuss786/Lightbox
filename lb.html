@@ -1145,8 +1145,7 @@ const BAMBU_GROUPS=[
  {t:"PLA Marble",f:"marble",c:[["White Marble",["#F2ECDE","#8F887A"]],["Red Granite",["#8A4A3C","#E4D8C8"]],["Black Marble",["#232323","#9AA0A6"]]]},
  {t:"PLA Metal",f:"metal",c:[["Cobalt Blue","#33487A"],["Oxide Green","#2E6155"],["Iridium Gold","#B8963E"],["Copper Brown","#8E5A3B"],["Iron Gray","#66696E"]]},
  {t:"PLA Glow",f:"glow",c:[["Glow Green","#B6E5A0"],["Glow Blue","#A7D8E8"],["Glow Pink","#F2B6C8"],["Glow Orange","#F5C48A"],["Glow Yellow","#EDE7A0"]]},
- {t:"PLA Wood",f:"wood",c:[["Black Walnut","#3E2E22"],["Rosewood","#6E4A32"],["Clay Brown","#A0673F"],["Classic Birch","#C9A77B"],["White Oak","#D8C3A0"],["Ochre Yellow","#C98A2E"]]},
- {t:"PETG Translucent",f:"translucent",c:[["Clear","#EAF0F0"],["Gray","#B7BCC0"],["Olive","#8B8B4B"],["Teal","#4FB3B0"],["Brown","#9A6B47"],["Orange","#F5934B"],["Pink","#F2A9C4"],["Purple","#9E7BD0"]]}
+ {t:"PLA Wood",f:"wood",c:[["Black Walnut","#3E2E22"],["Rosewood","#6E4A32"],["Clay Brown","#A0673F"],["Classic Birch","#C9A77B"],["White Oak","#D8C3A0"],["Ochre Yellow","#C98A2E"]]}
 ];
 function buildBambuGrid(){var wrap=g("palBambu");if(!wrap||wrap.childElementCount)return;var html="";BAMBU_GROUPS.forEach(function(grp,gi){html+='<div class="pal-lbl">Bambu <b>'+grp.t+'</b></div><div class="pal-grid" data-bg="'+gi+'"></div>';});wrap.innerHTML=html;BAMBU_GROUPS.forEach(function(grp,gi){var grid=wrap.querySelector('.pal-grid[data-bg="'+gi+'"]');if(!grid)return;grp.c.forEach(function(f){var name=f[0],v=f[1];var cols=(typeof v==="string")?[v]:v;var c=document.createElement("div");c.className="c";if(typeof v==="string"){c.style.background=v;c.title=name+" · "+v;}else{c.style.background="linear-gradient(135deg,"+v.join(",")+")";c.title=name+" (multi-colour)";}c.onclick=function(){pickFilament(cols,grp.f);};grid.appendChild(c);});});}
 /* Record which Bambu finish a swatch uses for the current target, then apply colour + finish. */
