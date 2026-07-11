@@ -1169,7 +1169,7 @@ function buildBambuGrid(){var wrap=g("palBambu");if(!wrap||wrap.childElementCoun
 function pickFilament(cols,finish){window.__matFinish=window.__matFinish||{};window.__amsMeta=window.__amsMeta||{};
   if(typeof palTarget==="string"&&palTarget.indexOf("ams:")===0){window.__amsMeta[+palTarget.slice(4)]={finish:finish,colors:cols.slice()};}   // remember the finish + gradient colours loaded into this AMS slot
   else if(typeof palTarget==="string"&&["front","body","name","image","model"].indexOf(palTarget)>=0){window.__matFinish[palTarget]={finish:finish,colors:cols.slice()};}
-  pickColor(cols[0]);try{applyFinishes();}catch(e){}}
+  pickColor(cols[0],true);try{applyFinishes();}catch(e){}}
 // Swatch background for an AMS slot — shows the ombre gradient if that slot holds a gradient/multi filament.
 function _amsSlotBg(i){var m=(window.__amsMeta||{})[i];if(m&&m.colors&&m.colors.length>1)return "linear-gradient(135deg,"+m.colors.join(",")+")";return (window.__amsPalette&&window.__amsPalette[i])||"#ffffff";}
 // Nearest Bambu preset for a finish (gradient -> PLA Gradient, silk -> PLA Silk, …).
@@ -1212,7 +1212,11 @@ function openPal(t,ev){palTarget=t;const p=g("palette");rebuildPalGrid();const t
     var avail=window.innerHeight-y-10;if(avail<window.innerHeight*0.5)p.style.maxHeight=Math.max(220,avail)+"px";
   }
   p.classList.add("show");ev.stopPropagation();}
-function pickColor(hex){if(!palTarget)return;if(typeof palTarget==="string"&&palTarget.indexOf("ams:")===0){window.__amsPalette[+palTarget.slice(4)]=hex;renderAmsSwatches();g("palHex").value=hex;g("palette").classList.remove("show");return;}const tid=palTextId(palTarget);if(tid!=null){onTextColor(tid,hex);const s=g("sw_text_"+tid);if(s)s.style.background=hex;g("palHex").value=hex;g("palette").classList.remove("show");return;}COLORS[palTarget]=hex;applyColors();applyLight();g("palette").classList.remove("show");}
+function pickColor(hex,keepFin){if(!palTarget)return;if(typeof palTarget==="string"&&palTarget.indexOf("ams:")===0){var _si=+palTarget.slice(4);window.__amsPalette[_si]=hex;if(!keepFin&&window.__amsMeta)delete window.__amsMeta[_si];renderAmsSwatches();g("palHex").value=hex;g("palette").classList.remove("show");return;}const tid=palTextId(palTarget);if(tid!=null){onTextColor(tid,hex);const s=g("sw_text_"+tid);if(s)s.style.background=hex;g("palHex").value=hex;g("palette").classList.remove("show");return;}
+  // A plain colour has no finish — clear any stale finish on this part so it exports as PLA Basic (not a
+  // leftover Silk/Matte/Glow from an earlier pick). pickFilament passes keepFin=true to preserve its finish.
+  if(!keepFin&&window.__matFinish)delete window.__matFinish[palTarget];
+  COLORS[palTarget]=hex;applyColors();applyLight();try{applyFinishes();}catch(e){}g("palette").classList.remove("show");}
 function palHexIn(){let h=g("palHex").value.trim();if(/^#?[0-9a-fA-F]{6}$/.test(h)){if(h[0]!=="#")h="#"+h;const tid=palTextId(palTarget);if(tid!=null){onTextColor(tid,h);const s=g("sw_text_"+tid);if(s)s.style.background=h;return;}COLORS[palTarget]=h;applyColors();applyLight();}}
 document.addEventListener("pointerdown",e=>{const p=g("palette");if(p.classList.contains("show")&&!p.contains(e.target)&&!(e.target.classList&&e.target.classList.contains("sw")))p.classList.remove("show");});
 function refreshSwatches(){["front","name","image","model","body"].forEach(k=>{const s=g("sw_"+k);if(s)s.style.background=COLORS[k];});texts.forEach(t=>{const s=g("sw_text_"+t.id);if(s)s.style.background=t.color||"#FFFFFF";});}
