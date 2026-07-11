@@ -852,6 +852,8 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Width — <b id="mntBaseWLbl">90</b> mm</span><input type="range" id="mntBaseW" min="40" max="200" step="1" value="90" oninput="mntLabel()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth — <b id="mntBaseDLbl">58</b> mm</span><input type="range" id="mntBaseD" min="40" max="120" step="1" value="58" oninput="mntLabel()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickness — <b id="mntBaseTLbl">6</b> mm</span><input type="range" id="mntBaseT" min="3" max="20" step="1" value="6" oninput="mntLabel()" onchange="mntRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Model up / down — <b id="mntBaseRaiseLbl">0</b> mm</span><input type="range" id="mntBaseRaise" min="-20" max="20" step="0.5" value="0" oninput="mntLabel()" onchange="mntRebuild()"></div>
+        <div class="hint">The groove is shaped to your design automatically. Nudge this if it sits too high or low.</div>
       </div>
     </div>
   </div>
@@ -1274,7 +1276,7 @@ function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
 // ---- Mounting tab: toggle a feature, reveal its controls, keep the slider labels live, and rebuild ----
 function mntToggle(k){var t=document.getElementById("tg_"+k);if(!t)return;t.classList.toggle("on");var c=document.getElementById(k+"Ctl");if(c)c.style.display=t.classList.contains("on")?"flex":"none";mntRebuild();}
-function mntLabel(){[["mntWallX","mntWallXLbl"],["mntWallY","mntWallYLbl"],["mntPowX","mntPowXLbl"],["mntPowY","mntPowYLbl"],["mntBaseW","mntBaseWLbl"],["mntBaseD","mntBaseDLbl"],["mntBaseT","mntBaseTLbl"]].forEach(function(p){var e=document.getElementById(p[0]),l=document.getElementById(p[1]);if(e&&l)l.textContent=e.value;});}
+function mntLabel(){[["mntWallX","mntWallXLbl"],["mntWallY","mntWallYLbl"],["mntPowX","mntPowXLbl"],["mntPowY","mntPowYLbl"],["mntBaseW","mntBaseWLbl"],["mntBaseD","mntBaseDLbl"],["mntBaseT","mntBaseTLbl"],["mntBaseRaise","mntBaseRaiseLbl"]].forEach(function(p){var e=document.getElementById(p[0]),l=document.getElementById(p[1]);if(e&&l)l.textContent=e.value;});}
 function mntRebuild(){mntLabel();if(typeof scheduleBuild==="function")scheduleBuild();else if(typeof rebuild==="function")rebuild();}
 window.mntToggle=mntToggle;window.mntLabel=mntLabel;window.mntRebuild=mntRebuild;
 function toggleRGB(){window.__rgbMode=!window.__rgbMode;var b=g("rgbPill");if(b)b.classList.toggle("on",window.__rgbMode);applyLight();}
@@ -2261,7 +2263,7 @@ function _mountRead(){
   return {
     wall:{on:on("tg_mntWall"), x:nv("mntWallX",0), y:nv("mntWallY",0)},
     power:{on:on("tg_mntPow"), shape:sv("mntPowShape","usbc"), x:nv("mntPowX",0), y:nv("mntPowY",-30)},
-    base:{on:on("tg_mntBase"), shape:sv("mntBaseShape","round"), w:nv("mntBaseW",90), d:nv("mntBaseD",30), t:nv("mntBaseT",6)}
+    base:{on:on("tg_mntBase"), shape:sv("mntBaseShape","round"), w:nv("mntBaseW",90), d:nv("mntBaseD",58), t:nv("mntBaseT",6), raise:nv("mntBaseRaise",0)}
   };
 }
 window.__mountRead=_mountRead;
@@ -2285,75 +2287,66 @@ function _baseProfilePaths(shape,w,d){
   if(shape==="round")return [_roundRectPath(0,0,w,d,Math.min(w,d)*0.22)];
   return [[{X:Math.round(-w/2*S),Y:Math.round(-d/2*S)},{X:Math.round(w/2*S),Y:Math.round(-d/2*S)},{X:Math.round(w/2*S),Y:Math.round(d/2*S)},{X:Math.round(-w/2*S),Y:Math.round(d/2*S)}]];
 }
-// The desk base is a CONTOURED CRADLE: a solid foot with a groove whose floor follows the exact bottom
-// contour of THIS lightbox's silhouette, so a rounded/pointed shape nests into it perfectly and sits on top
-// (nothing pokes through the bottom). Built directly in the model's own coordinates (X = width, Y = up,
-// Z = front-to-back), so the caller adds it with no rotation; the exporter lays it flat like every other part.
-//   filled = the model silhouette (clipper paths); cx,cy = its centre (the body is built centred on this);
-//   depth = box thickness; w,d,t = requested foot width / depth / thickness. Returns {geo} or null.
-function buildCradleBase(filled,cx,cy,depth,w,d,t){try{
+// The desk base is a CONTOURED CRADLE: a foot in the chosen PROFILE (rounded-rect / square / pill) with a groove
+// whose depth follows THIS model's bottom contour, so a rounded/pointed shape nests in and sits on top (nothing
+// pokes through). Built with the proven lid builder (watertight/manifold): the profile is the footprint and the
+// groove is a set of equal-depth strip pockets that follow the silhouette's lower edge. The caller lays it flat
+// via the group transform and seats it at yWallTop. Returns {geo, yWallTop}.
+//   filled = model silhouette (clipper paths); cx,cy = its centre; depth = box thickness; w,d,t = foot W/D/T.
+function buildCradleBase(filled,cx,cy,depth,w,d,t,shape){try{
   if(!filled||!filled.length)return null;
-  var S2=S,clr=0.4,foot=Math.max(4,t),bandH=Math.max(7,Math.min(14,t*1.8));
-  // model x-extent + a fast "lowest silhouette y at column x" sampler (centred coords, mm)
+  var clr=0.4,foot=Math.max(4,t),bandH=Math.max(7,Math.min(16,t*1.9));
   var mnx=1e18,mxx=-1e18;
-  filled.forEach(function(p){p.forEach(function(pt){var X=pt.X/S2-cx;if(X<mnx)mnx=X;if(X>mxx)mxx=X;});});
+  filled.forEach(function(p){p.forEach(function(pt){var X=pt.X/S-cx;if(X<mnx)mnx=X;if(X>mxx)mxx=X;});});
   if(!isFinite(mnx)||mxx-mnx<1)return null;
-  function bottomAt(xc){var xr=(xc+cx)*S2,minY=1e18,hit=false;
+  function bottomAt(xc){var xr=(xc+cx)*S,minY=1e18,hit=false;
     for(var p=0;p<filled.length;p++){var pa=filled[p],n=pa.length;
       for(var j=0;j<n;j++){var a=pa[j],b=pa[(j+1)%n],ax=a.X,bx=b.X;
         if((ax<=xr&&bx>=xr)||(bx<=xr&&ax>=xr)){if(ax===bx)continue;var tt=(xr-ax)/(bx-ax),y=a.Y+(b.Y-a.Y)*tt;if(y<minY){minY=y;hit=true;}}}}
-    return hit?(minY/S2-cy):null;}
+    return hit?(minY/S-cy):null;}
   var modelW=mxx-mnx;
-  // find the model's true lowest point
-  var yMin=1e18,N0=Math.max(40,Math.min(240,Math.round(modelW/1.0)));
-  for(var i0=0;i0<=N0;i0++){var v=bottomAt(mnx+modelW*i0/N0);if(v!=null&&v<yMin)yMin=v;}
+  var yMin=1e18,N0=Math.max(60,Math.min(400,Math.round(modelW/0.7)));
+  for(var i0=0;i0<=N0;i0++){var v0=bottomAt(mnx+modelW*i0/N0);if(v0!=null&&v0<yMin)yMin=v0;}
   if(!isFinite(yMin))return null;
-  var yWallTop=yMin+bandH, yBot=yMin-foot;
-  var zc=-depth/2, halfCh=depth/2+clr, zB0=zc-halfCh, zB1=zc+halfCh;
-  var Wf=Math.max(w, modelW+16), Df=Math.max(d, depth+16);
-  var fx0=-Wf/2, fx1=Wf/2, fz0=zc-Df/2, fz1=zc+Df/2;
-  var mx0=Math.max(fx0+2,mnx), mx1=Math.min(fx1-2,mxx);
+  var yWallTop=yMin+bandH, TT=bandH+foot, halfCh=depth/2+clr, zTop=0, zBot=-TT;
+  var Df=Math.max(d, depth+16);
+  // Keep the groove opening clear of the rounded/pill ends so it always sits inside the footprint.
+  var endMargin=(shape==="pill")?(Df/2+2):(Df*0.22+3);
+  var Wf=Math.max(w, modelW+2*endMargin+6);
+  // Build in SLAB coords: X=width, Y=depth (centred 0), Z=thickness (top at 0, down to -TT). The caller rotates
+  // the group -90° and seats it at yWallTop, so the groove floor (Z=-gd) ends up exactly at the model's bottom.
+  var prof=_baseProfilePaths(shape||"round",Wf,Df);                       // chosen foot outline, centred
+  var outer=prof[0].map(function(pt){return new THREE.Vector2(pt.X/S,pt.Y/S);});
+  var mx0=Math.max(-Wf/2+endMargin,mnx), mx1=Math.min(Wf/2-endMargin,mxx);
+  if(mx1-mx0<2)return null;
+  function gdAt(xc){var bb=bottomAt(xc);if(bb==null)return 0;var gd=yWallTop-bb;return Math.max(0,Math.min(gd,bandH));}
+  var M=Math.max(24,Math.min(300,Math.round((mx1-mx0)/0.8))),xs=[],gd=[];
+  for(i0=0;i0<=M;i0++){var xc=mx0+(mx1-mx0)*i0/M;xs.push(xc);gd.push(gdAt(xc));}
   var pos=[];
-  function _eq(a,b){return Math.abs(a[0]-b[0])<1e-5&&Math.abs(a[1]-b[1])<1e-5&&Math.abs(a[2]-b[2])<1e-5;}
-  function tri(a,b,c){if(_eq(a,b)||_eq(b,c)||_eq(a,c))return;pos.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]);}
-  function quad(a,b,c,d2){tri(a,b,c);tri(a,c,d2);}
-  function floorAt(xc){var v=bottomAt(xc);if(v==null)v=yWallTop;return Math.min(v,yWallTop);}
-  // Build the WHOLE base on one consistent grid so every shared edge lines up exactly (no T-junctions, no
-  // overlapping triangles). X runs over [fx0, groove samples, fx1]; Z runs over the 3 bands split by the groove
-  // side lines zB0/zB1. The top of the middle band follows the model's bottom contour; everything else is flat.
-  var M=Math.max(16,Math.round((mx1-mx0)/1.0)),cxs=[],cf=[];
-  for(i0=0;i0<=M;i0++){var xc=mx0+(mx1-mx0)*i0/M;cxs.push(xc);cf.push(floorAt(xc));}
-  var xs=[fx0].concat(cxs).concat([fx1]), zl=[fz0,zB0,zB1,fz1];
-  function midTop(i){return (i>=1&&i<=cxs.length)?cf[i-1]:yWallTop;}   // mid-band top at xs[i] = the contour
-  for(i0=0;i0<xs.length-1;i0++){var xa=xs[i0],xb=xs[i0+1],ta=midTop(i0),tb=midTop(i0+1);
-    // TOP: flat front strip, contoured middle, flat back strip
-    quad([xa,yWallTop,fz0],[xb,yWallTop,fz0],[xb,yWallTop,zB0],[xa,yWallTop,zB0]);
-    quad([xa,ta,zB0],[xb,tb,zB0],[xb,tb,zB1],[xa,ta,zB1]);
-    quad([xa,yWallTop,zB1],[xb,yWallTop,zB1],[xb,yWallTop,fz1],[xa,yWallTop,fz1]);
-    // groove side walls (down from the flat top to the contour) where the middle dips
-    if(ta<yWallTop-1e-4||tb<yWallTop-1e-4){
-      quad([xa,yWallTop,zB0],[xb,yWallTop,zB0],[xb,tb,zB0],[xa,ta,zB0]);
-      quad([xa,ta,zB1],[xb,tb,zB1],[xb,yWallTop,zB1],[xa,yWallTop,zB1]);
-    }
-    // BOTTOM (flat), subdivided the same way so it matches the perimeter walls
-    for(var zb=0;zb<3;zb++){quad([xa,yBot,zl[zb]],[xa,yBot,zl[zb+1]],[xb,yBot,zl[zb+1]],[xb,yBot,zl[zb]]);}
-    // front / back perimeter walls
-    quad([xa,yWallTop,fz0],[xa,yBot,fz0],[xb,yBot,fz0],[xb,yWallTop,fz0]);
-    quad([xb,yWallTop,fz1],[xb,yBot,fz1],[xa,yBot,fz1],[xa,yWallTop,fz1]);
+  function tri(a,b,c){var d1=Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])+Math.abs(a[2]-b[2]);var d2=Math.abs(b[0]-c[0])+Math.abs(b[1]-c[1])+Math.abs(b[2]-c[2]);var d3=Math.abs(a[0]-c[0])+Math.abs(a[1]-c[1])+Math.abs(a[2]-c[2]);if(d1<1e-5||d2<1e-5||d3<1e-5)return;pos.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]);}
+  function quad(a,b,c,e){tri(a,b,c);tri(a,c,e);}
+  // groove opening — its long edges carry EVERY x sample so the opening's boundary matches the subdivided
+  // groove side-wall tops exactly (no T-junctions), while the short ends stay single (match the end caps).
+  var hole=[];for(i0=0;i0<=M;i0++)hole.push(new THREE.Vector2(xs[i0],-halfCh));for(i0=M;i0>=0;i0--)hole.push(new THREE.Vector2(xs[i0],halfCh));
+  // TOP cap (profile minus groove opening) at Z=0, facing +Z
+  var tf=THREE.ShapeUtils.triangulateShape(outer,[hole]),tp=outer.concat(hole);
+  tf.forEach(function(f){var p0=tp[f[0]],p1=tp[f[1]],p2=tp[f[2]];var A=[p0.x,p0.y,zTop],B=[p1.x,p1.y,zTop],C=[p2.x,p2.y,zTop];
+    var cr=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);if(cr>0)tri(A,B,C);else tri(A,C,B);});
+  // BOTTOM cap (full profile) at Z=-TT, facing -Z
+  var bf=THREE.ShapeUtils.triangulateShape(outer,[]);
+  bf.forEach(function(f){var p0=outer[f[0]],p1=outer[f[1]],p2=outer[f[2]];var A=[p0.x,p0.y,zBot],B=[p1.x,p1.y,zBot],C=[p2.x,p2.y,zBot];
+    var cr=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);if(cr>0)tri(A,C,B);else tri(A,B,C);});
+  // perimeter walls along the profile outline
+  for(i0=0;i0<outer.length;i0++){var pA=outer[i0],pB=outer[(i0+1)%outer.length];
+    quad([pA.x,pA.y,zTop],[pB.x,pB.y,zTop],[pB.x,pB.y,zBot],[pA.x,pA.y,zBot]);}
+  // groove floor (contoured), two side walls (straight top edge + contoured bottom), two end caps
+  for(i0=0;i0<M;i0++){var x0=xs[i0],x1=xs[i0+1],f0=-gd[i0],f1=-gd[i0+1];
+    quad([x0,-halfCh,f0],[x1,-halfCh,f1],[x1,halfCh,f1],[x0,halfCh,f0]);                 // floor (down-facing recess = +Z up toward opening)
+    quad([x0,-halfCh,zTop],[x1,-halfCh,zTop],[x1,-halfCh,f1],[x0,-halfCh,f0]);           // side wall y=-halfCh
+    quad([x0,halfCh,f0],[x1,halfCh,f1],[x1,halfCh,zTop],[x0,halfCh,zTop]);               // side wall y=+halfCh
   }
-  // left / right perimeter walls (split by the same z bands)
-  for(var zb2=0;zb2<3;zb2++){var za=zl[zb2],zc2=zl[zb2+1];
-    quad([fx0,yWallTop,zc2],[fx0,yBot,zc2],[fx0,yBot,za],[fx0,yWallTop,za]);
-    quad([fx1,yWallTop,za],[fx1,yBot,za],[fx1,yBot,zc2],[fx1,yWallTop,zc2]);
-  }
-  // Remap from the model's standing coords (X=width, Y=up, Z=depth) into the lid/slab convention the exporter
-  // expects (X=width, Y=depth, Zthk with the top at 0, going negative) via (x,y,z)->(x, z, y-yWallTop). That's an
-  // axis swap (a reflection) so we also reverse each triangle's winding to keep the outward normals correct. The
-  // caller then rotates the GROUP -90° (which the exporter re-applies) and seats it at yWallTop under the box.
-  for(var k=0;k<pos.length;k+=9){
-    for(var vv=0;vv<3;vv++){var b3=k+vv*3,X=pos[b3],Y=pos[b3+1],Z=pos[b3+2];pos[b3]=X;pos[b3+1]=Z;pos[b3+2]=Y-yWallTop;}
-    for(var c3=0;c3<3;c3++){var tmp=pos[k+3+c3];pos[k+3+c3]=pos[k+6+c3];pos[k+6+c3]=tmp;}
-  }
+  quad([mx0,-halfCh,zTop],[mx0,halfCh,zTop],[mx0,halfCh,-gd[0]],[mx0,-halfCh,-gd[0]]);   // end cap x=mx0
+  quad([mx1,halfCh,zTop],[mx1,-halfCh,zTop],[mx1,-halfCh,-gd[M]],[mx1,halfCh,-gd[M]]);   // end cap x=mx1
   var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
   geo.computeVertexNormals();geo.computeBoundingBox();
   return {geo:geo,yWallTop:yWallTop};
@@ -2547,7 +2540,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // and sits on top of the base (nothing pokes through). Built in the model's own standing coordinates and
     // seated at the model's true bottom, so it just drops in with no rotation; the exporter lays it flat like
     // every other part. Its own build plate.
-    if(_mnt&&_mnt.base.on&&filled&&filled.length){var _bres=buildCradleBase(filled,cx,cy,depth,_mnt.base.w,_mnt.base.d,_mnt.base.t);if(_bres&&_bres.geo){var _bgrp=new THREE.Group();_bgrp.add(new THREE.Mesh(_bres.geo,MATS.body));_bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop,-depth);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.body});}}
+    if(_mnt&&_mnt.base.on&&filled&&filled.length){var _bres=buildCradleBase(filled,cx,cy,depth,_mnt.base.w,_mnt.base.d,_mnt.base.t,_mnt.base.shape);if(_bres&&_bres.geo){var _bgrp=new THREE.Group();_bgrp.add(new THREE.Mesh(_bres.geo,MATS.body));_bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mnt.base.raise||0),-depth/2);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.body});}}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
 
