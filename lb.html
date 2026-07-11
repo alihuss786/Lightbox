@@ -2296,11 +2296,9 @@ async function buildModel(){
       var _panelPaths=null,_panelZ=0;
       if(typeof PHOTO!=="undefined"&&PHOTO){try{_panelPaths=off(B,-3.5);}catch(e){_panelPaths=null;}
         if(_panelPaths&&_panelPaths.length){var _wd=Math.max(0,TT-FLOOR_MIN);slabFeatures.push({p:_panelPaths,depth:_wd});_panelZ=TT-_wd;}else{_panelPaths=null;}}
-// Lid = a THIN cap: the top face + a short seating lip that locates into the body. The full box depth
-// lives in the hollow body, not the lid — so the exported lid is a shallow cap (logo on top), never a
-// full-depth cup. Lip is capped at the box depth for very shallow boxes.
-var _lidLip=Math.min(depth,Math.max(6,wall*2+2));
-buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,_lidLip).forEach(s=>{const m=new THREE.Mesh(s.geo,(nameMode||logoMode)?MATS.name:lidMat);m.position.z=s.z;capGroup.add(m);});
+// Lid skirt spans the FULL box depth (same depth as the back box) — a hollow cup with the logo on the
+// front face, matching the body depth.
+buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new THREE.Mesh(s.geo,(nameMode||logoMode)?MATS.name:lidMat);m.position.z=s.z;capGroup.add(m);});
       // ---- Flat photo panel: its own watertight, printable part (true flat lithophane; the geometry colour needs) ----
       var photoPanelGroup=null;
       if(_panelPaths){try{
