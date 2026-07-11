@@ -1185,6 +1185,22 @@ var _BAMBU_PRESET={"PLA Basic":"Bambu PLA Basic","PLA Matte":"Bambu PLA Matte","
 // Silk+ GFA06, Glow GFA12. The rest are Bambu's published PLA codes.
 var _BAMBU_GFA={"Bambu PLA Basic":"GFA00","Bambu PLA Matte":"GFA01","Bambu PLA Silk":"GFA05","Bambu PLA Silk+":"GFA06","Bambu PLA Marble":"GFA07","Bambu PLA Sparkle":"GFA08","Bambu PLA Galaxy":"GFA15","Bambu PLA Metal":"GFA02","Bambu PLA Glow":"GFA12","Bambu PLA Wood":"GFA16"};
 function _gfaFor(preset){return _BAMBU_GFA[preset]||"GFA00";}
+// A REAL Bambu project_settings.config declares ~70 length-matched filament_* arrays per filament. If we only
+// declare a handful (name/id/colour), Bambu can't reconcile slots 2+ against its system presets and localises
+// them as "PresetName (filename.3mf)". These templates are the per-filament values pulled from a genuine
+// Bambu-saved X-series project, so we can regenerate the FULL set sized to however many filaments we export.
+// _FIL_U11 = one value per filament; _FIL_U44 = a 4-value block per filament (the four extruder-variant slots).
+var _FIL_U11={"filament_adhesiveness_category":"100","filament_change_length":"5","filament_change_length_nc":"10","filament_colour_type":"0","filament_cost":"24.99","filament_density":"1.26","filament_dev_ams_drying_ams_limitations":"1","filament_dev_ams_drying_heat_distortion_temperature":"45","filament_dev_chamber_drying_bed_temperature":"70","filament_dev_chamber_drying_time":"12","filament_dev_drying_cooling_temperature":"45","filament_dev_drying_softening_temperature":"50","filament_diameter":"1.75","filament_end_gcode":"; filament end gcode \n\n","filament_extruder_compatibility":"0","filament_flush_temp_fast":"0","filament_is_mixed":"0","filament_is_support":"0","filament_map":"1","filament_metal_stickiness":"None","filament_minimal_purge_on_wipe_tower":"15","filament_mixed_components":"","filament_mixed_gradient":"0","filament_mixed_gradient_curve":"","filament_mixed_gradient_per_part":"0","filament_mixed_gradient_range":"","filament_mixed_sublayer_ratios":"","filament_nozzle_map":"1","filament_prime_volume":"30","filament_prime_volume_nc":"60","filament_printable":"3","filament_scarf_gap":"0%","filament_scarf_height":"10%","filament_scarf_length":"10","filament_scarf_seam_type":"none","filament_shrink":"100%","filament_soluble":"0","filament_start_gcode":"; filament start gcode\n","filament_tower_interface_pre_extrusion_dist":"10","filament_tower_interface_pre_extrusion_length":"0","filament_tower_interface_print_temp":"220","filament_tower_interface_purge_volume":"20","filament_tower_ironing_area":"4","filament_velocity_adaptation_factor":"1","filament_volume_map":"0"};
+var _FIL_U44={"filament_adaptive_volumetric_speed":["0","0","0","0"],"filament_bridge_speed":["25","25","25","25"],"filament_cooling_before_tower":["10","10","10","10"],"filament_deretraction_speed":["nil","nil","nil","nil"],"filament_dev_ams_drying_temperature":["45","45","45","45"],"filament_dev_ams_drying_time":["12","12","12","12"],"filament_enable_overhang_speed":["1","1","1","1"],"filament_extruder_variant":["Direct Drive Standard","Direct Drive High Flow","Bowden Standard","Bowden High Flow"],"filament_flow_ratio":["0.98","0.98","0.98","0.98"],"filament_flush_temp":["0","0","0","0"],"filament_flush_volumetric_speed":["0","0","0","0"],"filament_long_retractions_when_cut":["nil","nil","nil","nil"],"filament_max_volumetric_speed":["21","40","21","30"],"filament_overhang_1_4_speed":["0","0","0","0"],"filament_overhang_2_4_speed":["50","50","50","50"],"filament_overhang_3_4_speed":["30","30","30","30"],"filament_overhang_4_4_speed":["10","10","10","10"],"filament_overhang_totally_speed":["10","10","10","10"],"filament_pre_cooling_temperature":["0","0","0","0"],"filament_pre_cooling_temperature_nc":["0","0","0","0"],"filament_preheat_temperature_delta":["10","10","10","10"],"filament_ramming_travel_time":["0","0","0","0"],"filament_ramming_travel_time_nc":["0","0","0","0"],"filament_ramming_volumetric_speed":["-1","-1","-1","-1"],"filament_ramming_volumetric_speed_nc":["-1","-1","-1","-1"],"filament_retract_before_wipe":["nil","nil","nil","nil"],"filament_retract_length_nc":["14","14","14","14"],"filament_retract_restart_extra":["nil","nil","nil","nil"],"filament_retract_when_changing_layer":["nil","nil","nil","nil"],"filament_retraction_distances_when_cut":["10","10","10","10"],"filament_retraction_length":["0.4","0.4","3","3"],"filament_retraction_minimum_travel":["nil","nil","nil","nil"],"filament_retraction_speed":["nil","nil","nil","nil"],"filament_wipe":["1","1","1","1"],"filament_wipe_distance":["1","1","1","1"],"filament_z_hop":["nil","nil","nil","nil"],"filament_z_hop_types":["Spiral Lift","Spiral Lift","Spiral Lift","Spiral Lift"]};
+var _FIL_SCAL={"filament_map_mode":"Auto For Flush","filament_notes":""};
+// Expand the templates to a full filament block for N filaments. Identity arrays (settings_id/ids/colour/type/
+// vendor) are supplied by the caller; everything else is filled from the templates so Bambu sees complete presets.
+function _fullFilArrays(N){var o={};
+  Object.keys(_FIL_U11).forEach(function(k){var a=[];for(var i=0;i<N;i++)a.push(_FIL_U11[k]);o[k]=a;});
+  Object.keys(_FIL_U44).forEach(function(k){var a=[];for(var i=0;i<N;i++)a=a.concat(_FIL_U44[k]);o[k]=a;});
+  var si=[];for(var i=0;i<N;i++){var s=String(i+1);si.push(s,s,s,s);}o.filament_self_index=si;
+  Object.keys(_FIL_SCAL).forEach(function(k){o[k]=_FIL_SCAL[k];});
+  return o;}
 function bambuFilamentFor(hex){var t=_rgbOf(hex),best=null,bd=1e18;try{BAMBU_GROUPS.forEach(function(grp){grp.c.forEach(function(f){var v=f[1],cs=(typeof v==="string")?[v]:v;cs.forEach(function(cx){var c=_rgbOf(cx),d=(c[0]-t[0])*(c[0]-t[0])+(c[1]-t[1])*(c[1]-t[1])+(c[2]-t[2])*(c[2]-t[2]);if(d<bd){bd=d;best={group:grp.t,name:f[0]};}});});});}catch(e){}var g=best?best.group:"PLA Basic";return {preset:_BAMBU_PRESET[g]||"Bambu PLA Basic",name:best?best.name:"",group:g};}
 let palTarget=null;
 window.__amsPalette=window.__amsPalette||["#FFFFFF","#1B1B1B","#2B6BE4","#E23B7A"];
@@ -2758,10 +2774,21 @@ function buildProjectSettings(p){const b=bambuPrinterIds(p),code=bambuCode((p&&p
   var _fc=(typeof COLORS!=="undefined"&&COLORS.front)?COLORS.front:"#FFFFFF";
   var _frontFin=(_mf.front&&_mf.front.finish)||_hexFin[_hex6(_fc)];
   var _sfp=_presetForFinish(_frontFin)||"Bambu PLA Basic";
+  // The list of filaments to declare: the AMS palette (every slot the user configured) when in AMS mode, else
+  // the single front-colour preset. Each slot's finish comes from the colour->finish lookup so the right Bambu
+  // preset (Silk, Matte, Glow…) is named for that colour.
+  var slots=(pal&&pal.length)?pal.map(function(c){return _hex6(c);}):[_hex6(_fc)];
+  var N=slots.length,fsid=[],fids=[],fven=[],ftype=[],fcol=[];
+  for(var i=0;i<N;i++){var fin=(pal&&pal.length)?(_hexFin[slots[i]]||null):_frontFin;var preset=_presetForFinish(fin)||"Bambu PLA Basic";
+    fsid.push(preset+fsuf);fids.push(_gfaFor(preset));fven.push("Bambu Lab");ftype.push("PLA");fcol.push(slots[i]);}
   var base={name:"project_settings",from:"project",version:"02.07.01.57",is_bbl_printer:"1",printer_settings_id:b.settingsId,printer_model:b.model,printer_variant:b.variant,print_settings_id:"0.20mm Standard @BBL "+code,
-    filament_settings_id:[_sfp+fsuf],filament_ids:[_gfaFor(_sfp)],filament_vendor:["Bambu Lab"],filament_type:["PLA"],filament_colour:[_hex6(_fc)],
     nozzle_diameter:["0.4"],curr_bed_type:"Textured PEI Plate",layer_height:"0.2",initial_layer_print_height:"0.2"};
-  if(pal&&pal.length){var N=pal.length,fsid=[],fids=[],fven=[],ftype=[],fcol=[];for(var i=0;i<N;i++){var fin=_hexFin[_hex6(pal[i])]||null;var preset=_presetForFinish(fin)||"Bambu PLA Basic";fsid.push(preset+fsuf);fids.push(_gfaFor(preset));fven.push("Bambu Lab");ftype.push("PLA");fcol.push(_hex6(pal[i]));}base.filament_settings_id=fsid;base.filament_ids=fids;base.filament_vendor=fven;base.filament_type=ftype;base.filament_colour=fcol;}
+  // Full filament block (templated per-filament params), then overwrite the identity arrays with our slots so
+  // Bambu resolves every slot to a real system preset instead of falling back to the project file name.
+  var fil=_fullFilArrays(N);
+  fil.filament_settings_id=fsid;fil.filament_ids=fids;fil.filament_vendor=fven;fil.filament_type=ftype;
+  fil.filament_colour=fcol.slice();fil.filament_multi_colour=fcol.slice();
+  Object.keys(fil).forEach(function(k){base[k]=fil[k];});
   return JSON.stringify(base,null,4);
 }
 // Redundant config-style carrier for the printer identifier (some Bambu importers inspect BBL_Config.config).
@@ -2812,10 +2839,11 @@ async function exportPlates(deliver){deliver=deliver||"download";
     const AMS=!!window.__hasAMS;
     const groups=[];window.__amsFilaments=null;
     if(AMS){
-      // The filament list is built from the ACTUAL colours the parts use, in order — so every slot matches the
-      // colour you picked exactly, and the export only declares the colours actually in the design (no snapping,
-      // no phantom extra slots).
-      const pal=[];const idxOf=c=>{c=_hex6(c);var kk=pal.indexOf(c);if(kk<0){kk=pal.length;pal.push(c);}return kk+1;};
+      // Pre-seed the filament list with EVERY AMS slot the user configured, so a design that only uses 2 of the
+      // 4 loaded filaments still exports all 4 (matching the real AMS). Part colours map to their exact slot; any
+      // colour that somehow isn't one of the AMS slots is appended (no snapping — the colour you picked is kept).
+      const pal=(window.__amsPalette&&window.__amsPalette.length)?window.__amsPalette.map(_hex6):[];
+      const idxOf=c=>{c=_hex6(c);var kk=pal.indexOf(c);if(kk<0){kk=pal.length;pal.push(c);}return kk+1;};
       PLATES.forEach((part,pi)=>{const cols=partTrianglesByColor(part,false);if(!cols||!cols.length)return;
         const base=(part.name||("part "+(pi+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
         const catA=part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
