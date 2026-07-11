@@ -2864,10 +2864,13 @@ async function exportPlates(deliver){deliver=deliver||"download";
     const groups=[];window.__amsFilaments=null;
     if(AMS){
       // Pre-seed the filament list with EVERY AMS slot the user configured, so a design that only uses 2 of the
-      // 4 loaded filaments still exports all 4 (matching the real AMS). Part colours map to their exact slot; any
-      // colour that somehow isn't one of the AMS slots is appended (no snapping — the colour you picked is kept).
+      // 4 loaded filaments still exports all 4 (matching the real AMS). A part colour that IS one of the loaded
+      // filaments maps to that exact slot; a colour that ISN'T loaded snaps to the nearest AMS filament (by RGB)
+      // so the export never needs more filaments than the AMS actually holds — it stays printable on one AMS.
       const pal=(window.__amsPalette&&window.__amsPalette.length)?window.__amsPalette.map(_hex6):[];
-      const idxOf=c=>{c=_hex6(c);var kk=pal.indexOf(c);if(kk<0){kk=pal.length;pal.push(c);}return kk+1;};
+      const idxOf=c=>{c=_hex6(c);var kk=pal.indexOf(c);if(kk>=0)return kk+1;
+        if(pal.length){var t=_rgbOf(c),best=0,bd=1e18;for(var i=0;i<pal.length;i++){var p=_rgbOf(pal[i]),d=(p[0]-t[0])*(p[0]-t[0])+(p[1]-t[1])*(p[1]-t[1])+(p[2]-t[2])*(p[2]-t[2]);if(d<bd){bd=d;best=i;}}return best+1;}   // no exact AMS match → nearest loaded slot
+        kk=pal.length;pal.push(c);return kk+1;};   // only reached when no AMS palette is configured at all
       PLATES.forEach((part,pi)=>{const cols=partTrianglesByColor(part,false);if(!cols||!cols.length)return;
         const base=(part.name||("part "+(pi+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
         const catA=part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
