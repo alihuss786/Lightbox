@@ -2735,15 +2735,16 @@ function buildProjectSettings(p){const b=bambuPrinterIds(p),code=bambuCode((p&&p
   // Build a colour -> finish lookup from every part's chosen filament, so an AMS slot inherits the finish of
   // the part(s) printed in it. Explicit per-slot finishes (window.__amsMeta) take priority; anything with no
   // chosen finish stays "Bambu PLA Basic" (always resolves). Colour still carries the look either way.
-  var _mf=(typeof window!=="undefined"&&window.__matFinish)||{},_hexFin={};
+  var _mf=(typeof window!=="undefined"&&window.__matFinish)||{},_am=(typeof window!=="undefined"&&window.__amsMeta)||{},_hexFin={};
   Object.keys(_mf).forEach(function(t){var r=_mf[t];if(r&&r.finish){var cs=(r.colors&&r.colors.length)?r.colors:[(typeof COLORS!=="undefined"?COLORS[t]:null)];cs.forEach(function(c){if(c)_hexFin[_hex6(c)]=r.finish;});}});
+  Object.keys(_am).forEach(function(k){var m=_am[k];if(m&&m.finish){var cs=(m.colors&&m.colors.length)?m.colors.slice():[];if(typeof window!=="undefined"&&window.__amsPalette&&window.__amsPalette[k])cs.push(window.__amsPalette[k]);cs.forEach(function(c){if(c)_hexFin[_hex6(c)]=m.finish;});}});
   var _fc=(typeof COLORS!=="undefined"&&COLORS.front)?COLORS.front:"#FFFFFF";
   var _frontFin=(_mf.front&&_mf.front.finish)||_hexFin[_hex6(_fc)];
   var _sfp=_presetForFinish(_frontFin)||"Bambu PLA Basic";
   var base={name:"project_settings",from:"project",version:"02.07.01.57",is_bbl_printer:"1",printer_settings_id:b.settingsId,printer_model:b.model,printer_variant:b.variant,print_settings_id:"0.20mm Standard @BBL "+code,
     filament_settings_id:[_sfp+fsuf],filament_ids:[_gfaFor(_sfp)],filament_vendor:["Bambu Lab"],filament_type:["PLA"],filament_colour:[_hex6(_fc)],
     nozzle_diameter:["0.4"],curr_bed_type:"Textured PEI Plate",layer_height:"0.2",initial_layer_print_height:"0.2"};
-  if(pal&&pal.length){var N=pal.length,fsid=[],fids=[],fven=[],ftype=[],fcol=[],meta=(typeof window!=="undefined"&&window.__amsMeta)||{};for(var i=0;i<N;i++){var fin=(meta[i]&&meta[i].finish)||_hexFin[_hex6(pal[i])]||null;var preset=_presetForFinish(fin)||"Bambu PLA Basic";fsid.push(preset+fsuf);fids.push(_gfaFor(preset));fven.push("Bambu Lab");ftype.push("PLA");fcol.push(_hex6(pal[i]));}base.filament_settings_id=fsid;base.filament_ids=fids;base.filament_vendor=fven;base.filament_type=ftype;base.filament_colour=fcol;}
+  if(pal&&pal.length){var N=pal.length,fsid=[],fids=[],fven=[],ftype=[],fcol=[];for(var i=0;i<N;i++){var fin=_hexFin[_hex6(pal[i])]||null;var preset=_presetForFinish(fin)||"Bambu PLA Basic";fsid.push(preset+fsuf);fids.push(_gfaFor(preset));fven.push("Bambu Lab");ftype.push("PLA");fcol.push(_hex6(pal[i]));}base.filament_settings_id=fsid;base.filament_ids=fids;base.filament_vendor=fven;base.filament_type=ftype;base.filament_colour=fcol;}
   return JSON.stringify(base,null,4);
 }
 // Redundant config-style carrier for the printer identifier (some Bambu importers inspect BBL_Config.config).
@@ -2794,10 +2795,10 @@ async function exportPlates(deliver){deliver=deliver||"download";
     const AMS=!!window.__hasAMS;
     const groups=[];window.__amsFilaments=null;
     if(AMS){
-      const pal=(window.__amsPalette&&window.__amsPalette.length)?window.__amsPalette.map(_hex6):[];
-      // Only the loaded AMS filaments exist — a part colour that isn't one of them SNAPS to the nearest loaded
-      // slot instead of adding a 5th/6th filament, so the export never declares more filaments than your AMS.
-      const idxOf=c=>{c=_hex6(c);var kk=pal.indexOf(c);if(kk>=0)return kk+1;if(!pal.length){pal.push(c);return 1;}var t=_rgbOf(c),bi=0,bd=1e18;for(var i=0;i<pal.length;i++){var r=_rgbOf(pal[i]),d=(r[0]-t[0])*(r[0]-t[0])+(r[1]-t[1])*(r[1]-t[1])+(r[2]-t[2])*(r[2]-t[2]);if(d<bd){bd=d;bi=i;}}return bi+1;};
+      // The filament list is built from the ACTUAL colours the parts use, in order — so every slot matches the
+      // colour you picked exactly, and the export only declares the colours actually in the design (no snapping,
+      // no phantom extra slots).
+      const pal=[];const idxOf=c=>{c=_hex6(c);var kk=pal.indexOf(c);if(kk<0){kk=pal.length;pal.push(c);}return kk+1;};
       PLATES.forEach((part,pi)=>{const cols=partTrianglesByColor(part,false);if(!cols||!cols.length)return;
         const base=(part.name||("part "+(pi+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
         const catA=part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
