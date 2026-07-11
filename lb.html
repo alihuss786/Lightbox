@@ -1180,6 +1180,11 @@ function _rgbOf(h){h=_hex6(h);return [parseInt(h.slice(1,3),16),parseInt(h.slice
 // Exact Bambu Lab filament preset names (verified against Bambu Studio for X2D). Bambu maps "@BBL <code>
 // 0.4 nozzle" per printer; an unknown name falls back to "Generic PLA". Gradient prints as PLA Basic.
 var _BAMBU_PRESET={"PLA Basic":"Bambu PLA Basic","PLA Matte":"Bambu PLA Matte","PLA Silk+":"Bambu PLA Silk+","PLA Silk Multi-Color":"Bambu PLA Silk","PLA Galaxy":"Bambu PLA Galaxy","PLA Sparkle":"Bambu PLA Sparkle","PLA Marble":"Bambu PLA Marble","PLA Metal":"Bambu PLA Metal","PLA Glow":"Bambu PLA Glow","PLA Wood":"Bambu PLA Wood","PLA Gradient":"Bambu PLA Basic"};
+// Bambu's internal filament IDs — REQUIRED in the 3MF's filament_ids array or Bambu can't resolve slots 2+
+// and shows the project filename. Confirmed from a Bambu-saved project: Basic GFA00, Matte GFA01,
+// Silk+ GFA06, Glow GFA12. The rest are Bambu's published PLA codes.
+var _BAMBU_GFA={"Bambu PLA Basic":"GFA00","Bambu PLA Matte":"GFA01","Bambu PLA Silk":"GFA05","Bambu PLA Silk+":"GFA06","Bambu PLA Marble":"GFA07","Bambu PLA Sparkle":"GFA08","Bambu PLA Galaxy":"GFA09","Bambu PLA Metal":"GFA02","Bambu PLA Glow":"GFA12","Bambu PLA Wood":"GFA11"};
+function _gfaFor(preset){return _BAMBU_GFA[preset]||"GFA00";}
 function bambuFilamentFor(hex){var t=_rgbOf(hex),best=null,bd=1e18;try{BAMBU_GROUPS.forEach(function(grp){grp.c.forEach(function(f){var v=f[1],cs=(typeof v==="string")?[v]:v;cs.forEach(function(cx){var c=_rgbOf(cx),d=(c[0]-t[0])*(c[0]-t[0])+(c[1]-t[1])*(c[1]-t[1])+(c[2]-t[2])*(c[2]-t[2]);if(d<bd){bd=d;best={group:grp.t,name:f[0]};}});});});}catch(e){}var g=best?best.group:"PLA Basic";return {preset:_BAMBU_PRESET[g]||"Bambu PLA Basic",name:best?best.name:"",group:g};}
 let palTarget=null;
 window.__amsPalette=window.__amsPalette||["#FFFFFF","#1B1B1B","#2B6BE4","#E23B7A"];
@@ -2736,9 +2741,9 @@ function buildProjectSettings(p){const b=bambuPrinterIds(p),code=bambuCode((p&&p
   var _frontFin=(_mf.front&&_mf.front.finish)||_hexFin[_hex6(_fc)];
   var _sfp=_presetForFinish(_frontFin)||"Bambu PLA Basic";
   var base={name:"project_settings",from:"project",version:"02.07.01.57",is_bbl_printer:"1",printer_settings_id:b.settingsId,printer_model:b.model,printer_variant:b.variant,print_settings_id:"0.20mm Standard @BBL "+code,
-    filament_settings_id:[_sfp+fsuf],filament_type:["PLA"],filament_colour:[_hex6(_fc)],
+    filament_settings_id:[_sfp+fsuf],filament_ids:[_gfaFor(_sfp)],filament_vendor:["Bambu Lab"],filament_type:["PLA"],filament_colour:[_hex6(_fc)],
     nozzle_diameter:["0.4"],curr_bed_type:"Textured PEI Plate",layer_height:"0.2",initial_layer_print_height:"0.2"};
-  if(pal&&pal.length){var N=pal.length,fsid=[],ftype=[],fcol=[],meta=(typeof window!=="undefined"&&window.__amsMeta)||{};for(var i=0;i<N;i++){var fin=(meta[i]&&meta[i].finish)||_hexFin[_hex6(pal[i])]||null;var preset=_presetForFinish(fin)||"Bambu PLA Basic";fsid.push(preset+fsuf);ftype.push("PLA");fcol.push(_hex6(pal[i]));}base.filament_settings_id=fsid;base.filament_type=ftype;base.filament_colour=fcol;}
+  if(pal&&pal.length){var N=pal.length,fsid=[],fids=[],fven=[],ftype=[],fcol=[],meta=(typeof window!=="undefined"&&window.__amsMeta)||{};for(var i=0;i<N;i++){var fin=(meta[i]&&meta[i].finish)||_hexFin[_hex6(pal[i])]||null;var preset=_presetForFinish(fin)||"Bambu PLA Basic";fsid.push(preset+fsuf);fids.push(_gfaFor(preset));fven.push("Bambu Lab");ftype.push("PLA");fcol.push(_hex6(pal[i]));}base.filament_settings_id=fsid;base.filament_ids=fids;base.filament_vendor=fven;base.filament_type=ftype;base.filament_colour=fcol;}
   return JSON.stringify(base,null,4);
 }
 // Redundant config-style carrier for the printer identifier (some Bambu importers inspect BBL_Config.config).
