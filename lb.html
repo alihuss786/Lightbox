@@ -1112,7 +1112,8 @@ function updatePhotoPreview(){
 function togglePhotoLit(){photoLitPreview=!photoLitPreview;var t=document.getElementById("tg_photoLit");if(t)t.classList.toggle("on",photoLitPreview);updatePhotoPreview();}
 function _photoSrcOf(img){try{var mx=640,w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,sc=Math.min(1,mx/Math.max(w,h));var cv=document.createElement("canvas");cv.width=Math.max(1,Math.round(w*sc));cv.height=Math.max(1,Math.round(h*sc));cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);return cv.toDataURL("image/jpeg",0.85);}catch(e){return null;}}
 function setPhotoFromImage(img,src){var hm=window.Lithophane.imageToHeightMap(img,{minThickness:0,maxThickness:1,maxSamples:240});PHOTO={h:hm.thickness,cols:hm.cols,rows:hm.rows,src:src||_photoSrcOf(img)};var t=document.getElementById("photoThumb");if(t)t.style.backgroundImage="url("+(PHOTO.src||img.src)+")";var pc=document.getElementById("photoControls");if(pc)pc.style.display="flex";onPhotoLabel();initPhotoPad();renderPhotoMarker();applyPhoto();}
-function onPhotoUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;if(!window.Lithophane){uiAlert("Lithophane module still loading — try again in a moment.");return;}var img=new Image();img.onload=function(){try{photoOffset={x:0,y:0};var zz=document.getElementById("photoZoom");if(zz)zz.value="1";setPhotoFromImage(img,null);}catch(e){uiAlert("Could not read that image.");}};img.src=URL.createObjectURL(f);}
+function onPhotoUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;photoFromFile(f);}
+function photoFromFile(f){if(!f)return;if(!window.Lithophane){uiAlert("Lithophane module still loading — try again in a moment.");return;}var img=new Image();img.onload=function(){try{photoOffset={x:0,y:0};var zz=document.getElementById("photoZoom");if(zz)zz.value="1";setPhotoFromImage(img,null);}catch(e){uiAlert("Could not read that image.");}};img.src=URL.createObjectURL(f);}
 function onPhotoLabel(){var d=document.getElementById("photoDepth"),g=document.getElementById("photoDetail"),z=document.getElementById("photoZoom");if(document.getElementById("photoDepthLbl")&&d)document.getElementById("photoDepthLbl").textContent=(+d.value).toFixed(1);if(document.getElementById("photoDetailLbl")&&g)document.getElementById("photoDetailLbl").textContent=(+g.value<=0.5?"Fine":(+g.value>=0.9?"Coarse":"Medium"));if(document.getElementById("photoZoomLbl")&&z)document.getElementById("photoZoomLbl").textContent=(+z.value).toFixed(1);}
 function onPhotoParam(){onPhotoLabel();if(PHOTO)applyPhoto();}
 function nudgePhoto(which,dir){var el=document.getElementById(which==="depth"?"photoDepth":"photoDetail");if(!el)return;el.value=(+el.value+dir*(+el.step)).toFixed(2);onPhotoParam();}
@@ -1607,7 +1608,8 @@ function _svgToClipper(svgText,heightMm){
 }
 function _logoUIsync(){var info=document.getElementById("logoInfo"),cl=document.getElementById("logoClear");var on=!!LOGO;if(info)info.style.display=on?"":"none";if(cl)cl.style.display=on?"":"none";}
 function _prepSvg(txt){try{var m=/<svg[^>]*viewBox=["\x27]([-\d.eE ,]+)["\x27]/i.exec(txt);var vb=m?m[1].split(/[ ,]+/).map(Number):null;var w=(vb&&vb[2])?vb[2]:512,h=(vb&&vb[3])?vb[3]:512,scale=Math.max(1,900/Math.max(w,h));return txt.replace(/<svg([^>]*)>/i,function(all,at){at=at.replace(/\s(width|height)=["\x27][^"\x27]*["\x27]/gi,"");return "<svg"+at+" width=\""+Math.round(w*scale)+"\" height=\""+Math.round(h*scale)+"\">";});}catch(e){return txt;}}
-function onLogoUpload(inp){var f=inp&&inp.files&&inp.files[0];if(!f)return;var nm=(f.name||"").toLowerCase(),isSvg=/svg/.test(f.type||"")||/\.svg$/.test(nm);var rd=new FileReader();rd.onload=function(){try{var res=String(rd.result||"");var img=new Image();img.onload=function(){try{var paths=_imgToClipper(img,100);if((!paths||!paths.length)&&isSvg){paths=_svgToClipper(res,100);}_logoLoaded(paths);}catch(e){if(isSvg){try{_logoLoaded(_svgToClipper(res,100));}catch(_){uiAlert("Couldn\u2019t read that logo.");}}else uiAlert("Couldn\u2019t trace that image.");}};img.onerror=function(){if(isSvg){try{_logoLoaded(_svgToClipper(res,100));}catch(_){uiAlert("Couldn\u2019t read that SVG.");}}else uiAlert("Couldn\u2019t read that image.");};img.src=isSvg?("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(_prepSvg(res))):res;}catch(e){uiAlert("Couldn\u2019t read that file.");}};if(isSvg){rd.readAsText(f);}else{rd.readAsDataURL(f);}if(inp)inp.value="";}
+function onLogoUpload(inp){var f=inp&&inp.files&&inp.files[0];if(!f)return;logoFromFile(f);if(inp)inp.value="";}
+function logoFromFile(f){if(!f)return;var nm=(f.name||"").toLowerCase(),isSvg=/svg/.test(f.type||"")||/\.svg$/.test(nm);var rd=new FileReader();rd.onload=function(){try{var res=String(rd.result||"");var img=new Image();img.onload=function(){try{var paths=_imgToClipper(img,100);if((!paths||!paths.length)&&isSvg){paths=_svgToClipper(res,100);}_logoLoaded(paths);}catch(e){if(isSvg){try{_logoLoaded(_svgToClipper(res,100));}catch(_){uiAlert("Couldn\u2019t read that logo.");}}else uiAlert("Couldn\u2019t trace that image.");}};img.onerror=function(){if(isSvg){try{_logoLoaded(_svgToClipper(res,100));}catch(_){uiAlert("Couldn\u2019t read that SVG.");}}else uiAlert("Couldn\u2019t read that image.");};img.src=isSvg?("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(_prepSvg(res))):res;}catch(e){uiAlert("Couldn\u2019t read that file.");}};if(isSvg){rd.readAsText(f);}else{rd.readAsDataURL(f);}}
 function clearLogo(){LOGO=null;window.__logoSvg=null;_logoUIsync();if(typeof rebuild==="function")rebuild();}
 function _dp(pts,eps){ if(pts.length<3)return pts;
   var d2=function(p,a,b){var dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy;if(!L)return (p[0]-a[0])*(p[0]-a[0])+(p[1]-a[1])*(p[1]-a[1]);var t=((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L;t=t<0?0:t>1?1:t;var px=a[0]+t*dx,py=a[1]+t*dy;return (p[0]-px)*(p[0]-px)+(p[1]-py)*(p[1]-py);};
@@ -1712,6 +1714,35 @@ function _connectSolid(paths,closeMm,bridgeHalf){
   return fillSolid(p);
 }
 function _logoLoaded(paths){if(!paths||!paths.length){uiAlert("Couldn\u2019t trace that logo \u2014 use a clear image, or an SVG/PNG with a solid shape.");return;}LOGO=paths;window.__logoSvg=null;if(typeof LIDNAME!=="undefined"&&LIDNAME){LIDNAME="";var na=document.getElementById("lidName");if(na)na.value="";}var info=document.getElementById("logoInfo");if(info)info.innerHTML="Logo loaded \u2014 it now drives the lightbox. Set the size with <b>Letter height</b>.";_logoUIsync();if(typeof rebuild==="function")rebuild();}
+// ---- Whole-window drag & drop: drop an image / logo / photo anywhere instead of click-then-browse.
+// Routes the dropped file by whichever tab is open (Logo \u2192 logo, Lithophane \u2192 photo, otherwise \u2192 image),
+// so a demo just drags a file onto the app and it lands in the right place. ----
+(function(){
+  function _activeFeat(){var o=document.querySelector(".controls .acc.open");return o?o.getAttribute("data-feat"):null;}
+  function _dropKind(){var f=_activeFeat();if(f==="logo")return "logo";if(f==="lithophane")return "photo";return "image";}
+  function _openFeat(feat){try{var accs=[].slice.call(document.querySelectorAll(".controls .acc"));for(var i=0;i<accs.length;i++){if(accs[i].getAttribute("data-feat")===feat){if(typeof plTab==="function")plTab(i);return;}}}catch(e){}}
+  var ov=null,depth=0;
+  function _overlay(){if(ov)return ov;ov=document.createElement("div");ov.id="dropZone";
+    ov.style.cssText="position:fixed;inset:0;z-index:99990;display:none;align-items:center;justify-content:center;pointer-events:none;background:rgba(8,10,14,.62);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)";
+    ov.innerHTML='<div style="border:2.5px dashed rgba(224,192,141,.85);border-radius:20px;padding:40px 58px;background:rgba(20,22,28,.88);box-shadow:0 20px 60px rgba(0,0,0,.5);text-align:center;max-width:80vw"><div style="font-size:50px;line-height:1;margin-bottom:14px">\ud83d\uddbc\ufe0f</div><div id="dropTitle" style="font:800 22px system-ui,sans-serif;color:#f2e6cf;margin-bottom:6px">Drop to add your image</div><div id="dropSub" style="font:500 14px system-ui,sans-serif;color:#a9a08c">PNG, JPG or SVG</div></div>';
+    document.body.appendChild(ov);return ov;}
+  function _label(){var k=_dropKind(),o=_overlay(),t=o.querySelector("#dropTitle"),s=o.querySelector("#dropSub");
+    if(k==="logo"){t.textContent="Drop to use as your logo";s.textContent="SVG, PNG or JPG \u2014 traced to a silhouette";}
+    else if(k==="photo"){t.textContent="Drop to add your photo";s.textContent="Turned into a lithophane on the lid";}
+    else{t.textContent="Drop to add your image";s.textContent="PNG, JPG or SVG";}}
+  function _hasFiles(e){var dt=e.dataTransfer;if(!dt||!dt.types)return false;for(var i=0;i<dt.types.length;i++)if(dt.types[i]==="Files")return true;return false;}
+  function _show(){_overlay();_label();ov.style.display="flex";}
+  function _hide(){depth=0;if(ov)ov.style.display="none";}
+  window.addEventListener("dragenter",function(e){if(!_hasFiles(e))return;e.preventDefault();depth++;_show();},false);
+  window.addEventListener("dragover",function(e){if(!_hasFiles(e))return;e.preventDefault();try{e.dataTransfer.dropEffect="copy";}catch(_){}_show();},false);
+  window.addEventListener("dragleave",function(e){if(!_hasFiles(e))return;e.preventDefault();depth--;if(depth<=0)_hide();},false);
+  window.addEventListener("drop",function(e){if(!_hasFiles(e))return;e.preventDefault();_hide();
+    var files=(e.dataTransfer&&e.dataTransfer.files)||[];if(!files.length)return;var kind=_dropKind();
+    if(kind==="logo"){logoFromFile(files[0]);}
+    else if(kind==="photo"){photoFromFile(files[0]);}
+    else{var any=false;Array.prototype.forEach.call(files,function(f){var nm=(f.name||"").toLowerCase();if(/^image\//.test(f.type||"")||/\.(png|jpe?g|svg|gif|webp|bmp)$/.test(nm)){loadImage(f);any=true;}});if(any)_openFeat("models");else uiAlert("Drop an image file \u2014 PNG, JPG or SVG.");}
+  },false);
+})();
 /* Multi-line name -> Clipper subject paths. Each glyph is placed individually with
    tight tracking (bounding boxes overlap slightly) so a small connect-border fuses
    adjacent letters into one piece. Lines are centred and stacked top-to-bottom. */
