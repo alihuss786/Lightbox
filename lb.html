@@ -2704,7 +2704,10 @@ function build3MFModelXML(groups,bedX,bedY){
   // 2 cols for 2-4 plates, 3 cols for 5-9, 4 for 10-16 … Hardcoding 2 put the 5th+ plate's objects into the
   // wrong grid cell (text on the image plate, last model floating off-bed). Match Bambu's own rule exactly.
   const GAPX=40, GAPY=64, COLS=Math.max(1,Math.ceil(Math.sqrt(groups.length)));
-  let res="",items="",k=0;
+  let res="",items="",id=0;const newId=()=>++id;
+  const emitMesh=o=>{let vx="";o._verts.forEach(p=>{vx+=`<vertex x="${p.x}" y="${p.y}" z="${p.z}"/>`;});
+    let tx="";o._idx.forEach(t=>{tx+=`<triangle v1="${t[0]}" v2="${t[1]}" v3="${t[2]}"/>`;});
+    const meshId=newId();res+=`<object id="${meshId}" type="model"><mesh><vertices>${vx}</vertices><triangles>${tx}</triangles></mesh></object>`;o.meshId=meshId;delete o._verts;delete o._idx;return meshId;};
   groups.forEach((grp,gi)=>{
     const col=gi%COLS, row=Math.floor(gi/COLS);
     const cellX=col*(bx+GAPX)+bx/2, cellY=-row*(by+GAPY)+by/2;   // centre of plate gi's grid cell
@@ -2713,17 +2716,27 @@ function build3MFModelXML(groups,bedX,bedY){
       const vi=p=>{const key=p.x+","+p.y+","+p.z;let j=map.get(key);if(j===undefined){j=verts.length;verts.push(p);map.set(key,j);}return j;};
       o._idx=o.tris.map(t=>[vi(t[0]),vi(t[1]),vi(t[2])]);o._verts=verts;o.faceCount=o._idx.length;
       let mnx=1/0,mxx=-1/0,mny=1/0,mxy=-1/0;verts.forEach(p=>{if(p.x<mnx)mnx=p.x;if(p.x>mxx)mxx=p.x;if(p.y<mny)mny=p.y;if(p.y>mxy)mxy=p.y;});o._w=isFinite(mnx)?(mxx-mnx):0;o._mnx=mnx;o._mxx=mxx;o._mny=mny;o._mxy=mxy;});
-    let OVx=0,OVy=0;if(grp.overlay){let Mnx=1/0,Mxx=-1/0,Mny=1/0,Mxy=-1/0;grp.objects.forEach(o=>{if(o._mnx<Mnx)Mnx=o._mnx;if(o._mxx>Mxx)Mxx=o._mxx;if(o._mny<Mny)Mny=o._mny;if(o._mxy>Mxy)Mxy=o._mxy;});OVx=cellX-(Mnx+Mxx)/2;OVy=cellY-(Mny+Mxy)/2;}
-    const totalW=grp.objects.reduce((s,o)=>s+o._w,0)+gap*(grp.objects.length-1);
-    let cx=cellX-totalW/2;
-    grp.objects.forEach(o=>{const meshId=2*k+1, wrapId=2*k+2;k++;
-      let vx="";o._verts.forEach(p=>{vx+=`<vertex x="${p.x}" y="${p.y}" z="${p.z}"/>`;});
-      let tx="";o._idx.forEach(t=>{tx+=`<triangle v1="${t[0]}" v2="${t[1]}" v3="${t[2]}"/>`;});
-      res+=`<object id="${meshId}" type="model"><mesh><vertices>${vx}</vertices><triangles>${tx}</triangles></mesh></object>`;
-      res+=`<object id="${wrapId}" type="model"><components><component objectid="${meshId}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/></components></object>`;
-      o.meshId=meshId;o.wrapId=wrapId;if(grp.overlay){o.worldX=f3(OVx);o.worldY=f3(OVy);}else{o.worldX=f3(cx+o._w/2);o.worldY=f3(cellY);}
-      items+=`<item objectid="${wrapId}" transform="1 0 0 0 1 0 0 0 1 ${o.worldX} ${o.worldY} 0" printable="1"/>`;
-      cx+=o._w+gap;delete o._verts;delete o._idx;});});
+    if(grp.merge&&grp.objects.length>1){
+      // ONE physical part split by colour → emit a SINGLE object whose <components> reference every colour mesh.
+      // The colour meshes already share one coordinate frame (partTrianglesByColor maps them off a common
+      // origin), so Bambu keeps them together as one object — the logo/ball stays on the lid's top face instead
+      // of being dropped to the plate floor as a loose, disconnected object.
+      let Mnx=1/0,Mxx=-1/0,Mny=1/0,Mxy=-1/0;grp.objects.forEach(o=>{if(o._mnx<Mnx)Mnx=o._mnx;if(o._mxx>Mxx)Mxx=o._mxx;if(o._mny<Mny)Mny=o._mny;if(o._mxy>Mxy)Mxy=o._mxy;});
+      const wx=f3(cellX-(Mnx+Mxx)/2), wy=f3(cellY-(Mny+Mxy)/2);
+      let comps="";grp.objects.forEach(o=>{const mid=emitMesh(o);comps+=`<component objectid="${mid}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>`;});
+      const wrapId=newId();grp.wrapId=wrapId;grp.worldX=wx;grp.worldY=wy;
+      res+=`<object id="${wrapId}" type="model"><components>${comps}</components></object>`;
+      items+=`<item objectid="${wrapId}" transform="1 0 0 0 1 0 0 0 1 ${wx} ${wy} 0" printable="1"/>`;
+    } else {
+      // separate physical parts → lay them out side by side inside the plate cell, each its own object
+      const totalW=grp.objects.reduce((s,o)=>s+o._w,0)+gap*(grp.objects.length-1);
+      let cx=cellX-totalW/2;
+      grp.objects.forEach(o=>{const meshId=emitMesh(o),wrapId=newId();
+        res+=`<object id="${wrapId}" type="model"><components><component objectid="${meshId}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/></components></object>`;
+        o.wrapId=wrapId;o.worldX=f3(cx+o._w/2);o.worldY=f3(cellY);
+        items+=`<item objectid="${wrapId}" transform="1 0 0 0 1 0 0 0 1 ${o.worldX} ${o.worldY} 0" printable="1"/>`;
+        cx+=o._w+gap;});
+    }});
   return `<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021"><metadata name="Application">BambuStudio-02.07.01.57</metadata><metadata name="BambuStudio:3mfVersion">1</metadata><resources>${res}</resources><build>${items}</build></model>`;
 }
 // model_settings.config — the file Bambu reads to build the plate list. Mirrors HeartDog_split.3mf:
@@ -2732,22 +2745,33 @@ function build3MFModelXML(groups,bedX,bedY){
 //   * one <plate> PER GROUP whose <model_instance> children bind every object in that group (object_id=EVEN)
 //     to the SAME plater_id — Box, Lid, all Text, and all Models each land on their own distinct plate.
 function buildModelSettingsXML(groups){
+  // Per-part slicer presets for optimal LED diffusion, read by Bambu Studio on import:
+  //  · Lid (front diffuser): 100% infill, 5 bottom shell layers, monotonic-line top surface
+  //  · Main Box (light blocker): 4 wall loops to stop side light bleed
+  const ovFor=cat=>cat==="lid"?`<metadata key="sparse_infill_density" value="100%"/><metadata key="bottom_shell_layers" value="5"/><metadata key="top_surface_pattern" value="monotonicline"/><metadata key="top_shell_layers" value="5"/>`:(cat==="box"?`<metadata key="wall_loops" value="4"/>`:"");
+  const partXML=o=>{const fc=o.faceCount||0;return `<part id="${o.meshId}" subtype="normal_part"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="extruder" value="${o.extruder||1}"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/><mesh_stat face_count="${fc}" edges_fixed="0" degenerate_facets="0" facets_removed="0" facets_reversed="0" backwards_edges="0"/></part>`;};
   let s=`<?xml version="1.0" encoding="UTF-8"?>\n<config>`;
-  groups.forEach(grp=>grp.objects.forEach(o=>{const fc=o.faceCount||0;
-    // Per-part slicer presets for optimal LED diffusion, read by Bambu Studio on import:
-    //  · Lid (front diffuser): 100% infill, 5 bottom shell layers, monotonic-line top surface
-    //  · Main Box (light blocker): 4 wall loops to stop side light bleed
-    let ov="";
-    if(o.cat==="lid")ov=`<metadata key="sparse_infill_density" value="100%"/><metadata key="bottom_shell_layers" value="5"/><metadata key="top_surface_pattern" value="monotonicline"/><metadata key="top_shell_layers" value="5"/>`;
-    else if(o.cat==="box")ov=`<metadata key="wall_loops" value="4"/>`;
-    s+=`<object id="${o.wrapId}"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="extruder" value="${o.extruder||1}"/>${ov}<metadata face_count="${fc}"/><part id="${o.meshId}" subtype="normal_part"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/><mesh_stat face_count="${fc}" edges_fixed="0" degenerate_facets="0" facets_removed="0" facets_reversed="0" backwards_edges="0"/></part></object>`;}));
+  groups.forEach(grp=>{
+    if(grp.merge&&grp.objects.length>1){
+      // ONE object, one <part> volume per colour — each carries its own extruder so the colours print correctly
+      // while staying a single, connected object (matches the single build-item emitted in the model XML).
+      const first=grp.objects[0],fcTot=grp.objects.reduce((a,o)=>a+(o.faceCount||0),0);
+      s+=`<object id="${grp.wrapId}"><metadata key="name" value="${xmlEsc(grp.baseName||first.name)}"/><metadata key="extruder" value="${first.extruder||1}"/>${ovFor(first.cat)}<metadata face_count="${fcTot}"/>`;
+      grp.objects.forEach(o=>{s+=partXML(o);});
+      s+=`</object>`;
+    } else {
+      grp.objects.forEach(o=>{const fc=o.faceCount||0;
+        s+=`<object id="${o.wrapId}"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="extruder" value="${o.extruder||1}"/>${ovFor(o.cat)}<metadata face_count="${fc}"/>${partXML(o)}</object>`;});
+    }});
   let iid=100;
   groups.forEach((grp,gi)=>{const pid=gi+1;
     s+=`<plate><metadata key="plater_id" value="${pid}"/><metadata key="plater_name" value="${xmlEsc(grp.name)}"/><metadata key="locked" value="false"/><metadata key="filament_map_mode" value="Auto For Flush"/><metadata key="filament_maps" value="1"/>`;
-    grp.objects.forEach(o=>{s+=`<model_instance><metadata key="object_id" value="${o.wrapId}"/><metadata key="instance_id" value="0"/><metadata key="identify_id" value="${iid++}"/></model_instance>`;});
+    if(grp.merge&&grp.objects.length>1){s+=`<model_instance><metadata key="object_id" value="${grp.wrapId}"/><metadata key="instance_id" value="0"/><metadata key="identify_id" value="${iid++}"/></model_instance>`;}
+    else grp.objects.forEach(o=>{s+=`<model_instance><metadata key="object_id" value="${o.wrapId}"/><metadata key="instance_id" value="0"/><metadata key="identify_id" value="${iid++}"/></model_instance>`;});
     s+=`</plate>`;});
   s+=`<assemble>`;
-  groups.forEach(grp=>grp.objects.forEach(o=>{s+=`<assemble_item object_id="${o.wrapId}" instance_id="0" transform="1 0 0 0 1 0 0 0 1 ${o.worldX||0} ${o.worldY||0} 0" offset="0 0 0"/>`;}));
+  groups.forEach(grp=>{if(grp.merge&&grp.objects.length>1){s+=`<assemble_item object_id="${grp.wrapId}" instance_id="0" transform="1 0 0 0 1 0 0 0 1 ${grp.worldX||0} ${grp.worldY||0} 0" offset="0 0 0"/>`;}
+    else grp.objects.forEach(o=>{s+=`<assemble_item object_id="${o.wrapId}" instance_id="0" transform="1 0 0 0 1 0 0 0 1 ${o.worldX||0} ${o.worldY||0} 0" offset="0 0 0"/>`;});});
   s+=`</assemble>`;
   return s+`</config>`;
 }
@@ -2848,7 +2872,7 @@ async function exportPlates(deliver){deliver=deliver||"download";
         const base=(part.name||("part "+(pi+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
         const catA=part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
         const objects=cols.map((cg,ci)=>({name:base+(cols.length>1?(" #"+(ci+1)):""),tris:cg.tris,extruder:idxOf(cg.color),cat:catA}));
-        groups.push({name:"Plate "+(groups.length+1)+" - "+base,overlay:objects.length>1,objects:objects});});
+        groups.push({name:"Plate "+(groups.length+1)+" - "+base,baseName:base,merge:objects.length>1,objects:objects});});
       window.__amsFilaments=pal.slice();
     } else {
       const bucket={box:[],lid:[],text:[],model:[]};
