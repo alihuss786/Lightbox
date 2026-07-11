@@ -1743,6 +1743,20 @@ function _logoLoaded(paths){if(!paths||!paths.length){uiAlert("Couldn\u2019t tra
     else{var any=false;Array.prototype.forEach.call(files,function(f){var nm=(f.name||"").toLowerCase();if(/^image\//.test(f.type||"")||/\.(png|jpe?g|svg|gif|webp|bmp)$/.test(nm)){loadImage(f);any=true;}});if(any)_openFeat("models");else uiAlert("Drop an image file \u2014 PNG, JPG or SVG.");}
   },false);
 })();
+// Owner-only: press "H" to hide/show the "View as \u2026" tester dropdown (keeps it out of screen recordings).
+// The choice is remembered in localStorage so it survives the reload that switching tier triggers.
+(function(){
+  function _edit(el){if(!el)return false;var t=(el.tagName||"").toLowerCase();return t==="input"||t==="textarea"||t==="select"||el.isContentEditable;}
+  function _hidden(){try{return localStorage.getItem("sl_hideviewas")==="1";}catch(e){return false;}}
+  window.__applyViewAsVis=function(){var v=document.getElementById("ownerViewAs");if(v)v.style.display=_hidden()?"none":"";};
+  window.addEventListener("keydown",function(e){
+    if((e.key!=="h"&&e.key!=="H")||e.ctrlKey||e.metaKey||e.altKey)return;
+    if(_edit(document.activeElement))return;
+    var v=document.getElementById("ownerViewAs");if(!v)return;   // only the owner has this control
+    e.preventDefault();try{localStorage.setItem("sl_hideviewas",_hidden()?"0":"1");}catch(e2){}
+    window.__applyViewAsVis();
+  },false);
+})();
 /* Multi-line name -> Clipper subject paths. Each glyph is placed individually with
    tight tracking (bounding boxes overlap slightly) so a small connect-border fuses
    adjacent letters into one piece. Lines are centred and stacked top-to-bottom. */
@@ -4129,7 +4143,7 @@ window.USDZExporter=USDZExporter;})();
     try{window.__loadMerchant&&window.__loadMerchant();}catch(e){}
     try{window.__subMerchantRealtime&&window.__subMerchantRealtime();}catch(e){}
     try{if(!(window.__isMerchant&&window.__isMerchant())&&document.body.classList.contains("kiosk")){window.__exitKiosk&&window.__exitKiosk();}}catch(e){}
-    var vas=document.getElementById("ownerViewAs");if(isOwner()){if(!vas){vas=document.createElement("select");vas.id="ownerViewAs";vas.innerHTML='<option value="">\uD83D\uDC41 Viewing: Owner</option><option value="spark">View as Spark</option><option value="hobby">View as Hobby</option><option value="studio">View as Studio</option><option value="merchant">View as Merchant</option>';vas.style.cssText="position:fixed;top:58px;right:14px;z-index:99997;padding:8px 12px;border-radius:10px;border:1px solid rgba(224,192,141,.45);background:#1c1f26;color:#e0c08d;font:700 12px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35)";vas.onchange=function(){try{if(vas.value)sessionStorage.setItem("sl_viewas",vas.value);else sessionStorage.removeItem("sl_viewas");}catch(e){}try{sessionStorage.removeItem("sl_treload");}catch(e){}location.reload();};document.body.appendChild(vas);}vas.value=window.__viewAsTier||"";}else if(vas){vas.remove();}
+    var vas=document.getElementById("ownerViewAs");if(isOwner()){if(!vas){vas=document.createElement("select");vas.id="ownerViewAs";vas.innerHTML='<option value="">\uD83D\uDC41 Viewing: Owner</option><option value="spark">View as Spark</option><option value="hobby">View as Hobby</option><option value="studio">View as Studio</option><option value="merchant">View as Merchant</option>';vas.style.cssText="position:fixed;top:58px;right:14px;z-index:99997;padding:8px 12px;border-radius:10px;border:1px solid rgba(224,192,141,.45);background:#1c1f26;color:#e0c08d;font:700 12px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35)";vas.onchange=function(){try{if(vas.value)sessionStorage.setItem("sl_viewas",vas.value);else sessionStorage.removeItem("sl_viewas");}catch(e){}try{sessionStorage.removeItem("sl_treload");}catch(e){}location.reload();};document.body.appendChild(vas);}vas.value=window.__viewAsTier||"";if(window.__applyViewAsVis)window.__applyViewAsVis();}else if(vas){vas.remove();}
     var otb=document.getElementById("ownerTplBtn");if(otb)otb.style.display=(isOwner()&&!window.__viewAsTier)?"":"none";
     var ob=document.getElementById("ownerJobsBtn");
     if(isOwner()&&!window.__viewAsTier){
@@ -4308,7 +4322,7 @@ window.USDZExporter=USDZExporter;})();
     return d;
   }
   function showOwnerDash(){var d=ensureOwnerDash();d.style.display="flex";var ac=document.getElementById("acct");if(ac)ac.style.display="none";var vv=document.getElementById("ownerViewAs");if(vv)vv.style.display="none";refreshDash();}
-  function hideOwnerDash(){var d=document.getElementById("ownerDash");if(d)d.style.display="none";var ac=document.getElementById("acct");if(ac)ac.style.display="";var vv=document.getElementById("ownerViewAs");if(vv)vv.style.display="";}
+  function hideOwnerDash(){var d=document.getElementById("ownerDash");if(d)d.style.display="none";var ac=document.getElementById("acct");if(ac)ac.style.display="";var vv=document.getElementById("ownerViewAs");if(vv){vv.style.display="";if(window.__applyViewAsVis)window.__applyViewAsVis();}}
   window.__ownerPublishTemplate=async function(){var sb=window.__sb;if(!sb||!window.__user){uiAlert("Sign in as the owner first.");return;}var name=prompt("Save this design as a template \u2014 name it:","");if(name===null)return;name=(name||"").trim()||"Untitled";var data=(typeof window.__serializeDesign==="function")?window.__serializeDesign():null;if(!data){uiAlert("Couldn\u2019t read the current design.");return;}var mx=0;try{var cur=await sb.from("templates").select("sort").order("sort",{ascending:false}).limit(1);if(cur&&cur.data&&cur.data[0])mx=(cur.data[0].sort||0)+1;}catch(e){}var r=await sb.from("templates").insert({name:name,data:data,sort:mx});if(r&&r.error){uiAlert("Publish failed: "+r.error.message);return;}try{if(window.__loadTemplates)window.__loadTemplates();}catch(e){}uiAlert("\u201c"+name+"\u201d saved to Templates \u2713");};
   window.__openPrintQueue=showOwnerDash;
   window.__showOwnerDash=showOwnerDash;
