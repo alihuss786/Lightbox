@@ -2520,6 +2520,17 @@ function _setupGlow(active,color){
     if(!active&&window.__glowPool){for(var j=0;j<window.__glowPool.length;j++){window.__glowPool[j].userData.charge=0;window.__glowPool[j].intensity=0;}}
   }catch(e){}
 }
+// Is the part for a colour target actually present on the model? front/body always are; name/image/model
+// only when the design has that content. Used to gate the glow effect (no glow if the glowing part isn't there).
+function _targetPresent(k){
+  try{
+    if(k==="front"||k==="body")return true;
+    if(k==="image")return typeof images!=="undefined"&&images.some(function(i){return i&&i.img;});
+    if(k==="model")return typeof models!=="undefined"&&models.length>0;
+    if(k==="name")return (typeof texts!=="undefined"&&texts.some(function(t){return t&&(t.str||"").trim();}))||(typeof LIDNAME!=="undefined"&&LIDNAME.trim().length>0)||(typeof LOGO!=="undefined"&&LOGO&&LOGO.length>0);
+  }catch(e){}
+  return true;
+}
 function applyFinishes(){
   if(typeof MATS==="undefined")return;
   window.__matFinish=window.__matFinish||{};window.__glowMats=[];
@@ -2547,7 +2558,7 @@ function applyFinishes(){
       case "galaxy": _finSparkle(mat,cols,false);break;
       case "marble": _finMarble(mat,cols);break;
       case "dual": case "multi": case "gradient": _finGradient(mat,cols);break;
-      case "glow": mat.roughness=0.55;mat.userData.__glowColor=cols[0];window.__glowMats.push(mat);anyGlow=true;glowCol=cols[0];break;
+      case "glow": mat.roughness=0.55;mat.userData.__glowColor=cols[0];if(_targetPresent(k)){window.__glowMats.push(mat);anyGlow=true;glowCol=cols[0];}break;   // only glow if the part that has the glow finish is actually on the model
       default: break; // basic
     }
     // Give multi-colour finishes (gradient/dual/marble) a real base colour too, so the part EXPORTS with a
