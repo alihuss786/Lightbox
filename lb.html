@@ -1183,7 +1183,7 @@ var _BAMBU_PRESET={"PLA Basic":"Bambu PLA Basic","PLA Matte":"Bambu PLA Matte","
 // Bambu's internal filament IDs — REQUIRED in the 3MF's filament_ids array or Bambu can't resolve slots 2+
 // and shows the project filename. Confirmed from a Bambu-saved project: Basic GFA00, Matte GFA01,
 // Silk+ GFA06, Glow GFA12. The rest are Bambu's published PLA codes.
-var _BAMBU_GFA={"Bambu PLA Basic":"GFA00","Bambu PLA Matte":"GFA01","Bambu PLA Silk":"GFA05","Bambu PLA Silk+":"GFA06","Bambu PLA Marble":"GFA07","Bambu PLA Sparkle":"GFA08","Bambu PLA Galaxy":"GFA09","Bambu PLA Metal":"GFA02","Bambu PLA Glow":"GFA12","Bambu PLA Wood":"GFA11"};
+var _BAMBU_GFA={"Bambu PLA Basic":"GFA00","Bambu PLA Matte":"GFA01","Bambu PLA Silk":"GFA05","Bambu PLA Silk+":"GFA06","Bambu PLA Marble":"GFA07","Bambu PLA Sparkle":"GFA08","Bambu PLA Galaxy":"GFA15","Bambu PLA Metal":"GFA02","Bambu PLA Glow":"GFA12","Bambu PLA Wood":"GFA16"};
 function _gfaFor(preset){return _BAMBU_GFA[preset]||"GFA00";}
 function bambuFilamentFor(hex){var t=_rgbOf(hex),best=null,bd=1e18;try{BAMBU_GROUPS.forEach(function(grp){grp.c.forEach(function(f){var v=f[1],cs=(typeof v==="string")?[v]:v;cs.forEach(function(cx){var c=_rgbOf(cx),d=(c[0]-t[0])*(c[0]-t[0])+(c[1]-t[1])*(c[1]-t[1])+(c[2]-t[2])*(c[2]-t[2]);if(d<bd){bd=d;best={group:grp.t,name:f[0]};}});});});}catch(e){}var g=best?best.group:"PLA Basic";return {preset:_BAMBU_PRESET[g]||"Bambu PLA Basic",name:best?best.name:"",group:g};}
 let palTarget=null;
