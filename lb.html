@@ -850,7 +850,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="hint">A separate printed foot for designs that can’t stand on their own — prints on its own plate.</div>
         <div class="row"><span class="lbl">Profile</span><select id="mntBaseShape" class="psel" style="width:auto" onchange="mntRebuild()"><option value="round">Rounded rectangle</option><option value="square">Square</option><option value="pill">Pill</option></select></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Width — <b id="mntBaseWLbl">90</b> mm</span><input type="range" id="mntBaseW" min="40" max="200" step="1" value="90" oninput="mntLabel()" onchange="mntRebuild()"></div>
-        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth — <b id="mntBaseDLbl">30</b> mm</span><input type="range" id="mntBaseD" min="15" max="90" step="1" value="30" oninput="mntLabel()" onchange="mntRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth — <b id="mntBaseDLbl">58</b> mm</span><input type="range" id="mntBaseD" min="40" max="120" step="1" value="58" oninput="mntLabel()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickness — <b id="mntBaseTLbl">6</b> mm</span><input type="range" id="mntBaseT" min="3" max="20" step="1" value="6" oninput="mntLabel()" onchange="mntRebuild()"></div>
       </div>
     </div>
@@ -2285,9 +2285,23 @@ function _baseProfilePaths(shape,w,d){
   if(shape==="round")return [_roundRectPath(0,0,w,d,Math.min(w,d)*0.22)];
   return [[{X:Math.round(-w/2*S),Y:Math.round(-d/2*S)},{X:Math.round(w/2*S),Y:Math.round(-d/2*S)},{X:Math.round(w/2*S),Y:Math.round(d/2*S)},{X:Math.round(-w/2*S),Y:Math.round(d/2*S)}]];
 }
-// The desk base is a watertight slab with the chosen footprint. It reuses the lid builder, so the
-// currently-selected surface texture (if any) is applied to its top face exactly like the lid.
-function buildBaseGeo(shape,w,d,t){try{var prof=_baseProfilePaths(shape,w,d);var slabs=buildLidSlabs(prof,0,0,[],Math.max(2,t),0.6,null,0);return (slabs&&slabs[0]&&slabs[0].geo)||null;}catch(e){return null;}}
+// The desk base is a watertight slab foot with a SLOT cut into its top edge — the lightbox's bottom edge
+// slides into the slot so it stands upright on a desk. The slot runs along the base width (X) and is as wide
+// as the lightbox's depth (front-to-back) plus a little clearance. Built via the lid builder (a manifold slab
+// with a top pocket); the caller lays it flat and seats it under the box. Returns {geo, slotDepth}.
+function buildBaseGeo(shape,w,d,t,boxDepth,boxWidth){try{
+  var bw=Math.max(6,boxDepth||8);                                   // the box's front-to-back thickness
+  var dEff=Math.max(d, bw+16);                                       // foot deep enough to house the slot + walls
+  var wEff=Math.max(w, (boxWidth||40)*0.5+20);
+  var slotW=Math.min(bw+0.8, dEff-8);                               // groove width fits the box depth (+clearance)
+  var slotLen=Math.min(wEff*0.86, (boxWidth||wEff*0.6)+3);          // groove length seats most of the bottom edge
+  var slotDepth=Math.max(2,Math.min(t*0.6, t-1.5, 8));
+  var prof=_baseProfilePaths(shape,wEff,dEff);
+  var slot=[_roundRectPath(0,0,slotLen,slotW,Math.min(slotW/2,1.6))];
+  var slabs=buildLidSlabs(prof,0,0,[{p:slot,depth:slotDepth}],Math.max(3,t),0.8,null,0);
+  var geo=(slabs&&slabs[0]&&slabs[0].geo)||null;
+  return geo?{geo:geo,slotDepth:slotDepth}:null;
+}catch(e){return null;}}
 
 let PLATES=[],PLATE_THUMBS=[];
 async function buildModel(){
@@ -2473,8 +2487,11 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     if(typeof photoPanelGroup!=="undefined"&&photoPanelGroup)partList.push({group:photoPanelGroup,name:"Photo panel",flip:false,color:"#FFFFFF"});
     if(stlParts&&stlParts.length){stlParts.forEach(p=>partList.push(p));}
     else{models.forEach((mo,i)=>{if(!mo.obj)return;const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));inst.position.set(+mo.x||0,+mo.y||0,TT);grp.userData={isStl:true,modelId:mo.id};grp.add(inst);partList.push({group:grp,name:"3D "+((mo.name||("model "+(i+1))).slice(0,9)),flip:false,modelId:mo.id,color:COLORS.model});});}
-    // Desk base — a separate printed foot for designs that can't stand on their own. Gets its own build plate.
-    if(_mnt&&_mnt.base.on){var _bgeo=buildBaseGeo(_mnt.base.shape,_mnt.base.w,_mnt.base.d,_mnt.base.t);if(_bgeo){var _bgrp=new THREE.Group();_bgrp.add(new THREE.Mesh(_bgeo,MATS.body));_bgrp.position.set(0,-(LH/2+_mnt.base.d/2+4),0);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.body});}}
+    // Desk base — a separate printed foot the lightbox slots into so it stands on a desk. Own build plate.
+    // The slab is built lying in XY (like the lid); rotating the GROUP -90° lays it flat with the slot facing
+    // up (the export applies the same -90°, so the print orientation stays correct). It's seated under the box
+    // with the slot centred on the box's depth so the bottom edge drops in.
+    if(_mnt&&_mnt.base.on){var _bres=buildBaseGeo(_mnt.base.shape,_mnt.base.w,_mnt.base.d,_mnt.base.t,depth,LW);if(_bres&&_bres.geo){var _bgrp=new THREE.Group();_bgrp.add(new THREE.Mesh(_bres.geo,MATS.body));_bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,-(LH/2)+(_bres.slotDepth||3),-depth/2);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.body});}}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
 
