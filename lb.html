@@ -828,6 +828,33 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       </div>
     </div>
   </div>
+  <div class="acc" data-feat="mounting">
+    <div class="acc-h" onclick="accT(this)">Mounting <i class="chev">⌄</i></div>
+    <div class="acc-b">
+      <div class="hint">Make it hang, plug in tidily, or stand on its own — add a wall keyhole, a power cut-out through the back, or a printed desk base.</div>
+      <div class="toggle-row"><span class="lbl">🔩 Wall-mount keyhole</span><div class="tg" id="tg_mntWall" onclick="mntToggle('mntWall')"><div class="k"></div></div></div>
+      <div id="mntWallCtl" style="display:none;flex-direction:column;gap:11px;margin-bottom:6px">
+        <div class="hint">A hanging slot through the back wall — hook it over a screw head. Best placed near the top.</div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Across (X) — <b id="mntWallXLbl">0</b> mm</span><input type="range" id="mntWallX" min="-70" max="70" step="1" value="0" oninput="mntLabel()" onchange="mntRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Up / down (Y) — <b id="mntWallYLbl">0</b> mm</span><input type="range" id="mntWallY" min="-70" max="70" step="1" value="0" oninput="mntLabel()" onchange="mntRebuild()"></div>
+      </div>
+      <div class="toggle-row"><span class="lbl">🔌 Power / cable cut-out</span><div class="tg" id="tg_mntPow" onclick="mntToggle('mntPow')"><div class="k"></div></div></div>
+      <div id="mntPowCtl" style="display:none;flex-direction:column;gap:11px;margin-bottom:6px">
+        <div class="hint">A hole through the back wall for your USB-C plug or cable.</div>
+        <div class="row"><span class="lbl">Shape</span><select id="mntPowShape" class="psel" style="width:auto" onchange="mntRebuild()"><option value="usbc">USB-C slot · 9×4mm</option><option value="circle">Round hole · 8mm</option></select></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Across (X) — <b id="mntPowXLbl">0</b> mm</span><input type="range" id="mntPowX" min="-70" max="70" step="1" value="0" oninput="mntLabel()" onchange="mntRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Up / down (Y) — <b id="mntPowYLbl">-30</b> mm</span><input type="range" id="mntPowY" min="-70" max="70" step="1" value="-30" oninput="mntLabel()" onchange="mntRebuild()"></div>
+      </div>
+      <div class="toggle-row"><span class="lbl">🧱 Desk base (stand)</span><div class="tg" id="tg_mntBase" onclick="mntToggle('mntBase')"><div class="k"></div></div></div>
+      <div id="mntBaseCtl" style="display:none;flex-direction:column;gap:11px">
+        <div class="hint">A separate printed foot for designs that can’t stand on their own — prints on its own plate.</div>
+        <div class="row"><span class="lbl">Profile</span><select id="mntBaseShape" class="psel" style="width:auto" onchange="mntRebuild()"><option value="round">Rounded rectangle</option><option value="square">Square</option><option value="pill">Pill</option></select></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Width — <b id="mntBaseWLbl">90</b> mm</span><input type="range" id="mntBaseW" min="40" max="200" step="1" value="90" oninput="mntLabel()" onchange="mntRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth — <b id="mntBaseDLbl">30</b> mm</span><input type="range" id="mntBaseD" min="15" max="90" step="1" value="30" oninput="mntLabel()" onchange="mntRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickness — <b id="mntBaseTLbl">6</b> mm</span><input type="range" id="mntBaseT" min="3" max="20" step="1" value="6" oninput="mntLabel()" onchange="mntRebuild()"></div>
+      </div>
+    </div>
+  </div>
   <div class="acc" data-feat="dimensions">
     <div class="acc-h" onclick="accT(this)">Dimensions <i class="chev">⌄</i></div>
     <div class="acc-b" id="dimRows"></div>
@@ -1245,6 +1272,11 @@ function toggleLight(){if((window.__explodeAmt||0)>0.001)return;lightOn=!lightOn
 function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export)$/i.test(name))return;var _df=acc.getAttribute("data-feat");if(_df&&featState(_df)==="hidden")return;var t=document.createElement("button");t.className="pl-tab"+(acc.classList.contains("feat-soon")?" pl-soon":"");t.textContent=name;t.setAttribute("data-i",i);t.onclick=function(){plTab(i);};bar.appendChild(t);});[].slice.call(bar.querySelectorAll(".pl-soon")).forEach(function(x){bar.appendChild(x);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
 function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Letter"],name:["\u270e","Name"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"],logo:["\u25a3","Logo"],lithophane:["\u25d0","Lithophane"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
+// ---- Mounting tab: toggle a feature, reveal its controls, keep the slider labels live, and rebuild ----
+function mntToggle(k){var t=document.getElementById("tg_"+k);if(!t)return;t.classList.toggle("on");var c=document.getElementById(k+"Ctl");if(c)c.style.display=t.classList.contains("on")?"flex":"none";mntRebuild();}
+function mntLabel(){[["mntWallX","mntWallXLbl"],["mntWallY","mntWallYLbl"],["mntPowX","mntPowXLbl"],["mntPowY","mntPowYLbl"],["mntBaseW","mntBaseWLbl"],["mntBaseD","mntBaseDLbl"],["mntBaseT","mntBaseTLbl"]].forEach(function(p){var e=document.getElementById(p[0]),l=document.getElementById(p[1]);if(e&&l)l.textContent=e.value;});}
+function mntRebuild(){mntLabel();if(typeof scheduleBuild==="function")scheduleBuild();else if(typeof rebuild==="function")rebuild();}
+window.mntToggle=mntToggle;window.mntLabel=mntLabel;window.mntRebuild=mntRebuild;
 function toggleRGB(){window.__rgbMode=!window.__rgbMode;var b=g("rgbPill");if(b)b.classList.toggle("on",window.__rgbMode);applyLight();}
 function _rgbTick(){if(!window.__rgbMode||!lightOn||mode!=="render")return;var h=(performance.now()*0.00016)%1;var c=new THREE.Color().setHSL(h,0.95,0.55);(window.__glowSpots||[]).forEach(function(s){s.color.copy(c);});if(typeof glowFace!=="undefined"&&glowFace)glowFace.material.color.copy(c.clone().lerp(new THREE.Color(0xffffff),0.06));var eg=c.clone().multiplyScalar(0.6);if(MATS.front)MATS.front.emissive.copy(eg);if(MATS.name)MATS.name.emissive.copy(eg);if(MATS.image)MATS.image.emissive.copy(eg);if(pivot)pivot.traverse(function(o){if(o.userData&&o.userData.textId!=null)o.traverse(function(m){if(m.isMesh&&m.material&&m.material.emissive)m.material.emissive.copy(eg);});});}
 function applyLight(){{var _lbl=g("lightLbl");if(_lbl)_lbl.textContent=lightOn?"Turn off lamp":"Turn on lamp";}
@@ -2184,7 +2216,7 @@ function makeThumb(part){try{thumbSetup();const obj=part.group.clone(true);obj.r
 // back plate's sides met the ring's inner walls the faces coincided, so every such edge was shared by 4
 // triangles -> the "non-manifold edges" Bambu flagged. Here the whole shell is one closed surface: outer
 // walls (full depth), a solid back cap, a front rim (open cavity), inner cavity walls, and the cavity floor.
-function buildBodyShell(filled,inner,depth,wall,cx,cy){
+function buildBodyShell(filled,inner,depth,wall,cx,cy,backHoles){
   const pos=[];
   const addTri=(a,b,c)=>{pos.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]);};
   // triangulate region shapes at height z; FORCE the face normal to +z (wantUp) or -z, per face, so caps
@@ -2203,16 +2235,60 @@ function buildBodyShell(filled,inner,depth,wall,cx,cy){
       const a0=[ax,ay,z0],b0=[bx,by,z0],a1=[ax,ay,z1],b1=[bx,by,z1];
       if(!flip){addTri(a0,b0,b1);addTri(a0,b1,a1);}else{addTri(a0,b1,b0);addTri(a0,a1,b1);}}});}
   const zBack=-depth,zFloor=-depth+wall,zFront=0;
-  cap(shapesFromPaths(filled),zBack,false);          // solid back (full footprint), facing -z
+  // Mounting cutouts (keyhole / power hole): subtract the holes from the back + floor caps and add a tube
+  // wall between them, so the hole passes cleanly through the wall-thick back slab into the hollow cavity.
+  // Clip each hole to `inner` first so it always lands on the cavity floor (never breaches an outer edge).
+  let backShape=filled,floorShape=inner,holeLoops=null;
+  if(backHoles&&backHoles.length){try{const hs=intersect(backHoles,inner);if(hs&&hs.length){backShape=diff(filled,hs);floorShape=diff(inner,hs);holeLoops=hs;}}catch(e){}}
+  cap(shapesFromPaths(backShape),zBack,false);       // solid back (full footprint, minus holes), facing -z
   cap(shapesFromPaths(filled.concat(inner)),zFront,true); // front rim = ring (filled with inner hole), facing +z
-  cap(shapesFromPaths(inner),zFloor,true);           // cavity floor (inner region), facing +z
+  cap(shapesFromPaths(floorShape),zFloor,true);      // cavity floor (inner region, minus holes), facing +z
   walls(filled,zBack,zFront,false);                  // outer walls, full depth
   walls(inner,zFloor,zFront,true);                   // inner cavity walls (floor up to open front)
+  if(holeLoops)walls(holeLoops,zBack,zFloor,true);   // tube walls lining each cutout, facing into the hole
   const geo=new THREE.BufferGeometry();
   geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
   geo.computeVertexNormals();geo.computeBoundingBox();
   return geo;
 }
+
+/* ================= MOUNTING OPTIONS — wall keyhole · power cutout · desk base ================= */
+// Read the Mounting tab into a plain object (all distances in mm).
+function _mountRead(){
+  const on=id=>{var e=document.getElementById(id);return !!(e&&e.classList.contains("on"));};
+  const nv=(id,d)=>{var e=document.getElementById(id);var v=e?parseFloat(e.value):NaN;return isNaN(v)?d:v;};
+  const sv=(id,d)=>{var e=document.getElementById(id);return (e&&e.value)||d;};
+  return {
+    wall:{on:on("tg_mntWall"), x:nv("mntWallX",0), y:nv("mntWallY",0)},
+    power:{on:on("tg_mntPow"), shape:sv("mntPowShape","usbc"), x:nv("mntPowX",0), y:nv("mntPowY",-30)},
+    base:{on:on("tg_mntBase"), shape:sv("mntBaseShape","round"), w:nv("mntBaseW",90), d:nv("mntBaseD",30), t:nv("mntBaseT",6)}
+  };
+}
+window.__mountRead=_mountRead;
+// --- 2D cutout profiles, built directly in clipper-int space (mm × S) ---
+function _circPath(cxMM,cyMM,rMM,seg){var p=[];seg=seg||48;for(var i=0;i<seg;i++){var a=i/seg*Math.PI*2;p.push({X:Math.round((cxMM+rMM*Math.cos(a))*S),Y:Math.round((cyMM+rMM*Math.sin(a))*S)});}return p;}
+function _roundRectPath(cxMM,cyMM,w,h,r){var hw=w/2,hh=h/2;r=Math.max(0,Math.min(r,hw,hh));var seg=10,p=[];function arc(ax,ay,a0,a1){for(var i=0;i<=seg;i++){var a=a0+(a1-a0)*i/seg;p.push({X:Math.round((cxMM+ax+r*Math.cos(a))*S),Y:Math.round((cyMM+ay+r*Math.sin(a))*S)});}}
+  arc(hw-r,hh-r,0,Math.PI/2);arc(-hw+r,hh-r,Math.PI/2,Math.PI);arc(-hw+r,-hh+r,Math.PI,1.5*Math.PI);arc(hw-r,-hh+r,1.5*Math.PI,2*Math.PI);return p;}
+// Standard hanging keyhole: circular screw-head hole at the bottom, narrow slot rising above it (~15mm tall).
+function _keyholePaths(cxMM,cyMM){var rC=4.75,wS=4.5,H=15,slotH=Math.max(0,H-rC),half=wS/2;
+  var circle=_circPath(cxMM,cyMM,rC,48);
+  var slot=[{X:Math.round((cxMM-half)*S),Y:Math.round(cyMM*S)},{X:Math.round((cxMM+half)*S),Y:Math.round(cyMM*S)},{X:Math.round((cxMM+half)*S),Y:Math.round((cyMM+slotH)*S)},{X:Math.round((cxMM-half)*S),Y:Math.round((cyMM+slotH)*S)}];
+  var u=union2([circle],[slot]);return (u&&u.length)?u:[circle];}
+// Power/wiring cutout: USB-C slot (9×4 rounded) or an 8mm circle.
+function _powerPaths(cxMM,cyMM,shape){if(shape==="circle")return [_circPath(cxMM,cyMM,4,48)];return [_roundRectPath(cxMM,cyMM,9,4,2)];}
+// Desk-base footprint, centred at the origin. w = width (x), d = depth (y).
+function _baseProfilePaths(shape,w,d){
+  if(shape==="pill"){var r=d/2,st=Math.max(0,(w-d)/2),seg=26,p=[],i,a;
+    for(i=0;i<=seg;i++){a=-Math.PI/2+i/seg*Math.PI;p.push({X:Math.round((st+r*Math.cos(a))*S),Y:Math.round((r*Math.sin(a))*S)});}
+    for(i=0;i<=seg;i++){a=Math.PI/2+i/seg*Math.PI;p.push({X:Math.round((-st+r*Math.cos(a))*S),Y:Math.round((r*Math.sin(a))*S)});}
+    return [p];}
+  if(shape==="round")return [_roundRectPath(0,0,w,d,Math.min(w,d)*0.22)];
+  return [[{X:Math.round(-w/2*S),Y:Math.round(-d/2*S)},{X:Math.round(w/2*S),Y:Math.round(-d/2*S)},{X:Math.round(w/2*S),Y:Math.round(d/2*S)},{X:Math.round(-w/2*S),Y:Math.round(d/2*S)}]];
+}
+// The desk base is a watertight slab with the chosen footprint. It reuses the lid builder, so the
+// currently-selected surface texture (if any) is applied to its top face exactly like the lid.
+function buildBaseGeo(shape,w,d,t){try{var prof=_baseProfilePaths(shape,w,d);var slabs=buildLidSlabs(prof,0,0,[],Math.max(2,t),0.6,null,0);return (slabs&&slabs[0]&&slabs[0].geo)||null;}catch(e){return null;}}
+
 let PLATES=[],PLATE_THUMBS=[];
 async function buildModel(){
   if(!renderer||!pivot)return;clearPivot();glowFace=null;glowSpot=null;floorPlane=null;DIM=null;
@@ -2221,6 +2297,7 @@ async function buildModel(){
   const lh=mmOf("lh")||140,depth=Math.max(40,mmOf("bd")||40),wall=mmOf("wall")||2;
   const topT=mmOf("topT")||1,capW=mmOf("capW")||3,skirtD=mmOf("skirt")||14,clearance=0.4;
   const nameExt=mmOf("nameExt")||10;
+  const _mnt=(typeof _mountRead==="function")?_mountRead():null;   // wall keyhole / power cutout / desk base
   let pocket=mmOf("nameDepth");if(isNaN(pocket))pocket=0;pocket=Math.max(0,Math.min(pocket,nameExt));
   const above=Math.round((nameExt-pocket)*10)/10,TT=Math.max(topT,pocket+FLOOR_MIN);
   const anyImg=images.some(i=>i.img);
@@ -2280,7 +2357,9 @@ async function buildModel(){
     if(hasClip&&filled){try{
       const inner=off(filled,-wall);
       if(inner&&inner.length){
-        const shellGeo=buildBodyShell(filled,inner,depth,wall,cx,cy);   // name mode honours the full Light box depth (no 16mm cap)
+        let _backHoles=null;   // keyhole + power cutout through the back wall (positioned relative to the panel centre cx,cy in mm)
+        if(_mnt&&(_mnt.wall.on||_mnt.power.on)){_backHoles=[];if(_mnt.wall.on)_backHoles=_backHoles.concat(_keyholePaths(cx+_mnt.wall.x,cy+_mnt.wall.y));if(_mnt.power.on)_backHoles=_backHoles.concat(_powerPaths(cx+_mnt.power.x,cy+_mnt.power.y,_mnt.power.shape));}
+        const shellGeo=buildBodyShell(filled,inner,depth,wall,cx,cy,_backHoles);   // name mode honours the full Light box depth (no 16mm cap)
         bodyGroup.add(new THREE.Mesh(shellGeo,MATS.body));builtHollow=true;}
     }catch(e){}}
     if(!builtHollow&&hasClip&&filled&&(logoMode||nameMode)){try{var _fsh=shapesFromPaths(filled);if(_fsh&&_fsh.length){var _ge=new THREE.ExtrudeGeometry(_fsh,{depth:depth,bevelEnabled:false,curveSegments:6});_ge.translate(-cx,-cy,0);var _bm=new THREE.Mesh(_ge,MATS.body);_bm.position.z=-depth;bodyGroup.add(_bm);builtHollow=true;}}catch(e){}}   // logo/name: if the hollow shell can't build (thin/complex), extrude the silhouette solid — never fall back to the letter
@@ -2394,6 +2473,8 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     if(typeof photoPanelGroup!=="undefined"&&photoPanelGroup)partList.push({group:photoPanelGroup,name:"Photo panel",flip:false,color:"#FFFFFF"});
     if(stlParts&&stlParts.length){stlParts.forEach(p=>partList.push(p));}
     else{models.forEach((mo,i)=>{if(!mo.obj)return;const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));inst.position.set(+mo.x||0,+mo.y||0,TT);grp.userData={isStl:true,modelId:mo.id};grp.add(inst);partList.push({group:grp,name:"3D "+((mo.name||("model "+(i+1))).slice(0,9)),flip:false,modelId:mo.id,color:COLORS.model});});}
+    // Desk base — a separate printed foot for designs that can't stand on their own. Gets its own build plate.
+    if(_mnt&&_mnt.base.on){var _bgeo=buildBaseGeo(_mnt.base.shape,_mnt.base.w,_mnt.base.d,_mnt.base.t);if(_bgeo){var _bgrp=new THREE.Group();_bgrp.add(new THREE.Mesh(_bgeo,MATS.body));_bgrp.position.set(0,-(LH/2+_mnt.base.d/2+4),0);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.body});}}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
 
@@ -2793,7 +2874,7 @@ function buildModelSettingsXML(groups){
   // Per-part slicer presets for optimal LED diffusion, read by Bambu Studio on import:
   //  · Lid (front diffuser): 100% infill, 5 bottom shell layers, monotonic-line top surface
   //  · Main Box (light blocker): 4 wall loops to stop side light bleed
-  const ovFor=cat=>cat==="lid"?`<metadata key="sparse_infill_density" value="100%"/><metadata key="bottom_shell_layers" value="5"/><metadata key="top_surface_pattern" value="monotonicline"/><metadata key="top_shell_layers" value="5"/>`:(cat==="box"?`<metadata key="wall_loops" value="4"/>`:"");
+  const ovFor=cat=>cat==="lid"?`<metadata key="sparse_infill_density" value="100%"/><metadata key="bottom_shell_layers" value="5"/><metadata key="top_surface_pattern" value="monotonicline"/><metadata key="top_shell_layers" value="5"/>`:(cat==="box"?`<metadata key="wall_loops" value="4"/>`:(cat==="base"?`<metadata key="wall_loops" value="3"/><metadata key="sparse_infill_density" value="30%"/>`:""));
   const partXML=o=>{const fc=o.faceCount||0;return `<part id="${o.meshId}" subtype="normal_part"><metadata key="name" value="${xmlEsc(o.name)}"/><metadata key="extruder" value="${o.extruder||1}"/><metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/><mesh_stat face_count="${fc}" edges_fixed="0" degenerate_facets="0" facets_removed="0" facets_reversed="0" backwards_edges="0"/></part>`;};
   let s=`<?xml version="1.0" encoding="UTF-8"?>\n<config>`;
   groups.forEach(grp=>{
@@ -2918,20 +2999,21 @@ async function exportPlates(deliver){deliver=deliver||"download";
         kk=pal.length;pal.push(c);return kk+1;};   // only reached when no AMS palette is configured at all
       PLATES.forEach((part,pi)=>{const cols=partTrianglesByColor(part,false);if(!cols||!cols.length)return;
         const base=(part.name||("part "+(pi+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
-        const catA=part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
+        const catA=part.isBase?"base":part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
         const objects=cols.map((cg,ci)=>({name:base+(cols.length>1?(" #"+(ci+1)):""),tris:cg.tris,extruder:idxOf(cg.color),cat:catA}));
         groups.push({name:"Plate "+(groups.length+1)+" - "+base,baseName:base,merge:objects.length>1,objects:objects});});
       window.__amsFilaments=pal.slice();
     } else {
-      const bucket={box:[],lid:[],text:[],model:[]};
+      const bucket={box:[],lid:[],text:[],model:[],base:[]};
       PLATES.forEach((part,i)=>{const tris=partTriangles(part);if(!tris||!tris.length)return;
         const clean=(part.name||("part "+(i+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
-        const cat=part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
+        const cat=part.isBase?"base":part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
         bucket[cat].push({name:clean,tris:tris,cat:cat});});
       if(bucket.box.length)groups.push({name:"Plate "+(groups.length+1)+" - Main Box",objects:bucket.box});
       if(bucket.lid.length)groups.push({name:"Plate "+(groups.length+1)+" - Lid",objects:bucket.lid});
       if(bucket.text.length)groups.push({name:"Plate "+(groups.length+1)+" - Text Layers",objects:bucket.text});
       if(bucket.model.length)groups.push({name:"Plate "+(groups.length+1)+" - Catalog Models",objects:bucket.model});
+      if(bucket.base.length)groups.push({name:"Plate "+(groups.length+1)+" - Desk Base",objects:bucket.base});
     }
     if(!groups.length){uiAlert("No printable geometry found to export.");return;}
     const plateCount=groups.length;
