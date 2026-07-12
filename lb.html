@@ -2546,7 +2546,12 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // and sits on top of the base (nothing pokes through). Built in the model's own standing coordinates and
     // seated at the model's true bottom, so it just drops in with no rotation; the exporter lays it flat like
     // every other part. Its own build plate.
-    if(_mnt&&_mnt.base.on&&filled&&filled.length){var _bres=buildCradleBase(filled,cx,cy,depth,_mnt.base.w,_mnt.base.d,_mnt.base.t,_mnt.base.shape);if(_bres&&_bres.geo){var _bgrp=new THREE.Group();_bgrp.add(new THREE.Mesh(_bres.geo,MATS.body));_bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mnt.base.raise||0),-depth/2);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.body});}}
+    if(_mnt&&_mnt.base.on&&filled&&filled.length){
+      // Seat/contour to the LID silhouette (the outermost, LOWEST part the eye sees) not the body — in logo/name
+      // mode the lid overhangs the body by ~clearance+capW, so seating to the body buried the visible lid.
+      var _baseSil=filled;try{var _ls=off(filled,clearance+capW);if(_ls&&_ls.length)_baseSil=_ls;}catch(e){}
+      var _bres=buildCradleBase(_baseSil,cx,cy,depth,_mnt.base.w,_mnt.base.d,_mnt.base.t,_mnt.base.shape);
+      if(_bres&&_bres.geo){var _bgrp=new THREE.Group();_bgrp.add(new THREE.Mesh(_bres.geo,MATS.body));_bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mnt.base.raise||0),-depth/2);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.body});}}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
 
