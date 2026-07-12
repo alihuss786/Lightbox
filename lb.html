@@ -2311,8 +2311,9 @@ window.__mountRead=_mountRead;
 function _circPath(cxMM,cyMM,rMM,seg){var p=[];seg=seg||48;for(var i=0;i<seg;i++){var a=i/seg*Math.PI*2;p.push({X:Math.round((cxMM+rMM*Math.cos(a))*S),Y:Math.round((cyMM+rMM*Math.sin(a))*S)});}return p;}
 function _roundRectPath(cxMM,cyMM,w,h,r){var hw=w/2,hh=h/2;r=Math.max(0,Math.min(r,hw,hh));var seg=10,p=[];function arc(ax,ay,a0,a1){for(var i=0;i<=seg;i++){var a=a0+(a1-a0)*i/seg;p.push({X:Math.round((cxMM+ax+r*Math.cos(a))*S),Y:Math.round((cyMM+ay+r*Math.sin(a))*S)});}}
   arc(hw-r,hh-r,0,Math.PI/2);arc(-hw+r,hh-r,Math.PI/2,Math.PI);arc(-hw+r,-hh+r,Math.PI,1.5*Math.PI);arc(hw-r,-hh+r,1.5*Math.PI,2*Math.PI);return p;}
-// Standard hanging keyhole: circular screw-head hole at the bottom, narrow slot rising above it (~15mm tall).
-function _keyholePaths(cxMM,cyMM){var rC=4.75,wS=4.5,H=15,slotH=Math.max(0,H-rC),half=wS/2;
+// Standard hanging keyhole: circular screw-head hole at the bottom, narrow slot rising above it. Sized to a
+// common keyhole hanger — 9.7mm screw-head circle, 17.4mm overall height, ~4.5mm slot.
+function _keyholePaths(cxMM,cyMM){var rC=4.85,wS=4.5,H=17.4,slotH=Math.max(0,H-rC),half=wS/2;
   var circle=_circPath(cxMM,cyMM,rC,48);
   var slot=[{X:Math.round((cxMM-half)*S),Y:Math.round(cyMM*S)},{X:Math.round((cxMM+half)*S),Y:Math.round(cyMM*S)},{X:Math.round((cxMM+half)*S),Y:Math.round((cyMM+slotH)*S)},{X:Math.round((cxMM-half)*S),Y:Math.round((cyMM+slotH)*S)}];
   var u=union2([circle],[slot]);return (u&&u.length)?u:[circle];}
