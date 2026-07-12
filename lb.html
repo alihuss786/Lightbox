@@ -2295,7 +2295,7 @@ function _baseProfilePaths(shape,w,d){
 //   filled = model silhouette (clipper paths); cx,cy = its centre; depth = box thickness; w,d,t = foot W/D/T.
 function buildCradleBase(filled,cx,cy,depth,w,d,t,shape){try{
   if(!filled||!filled.length)return null;
-  var clr=0.4,foot=Math.max(4,t),bandH=Math.max(7,Math.min(16,t*1.9));
+  var clr=0.4,foot=Math.max(4,t),bandH=Math.max(4,Math.min(8,t));   // shallow locating groove — the model sits mostly on top
   var mnx=1e18,mxx=-1e18;
   filled.forEach(function(p){p.forEach(function(pt){var X=pt.X/S-cx;if(X<mnx)mnx=X;if(X>mxx)mxx=X;});});
   if(!isFinite(mnx)||mxx-mnx<1)return null;
@@ -2325,10 +2325,10 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape){try{
   var pos=[];
   function tri(a,b,c){var d1=Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])+Math.abs(a[2]-b[2]);var d2=Math.abs(b[0]-c[0])+Math.abs(b[1]-c[1])+Math.abs(b[2]-c[2]);var d3=Math.abs(a[0]-c[0])+Math.abs(a[1]-c[1])+Math.abs(a[2]-c[2]);if(d1<1e-5||d2<1e-5||d3<1e-5)return;pos.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]);}
   function quad(a,b,c,e){tri(a,b,c);tri(a,c,e);}
-  // groove opening — its long edges carry EVERY x sample so the opening's boundary matches the subdivided
-  // groove side-wall tops exactly (no T-junctions), while the short ends stay single (match the end caps).
+  // The groove spans the model's width with a floor that follows the model's bottom contour: it recesses only
+  // where the model actually dips in (gd>0) and is flush with the top elsewhere, so the visible pocket hugs the
+  // model. The opening's long edges carry every x sample so they line up with the subdivided groove side-walls.
   var hole=[];for(i0=0;i0<=M;i0++)hole.push(new THREE.Vector2(xs[i0],-halfCh));for(i0=M;i0>=0;i0--)hole.push(new THREE.Vector2(xs[i0],halfCh));
-  // TOP cap (profile minus groove opening) at Z=0, facing +Z
   var tf=THREE.ShapeUtils.triangulateShape(outer,[hole]),tp=outer.concat(hole);
   tf.forEach(function(f){var p0=tp[f[0]],p1=tp[f[1]],p2=tp[f[2]];var A=[p0.x,p0.y,zTop],B=[p1.x,p1.y,zTop],C=[p2.x,p2.y,zTop];
     var cr=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);if(cr>0)tri(A,B,C);else tri(A,C,B);});
@@ -2339,14 +2339,14 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape){try{
   // perimeter walls along the profile outline
   for(i0=0;i0<outer.length;i0++){var pA=outer[i0],pB=outer[(i0+1)%outer.length];
     quad([pA.x,pA.y,zTop],[pB.x,pB.y,zTop],[pB.x,pB.y,zBot],[pA.x,pA.y,zBot]);}
-  // groove floor (contoured), two side walls (straight top edge + contoured bottom), two end caps
+  // contoured floor + two side walls (straight top edge, contoured bottom) + two end caps
   for(i0=0;i0<M;i0++){var x0=xs[i0],x1=xs[i0+1],f0=-gd[i0],f1=-gd[i0+1];
-    quad([x0,-halfCh,f0],[x1,-halfCh,f1],[x1,halfCh,f1],[x0,halfCh,f0]);                 // floor (down-facing recess = +Z up toward opening)
+    quad([x0,-halfCh,f0],[x1,-halfCh,f1],[x1,halfCh,f1],[x0,halfCh,f0]);                 // floor
     quad([x0,-halfCh,zTop],[x1,-halfCh,zTop],[x1,-halfCh,f1],[x0,-halfCh,f0]);           // side wall y=-halfCh
     quad([x0,halfCh,f0],[x1,halfCh,f1],[x1,halfCh,zTop],[x0,halfCh,zTop]);               // side wall y=+halfCh
   }
-  quad([mx0,-halfCh,zTop],[mx0,halfCh,zTop],[mx0,halfCh,-gd[0]],[mx0,-halfCh,-gd[0]]);   // end cap x=mx0
-  quad([mx1,halfCh,zTop],[mx1,-halfCh,zTop],[mx1,-halfCh,-gd[M]],[mx1,halfCh,-gd[M]]);   // end cap x=mx1
+  quad([xs[0],-halfCh,zTop],[xs[0],halfCh,zTop],[xs[0],halfCh,-gd[0]],[xs[0],-halfCh,-gd[0]]);   // end cap start
+  quad([xs[M],halfCh,zTop],[xs[M],-halfCh,zTop],[xs[M],-halfCh,-gd[M]],[xs[M],halfCh,-gd[M]]);   // end cap end
   var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
   geo.computeVertexNormals();geo.computeBoundingBox();
   return {geo:geo,yWallTop:yWallTop};
