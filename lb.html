@@ -858,6 +858,8 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div id="mntBaseCtl" style="display:none;flex-direction:column;gap:11px">
         <div class="hint">A separate printed foot for designs that can’t stand on their own — prints on its own plate.</div>
         <div class="row"><span class="lbl">Profile</span><select id="mntBaseShape" class="psel" style="width:auto" onchange="mntRebuild()"><option value="round">Rounded rectangle</option><option value="square">Square</option><option value="pill">Pill</option></select></div>
+        <div class="row"><span class="lbl">Texture</span><select id="mntBaseTex" class="psel" style="width:auto" onchange="mntRebuild()"><option value="none">None (smooth)</option></select></div>
+        <div class="hint">A raised pattern on the foot border around your design — the model still seats flush.</div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Width — <b id="mntBaseWLbl">90</b> mm</span><input type="range" id="mntBaseW" min="40" max="200" step="1" value="90" oninput="mntLabel()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth — <b id="mntBaseDLbl">58</b> mm</span><input type="range" id="mntBaseD" min="40" max="120" step="1" value="58" oninput="mntLabel()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickness — <b id="mntBaseTLbl">6</b> mm</span><input type="range" id="mntBaseT" min="3" max="20" step="1" value="6" oninput="mntLabel()" onchange="mntRebuild()"></div>
@@ -1192,6 +1194,8 @@ function drawTexPreview(cv,t){var ctx=cv.getContext("2d");var W=cv.width,H=cv.he
 function renderTexList(){var el=document.getElementById("texgrid");if(!el)return;var cur=window.__lidTexId||"none";
   el.innerHTML=TEXTURES.map(function(t){return '<button class="texcard'+(t.id===cur?' sel':'')+'" onclick="selectTexture(\''+t.id+'\')" title="'+t.name+'"><span class="texprev"><canvas id="texcv_'+t.id+'" width="120" height="120"></canvas></span><span class="texname">'+t.name+'</span></button>';}).join("");
   TEXTURES.forEach(function(t){var cv=document.getElementById("texcv_"+t.id);if(cv){try{drawTexPreview(cv,t);}catch(e){}}});}
+// Fill the desk-base texture dropdown from the same pattern list the lid uses (skip photo/relief-only entries).
+function initBaseTexList(){var sel=document.getElementById("mntBaseTex");if(!sel)return;var cur=sel.value||"none";sel.innerHTML=TEXTURES.filter(function(t){return t.id==="none"||t.gen;}).map(function(t){return '<option value="'+t.id+'"'+(t.id===cur?" selected":"")+'>'+t.name+'</option>';}).join("");}
 
 
 
@@ -2383,6 +2387,32 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape){try{
   var tf=THREE.ShapeUtils.triangulateShape(outer,[hole]),tp=outer.concat(hole);
   tf.forEach(function(f){var p0=tp[f[0]],p1=tp[f[1]],p2=tp[f[2]];var A=[p0.x,p0.y,zTop],B=[p1.x,p1.y,zTop],C=[p2.x,p2.y,zTop];
     var cr=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);if(cr>0)tri(A,B,C);else tri(A,C,B);});
+  // ---- Optional texture on the foot border: raised relief tiles around (never under) the model. Each tile is an
+  // independent CLOSED puck slightly embedded into the foot top, so it's its own watertight volume the slicer
+  // unions with the foot — no fragile shared-edge carving of the base cap. Tiles are clipped to the foot OUTSIDE
+  // the model's footprint (widened groove) so the model always seats flush. ----
+  try{var _bt=document.getElementById("mntBaseTex");var _texObj=(_bt&&_bt.value&&_bt.value!=="none"&&typeof TEXFN!=="undefined"&&TEXFN[_bt.value]&&TEXFN[_bt.value].gen)?TEXFN[_bt.value]:null;
+    if(_texObj){
+      var _exX0=mnx-1.5,_exX1=mxx+1.5,_exY0=-halfCh-1.5,_exY1=halfCh+1.5;   // model footprint keep-out
+      var _exRect=[[{X:Math.round(_exX0*S),Y:Math.round(_exY0*S)},{X:Math.round(_exX1*S),Y:Math.round(_exY0*S)},{X:Math.round(_exX1*S),Y:Math.round(_exY1*S)},{X:Math.round(_exX0*S),Y:Math.round(_exY1*S)}]];
+      var _topReg=diff(prof,_exRect);var _Rin=off(_topReg,-1.6);
+      if(_Rin&&_Rin.length){
+        var _mnX=1e9,_mnY=1e9,_mxX=-1e9,_mxY=-1e9;_Rin.forEach(function(pp){pp.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<_mnX)_mnX=X;if(X>_mxX)_mxX=X;if(Y<_mnY)_mnY=Y;if(Y>_mxY)_mxY=Y;});});
+        var _cells=_texObj.gen(_mnX,_mnY,_mxX,_mxY);var _tiles=intersect(_cells,_Rin);
+        if(_tiles&&_tiles.length){var _relief=Math.min(_texObj.relief||0.9,Math.max(0.5,foot*0.35)),_emb=0.4,_zt=zTop+_relief,_zb=zTop-_emb;
+          _tiles.forEach(function(tl){if(tl.length<3)return;var lp=tl.map(function(q){return new THREE.Vector2(q.X/S,q.Y/S);});
+            var ar=0;for(var q2=0;q2<lp.length;q2++){var a2=lp[q2],b2=lp[(q2+1)%lp.length];ar+=a2.x*b2.y-b2.x*a2.y;}
+            if(ar<0)lp.reverse();   // CCW so caps face the right way
+            var tf2=THREE.ShapeUtils.triangulateShape(lp,[]);
+            tf2.forEach(function(f){var p0=lp[f[0]],p1=lp[f[1]],p2=lp[f[2]];
+              tri([p0.x,p0.y,_zt],[p1.x,p1.y,_zt],[p2.x,p2.y,_zt]);           // top cap (+Z)
+              tri([p0.x,p0.y,_zb],[p2.x,p2.y,_zb],[p1.x,p1.y,_zb]);});        // bottom cap (-Z, embedded)
+            for(var wi=0;wi<lp.length;wi++){var a=lp[wi],b=lp[(wi+1)%lp.length];
+              quad([a.x,a.y,_zb],[b.x,b.y,_zb],[b.x,b.y,_zt],[a.x,a.y,_zt]);} // side walls
+          });}
+      }
+    }
+  }catch(e){}
   // BOTTOM cap (full profile) at Z=-TT, facing -Z
   var bf=THREE.ShapeUtils.triangulateShape(outer,[]);
   bf.forEach(function(f){var p0=outer[f[0]],p1=outer[f[1]],p2=outer[f[2]];var A=[p0.x,p0.y,zBot],B=[p1.x,p1.y,zBot],C=[p2.x,p2.y,zBot];
@@ -3171,7 +3201,7 @@ async function exportPlates(deliver){deliver=deliver||"download";
 window.exportPlates=exportPlates;   // the ONLY export entry point exposed globally (gated inside)
 })();
 
-paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();try{applyFeatureGates();}catch(e){}try{plBuildTabs();}catch(e){}try{renderTexList();}catch(e){}try{immersiveInit();}catch(e){}try{initEnv();}catch(e){}try{renderTemplates();}catch(e){}
+paintSeg();paintUnitSeg();refreshSwatches();initThree();renderCatalog();renderTextList();updatePad();renderImgList();renderModelList();try{applyFeatureGates();}catch(e){}try{plBuildTabs();}catch(e){}try{renderTexList();}catch(e){}try{initBaseTexList();}catch(e){}try{immersiveInit();}catch(e){}try{initEnv();}catch(e){}try{renderTemplates();}catch(e){}
 // Warm the whole model catalog in the background a few seconds after first paint, so cold-cache machines
 // have the geometry ready before the user opens the catalog. Delayed so it never competes with the splash
 // image / library load on the initial paint.
