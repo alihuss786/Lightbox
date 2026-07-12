@@ -1194,11 +1194,8 @@ function drawTexPreview(cv,t){var ctx=cv.getContext("2d");var W=cv.width,H=cv.he
 function renderTexList(){var el=document.getElementById("texgrid");if(!el)return;var cur=window.__lidTexId||"none";
   el.innerHTML=TEXTURES.map(function(t){return '<button class="texcard'+(t.id===cur?' sel':'')+'" onclick="selectTexture(\''+t.id+'\')" title="'+t.name+'"><span class="texprev"><canvas id="texcv_'+t.id+'" width="120" height="120"></canvas></span><span class="texname">'+t.name+'</span></button>';}).join("");
   TEXTURES.forEach(function(t){var cv=document.getElementById("texcv_"+t.id);if(cv){try{drawTexPreview(cv,t);}catch(e){}}});}
-// Fill the desk-base texture dropdown from the same pattern list the lid uses. Skip the wireframe/line-based
-// patterns (isostar cubes, crackleinv raised cracks): they're drawn as thin strokes and emboss as broken
-// scattered lines on the base — the filled-cell patterns tile cleanly. Filled equivalents remain (Diamonds,
-// Cracked Stone).
-var BASE_TEX_SKIP={isostar:1,crackleinv:1};
+// Fill the desk-base texture dropdown from the same pattern list the lid uses (skip photo/relief-only entries).
+var BASE_TEX_SKIP={};
 function initBaseTexList(){var sel=document.getElementById("mntBaseTex");if(!sel)return;var cur=sel.value||"none";sel.innerHTML=TEXTURES.filter(function(t){return (t.id==="none"||t.gen)&&!BASE_TEX_SKIP[t.id];}).map(function(t){return '<option value="'+t.id+'"'+(t.id===cur?" selected":"")+'>'+t.name+'</option>';}).join("");}
 
 
@@ -2405,17 +2402,18 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape){try{
       if(_Rin&&_Rin.length){
         var _mnX=1e9,_mnY=1e9,_mxX=-1e9,_mxY=-1e9;_Rin.forEach(function(pp){pp.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<_mnX)_mnX=X;if(X>_mxX)_mxX=X;if(Y<_mnY)_mnY=Y;if(Y>_mxY)_mxY=Y;});});
         var _cells=_texObj.gen(_mnX,_mnY,_mxX,_mxY);var _tiles=intersect(_cells,_Rin);
-        if(_tiles&&_tiles.length){var _relief=Math.min(_texObj.relief||0.9,Math.max(0.5,foot*0.35)),_emb=0.4,_zt=zTop+_relief,_zb=zTop-_emb;_seatDrop=_relief;
-          _tiles.forEach(function(tl){if(tl.length<3)return;var lp=tl.map(function(q){return new THREE.Vector2(q.X/S,q.Y/S);});
-            var ar=0;for(var q2=0;q2<lp.length;q2++){var a2=lp[q2],b2=lp[(q2+1)%lp.length];ar+=a2.x*b2.y-b2.x*a2.y;}
-            if(ar<0)lp.reverse();   // CCW so caps face the right way
-            var tf2=THREE.ShapeUtils.triangulateShape(lp,[]);
-            tf2.forEach(function(f){var p0=lp[f[0]],p1=lp[f[1]],p2=lp[f[2]];
-              tri([p0.x,p0.y,_zt],[p1.x,p1.y,_zt],[p2.x,p2.y,_zt]);           // top cap (+Z)
-              tri([p0.x,p0.y,_zb],[p2.x,p2.y,_zb],[p1.x,p1.y,_zb]);});        // bottom cap (-Z, embedded)
-            for(var wi=0;wi<lp.length;wi++){var a=lp[wi],b=lp[(wi+1)%lp.length];
-              quad([a.x,a.y,_zb],[b.x,b.y,_zb],[b.x,b.y,_zt],[a.x,a.y,_zt]);} // side walls
-          });}
+        // Merge the pattern into one clean region and fuse zero-width pinch points (wireframe strokes meeting at a
+        // vertex — the cube spokes), then close any thin residual gaps so line patterns become solid raised
+        // shapes rather than fragile self-touching outlines. Extrude the merged region (holes via PolyTree) into
+        // watertight relief embedded in the foot.
+        var _fz=0.35;
+        try{var _tg=off(_tiles,_fz);if(_tg){_tg=off(_tg,-_fz*0.5);}if(_tg&&_tg.length)_tiles=cleanPaths(_tg);}catch(e){}
+        var _relief=Math.min(_texObj.relief||0.9,Math.max(0.5,foot*0.35)),_emb=0.4,_zb=zTop-_emb;
+        var _shapes=(_tiles&&_tiles.length)?diffToShapes(_tiles,null,0.03):[];
+        if(_shapes.length){_seatDrop=_relief;
+          try{var _eg=new THREE.ExtrudeGeometry(_shapes,{depth:_relief+_emb,bevelEnabled:false,curveSegments:1});_eg.translate(0,0,_zb);
+            var _ep=_eg.attributes.position.array;for(var _i=0;_i<_ep.length;_i+=3)pos.push(_ep[_i],_ep[_i+1],_ep[_i+2]);
+            if(_eg.dispose)_eg.dispose();}catch(e){_seatDrop=0;}}
       }
     }
   }catch(e){}
