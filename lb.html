@@ -1194,8 +1194,12 @@ function drawTexPreview(cv,t){var ctx=cv.getContext("2d");var W=cv.width,H=cv.he
 function renderTexList(){var el=document.getElementById("texgrid");if(!el)return;var cur=window.__lidTexId||"none";
   el.innerHTML=TEXTURES.map(function(t){return '<button class="texcard'+(t.id===cur?' sel':'')+'" onclick="selectTexture(\''+t.id+'\')" title="'+t.name+'"><span class="texprev"><canvas id="texcv_'+t.id+'" width="120" height="120"></canvas></span><span class="texname">'+t.name+'</span></button>';}).join("");
   TEXTURES.forEach(function(t){var cv=document.getElementById("texcv_"+t.id);if(cv){try{drawTexPreview(cv,t);}catch(e){}}});}
-// Fill the desk-base texture dropdown from the same pattern list the lid uses (skip photo/relief-only entries).
-function initBaseTexList(){var sel=document.getElementById("mntBaseTex");if(!sel)return;var cur=sel.value||"none";sel.innerHTML=TEXTURES.filter(function(t){return t.id==="none"||t.gen;}).map(function(t){return '<option value="'+t.id+'"'+(t.id===cur?" selected":"")+'>'+t.name+'</option>';}).join("");}
+// Fill the desk-base texture dropdown from the same pattern list the lid uses. Skip the wireframe/line-based
+// patterns (isostar cubes, crackleinv raised cracks): they're drawn as thin strokes and emboss as broken
+// scattered lines on the base — the filled-cell patterns tile cleanly. Filled equivalents remain (Diamonds,
+// Cracked Stone).
+var BASE_TEX_SKIP={isostar:1,crackleinv:1};
+function initBaseTexList(){var sel=document.getElementById("mntBaseTex");if(!sel)return;var cur=sel.value||"none";sel.innerHTML=TEXTURES.filter(function(t){return (t.id==="none"||t.gen)&&!BASE_TEX_SKIP[t.id];}).map(function(t){return '<option value="'+t.id+'"'+(t.id===cur?" selected":"")+'>'+t.name+'</option>';}).join("");}
 
 
 
@@ -2393,7 +2397,7 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape){try{
   // textured, the whole foot is seated `relief` lower so the tile TOPS land exactly on the original seat plane —
   // the model rests on the texture at the same height it did on the smooth foot (no lift). ----
   var _seatDrop=0;
-  try{var _bt=document.getElementById("mntBaseTex");var _texObj=(_bt&&_bt.value&&_bt.value!=="none"&&typeof TEXFN!=="undefined"&&TEXFN[_bt.value]&&TEXFN[_bt.value].gen)?TEXFN[_bt.value]:null;
+  try{var _bt=document.getElementById("mntBaseTex");var _bv=_bt&&_bt.value;var _texObj=(_bv&&_bv!=="none"&&!(typeof BASE_TEX_SKIP!=="undefined"&&BASE_TEX_SKIP[_bv])&&typeof TEXFN!=="undefined"&&TEXFN[_bv]&&TEXFN[_bv].gen)?TEXFN[_bv]:null;
     if(_texObj){
       var _exX0=mx0-1.2,_exX1=mx1+1.2,_exY0=-halfCh-1.2,_exY1=halfCh+1.2;   // keep-out = ONLY the carved groove pocket
       var _exRect=[[{X:Math.round(_exX0*S),Y:Math.round(_exY0*S)},{X:Math.round(_exX1*S),Y:Math.round(_exY0*S)},{X:Math.round(_exX1*S),Y:Math.round(_exY1*S)},{X:Math.round(_exX0*S),Y:Math.round(_exY1*S)}]];
