@@ -843,7 +843,8 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="hint">A hole through the back wall for your USB-C plug or cable.</div>
         <div class="row"><span class="lbl">Shape</span><select id="mntPowShape" class="psel" style="width:auto" onchange="mntRebuild()"><option value="usbc">USB-C slot · 9×4mm</option><option value="circle">Round hole · 8mm</option></select></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Across (X) — <b id="mntPowXLbl">0</b> mm</span><input type="range" id="mntPowX" min="-70" max="70" step="1" value="0" oninput="mntLabel()" onchange="mntRebuild()"></div>
-        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Up / down (Y) — <b id="mntPowYLbl">-30</b> mm</span><input type="range" id="mntPowY" min="-70" max="70" step="1" value="-30" oninput="mntLabel()" onchange="mntRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Up / down (Y) — <b id="mntPowYLbl">0</b> mm</span><input type="range" id="mntPowY" min="-70" max="70" step="1" value="0" oninput="mntLabel()" onchange="mntRebuild()"></div>
+        <div class="hint">The hole is on the back wall. Keep it above the desk base or the base will cover it.</div>
       </div>
       <div class="toggle-row"><span class="lbl">🧱 Desk base (stand)</span><div class="tg" id="tg_mntBase" onclick="mntToggle('mntBase')"><div class="k"></div></div></div>
       <div id="mntBaseCtl" style="display:none;flex-direction:column;gap:11px">
@@ -2262,7 +2263,7 @@ function _mountRead(){
   const sv=(id,d)=>{var e=document.getElementById(id);return (e&&e.value)||d;};
   return {
     wall:{on:on("tg_mntWall"), x:nv("mntWallX",0), y:nv("mntWallY",0)},
-    power:{on:on("tg_mntPow"), shape:sv("mntPowShape","usbc"), x:nv("mntPowX",0), y:nv("mntPowY",-30)},
+    power:{on:on("tg_mntPow"), shape:sv("mntPowShape","usbc"), x:nv("mntPowX",0), y:nv("mntPowY",0)},
     base:{on:on("tg_mntBase"), shape:sv("mntBaseShape","round"), w:nv("mntBaseW",90), d:nv("mntBaseD",58), t:nv("mntBaseT",6), raise:nv("mntBaseRaise",0)}
   };
 }
