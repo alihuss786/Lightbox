@@ -2313,15 +2313,20 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape){try{
   var Df=Math.max(d, depth+16);
   // Keep the groove opening clear of the rounded/pill ends so it always sits inside the footprint.
   var endMargin=(shape==="pill")?(Df/2+2):(Df*0.22+3);
-  var Wf=Math.max(w, modelW+2*endMargin+6);
+  var Wf=Math.max(w, modelW+2*endMargin+6);   // the FOOT spans the whole model width for stability…
+  function gdAt(xc){var bb=bottomAt(xc);if(bb==null)return 0;var g=yWallTop-bb;return Math.max(0,Math.min(g,bandH));}
+  // …but the GROOVE (pocket) is clipped to exactly the span where the model actually dips into the base, so the
+  // pocket hugs the model's bottom instead of leaving a big rectangular slot around a narrow point.
+  var thr=0.3, xL=1e18, xR=-1e18, NS=Math.max(80,Math.min(500,Math.round(modelW/0.5)));
+  for(var s0=0;s0<=NS;s0++){var xc0=mnx+modelW*s0/NS;if(gdAt(xc0)>thr){if(xc0<xL)xL=xc0;if(xc0>xR)xR=xc0;}}
+  if(!isFinite(xL)||xR-xL<1)return null;
+  var mx0=Math.max(-Wf/2+endMargin,xL), mx1=Math.min(Wf/2-endMargin,xR);
+  if(mx1-mx0<1)return null;
   // Build in SLAB coords: X=width, Y=depth (centred 0), Z=thickness (top at 0, down to -TT). The caller rotates
   // the group -90° and seats it at yWallTop, so the groove floor (Z=-gd) ends up exactly at the model's bottom.
   var prof=_baseProfilePaths(shape||"round",Wf,Df);                       // chosen foot outline, centred
   var outer=prof[0].map(function(pt){return new THREE.Vector2(pt.X/S,pt.Y/S);});
-  var mx0=Math.max(-Wf/2+endMargin,mnx), mx1=Math.min(Wf/2-endMargin,mxx);
-  if(mx1-mx0<2)return null;
-  function gdAt(xc){var bb=bottomAt(xc);if(bb==null)return 0;var gd=yWallTop-bb;return Math.max(0,Math.min(gd,bandH));}
-  var M=Math.max(24,Math.min(300,Math.round((mx1-mx0)/0.8))),xs=[],gd=[];
+  var M=Math.max(24,Math.min(400,Math.round((mx1-mx0)/0.5))),xs=[],gd=[];
   for(i0=0;i0<=M;i0++){var xc=mx0+(mx1-mx0)*i0/M;xs.push(xc);gd.push(gdAt(xc));}
   var pos=[];
   function tri(a,b,c){var d1=Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])+Math.abs(a[2]-b[2]);var d2=Math.abs(b[0]-c[0])+Math.abs(b[1]-c[1])+Math.abs(b[2]-c[2]);var d3=Math.abs(a[0]-c[0])+Math.abs(a[1]-c[1])+Math.abs(a[2]-c[2]);if(d1<1e-5||d2<1e-5||d3<1e-5)return;pos.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]);}
