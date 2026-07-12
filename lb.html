@@ -2387,19 +2387,21 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape){try{
   var tf=THREE.ShapeUtils.triangulateShape(outer,[hole]),tp=outer.concat(hole);
   tf.forEach(function(f){var p0=tp[f[0]],p1=tp[f[1]],p2=tp[f[2]];var A=[p0.x,p0.y,zTop],B=[p1.x,p1.y,zTop],C=[p2.x,p2.y,zTop];
     var cr=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);if(cr>0)tri(A,B,C);else tri(A,C,B);});
-  // ---- Optional texture on the foot border: raised relief tiles around (never under) the model. Each tile is an
-  // independent CLOSED puck slightly embedded into the foot top, so it's its own watertight volume the slicer
-  // unions with the foot — no fragile shared-edge carving of the base cap. Tiles are clipped to the foot OUTSIDE
-  // the model's footprint (widened groove) so the model always seats flush. ----
+  // ---- Optional texture over the WHOLE foot top: raised relief tiles everywhere except the carved groove the
+  // model actually sinks into. Each tile is an independent CLOSED puck embedded into the foot, so it's its own
+  // watertight volume the slicer unions with the foot — no fragile shared-edge carving of the base cap. When
+  // textured, the whole foot is seated `relief` lower so the tile TOPS land exactly on the original seat plane —
+  // the model rests on the texture at the same height it did on the smooth foot (no lift). ----
+  var _seatDrop=0;
   try{var _bt=document.getElementById("mntBaseTex");var _texObj=(_bt&&_bt.value&&_bt.value!=="none"&&typeof TEXFN!=="undefined"&&TEXFN[_bt.value]&&TEXFN[_bt.value].gen)?TEXFN[_bt.value]:null;
     if(_texObj){
-      var _exX0=mnx-1.5,_exX1=mxx+1.5,_exY0=-halfCh-1.5,_exY1=halfCh+1.5;   // model footprint keep-out
+      var _exX0=mx0-1.2,_exX1=mx1+1.2,_exY0=-halfCh-1.2,_exY1=halfCh+1.2;   // keep-out = ONLY the carved groove pocket
       var _exRect=[[{X:Math.round(_exX0*S),Y:Math.round(_exY0*S)},{X:Math.round(_exX1*S),Y:Math.round(_exY0*S)},{X:Math.round(_exX1*S),Y:Math.round(_exY1*S)},{X:Math.round(_exX0*S),Y:Math.round(_exY1*S)}]];
       var _topReg=diff(prof,_exRect);var _Rin=off(_topReg,-1.6);
       if(_Rin&&_Rin.length){
         var _mnX=1e9,_mnY=1e9,_mxX=-1e9,_mxY=-1e9;_Rin.forEach(function(pp){pp.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<_mnX)_mnX=X;if(X>_mxX)_mxX=X;if(Y<_mnY)_mnY=Y;if(Y>_mxY)_mxY=Y;});});
         var _cells=_texObj.gen(_mnX,_mnY,_mxX,_mxY);var _tiles=intersect(_cells,_Rin);
-        if(_tiles&&_tiles.length){var _relief=Math.min(_texObj.relief||0.9,Math.max(0.5,foot*0.35)),_emb=0.4,_zt=zTop+_relief,_zb=zTop-_emb;
+        if(_tiles&&_tiles.length){var _relief=Math.min(_texObj.relief||0.9,Math.max(0.5,foot*0.35)),_emb=0.4,_zt=zTop+_relief,_zb=zTop-_emb;_seatDrop=_relief;
           _tiles.forEach(function(tl){if(tl.length<3)return;var lp=tl.map(function(q){return new THREE.Vector2(q.X/S,q.Y/S);});
             var ar=0;for(var q2=0;q2<lp.length;q2++){var a2=lp[q2],b2=lp[(q2+1)%lp.length];ar+=a2.x*b2.y-b2.x*a2.y;}
             if(ar<0)lp.reverse();   // CCW so caps face the right way
@@ -2430,7 +2432,7 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape){try{
   quad([xs[M],halfCh,zTop],[xs[M],-halfCh,zTop],[xs[M],-halfCh,-gd[M]],[xs[M],halfCh,-gd[M]]);   // end cap end
   var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
   geo.computeVertexNormals();geo.computeBoundingBox();
-  return {geo:geo,yWallTop:yWallTop};
+  return {geo:geo,yWallTop:yWallTop-_seatDrop};   // textured: drop the foot so tile tops meet the original seat plane
 }catch(e){return null;}}
 
 let PLATES=[],PLATE_THUMBS=[];
