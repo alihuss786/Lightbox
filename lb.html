@@ -2296,7 +2296,7 @@ function _baseProfilePaths(shape,w,d){
 //   filled = model silhouette (clipper paths); cx,cy = its centre; depth = box thickness; w,d,t = foot W/D/T.
 function buildCradleBase(filled,cx,cy,depth,w,d,t,shape){try{
   if(!filled||!filled.length)return null;
-  var clr=0.4,foot=Math.max(4,t),bandH=Math.max(4,Math.min(8,t));   // shallow locating groove — the model sits mostly on top
+  var clr=0.4,foot=Math.max(3,Math.min(6,t*0.8)),bandH=Math.max(1.5,Math.min(2.5,t*0.35));   // tiny socket — the model sits ON TOP, only the very tip locates into a shallow notch
   var mnx=1e18,mxx=-1e18;
   filled.forEach(function(p){p.forEach(function(pt){var X=pt.X/S-cx;if(X<mnx)mnx=X;if(X>mxx)mxx=X;});});
   if(!isFinite(mnx)||mxx-mnx<1)return null;
