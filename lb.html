@@ -838,6 +838,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div id="mntWallCtl" style="display:none;flex-direction:column;gap:11px;margin-bottom:6px">
         <div class="hint">A hanging slot through the back wall — hook it over a screw head. Best placed near the top.</div>
         <div class="row"><span class="lbl">Number of keyholes</span><select id="mntWallCount" class="psel" style="width:auto" onchange="mntRebuild()"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></div>
+        <div class="row" id="mntWallSpaceRow" style="display:none;flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Spacing between keyholes — <b id="mntWallSpaceLbl">55</b> mm</span><input type="range" id="mntWallSpace" min="15" max="150" step="1" value="55" oninput="mntLabel();renderMntPad()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Across (X) — <b id="mntWallXLbl">0</b> mm</span><input type="range" id="mntWallX" min="-90" max="90" step="1" value="0" oninput="mntLabel();renderMntPad()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Up / down (Y) — <b id="mntWallYLbl">0</b> mm</span><input type="range" id="mntWallY" min="-90" max="90" step="1" value="0" oninput="mntLabel();renderMntPad()" onchange="mntRebuild()"></div>
       </div>
@@ -1160,14 +1161,13 @@ function renderPhotoMarker(){var pad=document.getElementById("pad_photo"),layer=
 function initPhotoPad(){var pad=document.getElementById("pad_photo");if(!pad||pad._wired)return;pad._wired=true;var dragging=false;function upd(e){var r=pad.getBoundingClientRect();var sc=(typeof PAD!=="undefined"&&PAD["scale_photo"])||0;var mx=(e.touches?e.touches[0].clientX:e.clientX)-r.left-r.width/2;var my=(e.touches?e.touches[0].clientY:e.clientY)-r.top-r.height/2;if(sc){photoOffset.x=Math.max(-0.6,Math.min(0.6,mx/(PAD.w*sc)));photoOffset.y=Math.max(-0.6,Math.min(0.6,-my/(PAD.h*sc)));}else{photoOffset.x=Math.max(-0.5,Math.min(0.5,mx/r.width));photoOffset.y=Math.max(-0.5,Math.min(0.5,-my/r.height));}renderPhotoMarker();}pad.addEventListener("pointerdown",function(e){dragging=true;try{pad.setPointerCapture(e.pointerId);}catch(_){}upd(e);});pad.addEventListener("pointermove",function(e){if(dragging)upd(e);});pad.addEventListener("pointerup",function(e){if(dragging){dragging=false;if(PHOTO)applyPhoto();}});pad.addEventListener("pointercancel",function(){dragging=false;});}
 /* ---- Mounting position pad: draggable markers for the wall keyhole(s) and the power cut-out, laid over
    the model silhouette. Keyholes move as ONE level group (shared Y); the power hole moves on its own. ---- */
-function _mntSpanMM(){var w=(typeof PAD!=="undefined"&&PAD.w)?PAD.w:80;return Math.max(20,Math.min(w*0.6,140));}
 function renderMntPad(){var pad=document.getElementById("pad_mnt"),layer=document.getElementById("mntLayer");if(!pad||!layer)return;initMntPad();layer.innerHTML="";if(pad.offsetParent===null)return;
   var r=pad.getBoundingClientRect();var sc=(typeof PAD!=="undefined"&&PAD["scale_mnt"])||0;if(!sc||!r.width)return;
   function px(xmm){return r.width/2+xmm*sc;}function py(ymm){return r.height/2-ymm*sc;}
   var m=(typeof _mountRead==="function")?_mountRead():null;if(!m)return;
   function dot(x,y,cls,txt){var el=document.createElement("div");el.className="mnt-mark "+cls;el.style.left=px(x)+"px";el.style.top=py(y)+"px";if(txt)el.textContent=txt;layer.appendChild(el);}
-  if(m.wall.on){var cnt=Math.max(1,Math.min(4,m.wall.count||1)),span=_mntSpanMM(),step=cnt>1?span/(cnt-1):0;
-    for(var i=0;i<cnt;i++){var kx=m.wall.x-(cnt>1?span/2:0)+step*i;dot(kx,m.wall.y,"mnt-key","🔩");}}
+  if(m.wall.on){var cnt=Math.max(1,Math.min(4,m.wall.count||1)),step=cnt>1?(m.wall.space||55):0,span=step*(cnt-1);
+    for(var i=0;i<cnt;i++){var kx=m.wall.x-span/2+step*i;dot(kx,m.wall.y,"mnt-key","🔩");}}
   if(m.power.on){dot(m.power.x,m.power.y,"mnt-pow","🔌");}}
 function initMntPad(){var pad=document.getElementById("pad_mnt");if(!pad||pad._wired)return;pad._wired=true;var drag=null,gx=0,gy=0;
   function ctx(e){var r=pad.getBoundingClientRect();var sc=(typeof PAD!=="undefined"&&PAD["scale_mnt"])||1;var cx=e.touches?e.touches[0].clientX:e.clientX,cy=e.touches?e.touches[0].clientY:e.clientY;return{sc:sc,mx:(cx-r.left-r.width/2)/sc,my:-(cy-r.top-r.height/2)/sc};}
@@ -1309,7 +1309,9 @@ function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle
 function mntToggle(k){var t=document.getElementById("tg_"+k);if(!t)return;t.classList.toggle("on");var c=document.getElementById(k+"Ctl");if(c)c.style.display=t.classList.contains("on")?"flex":"none";mntSyncPad();mntRebuild();if(typeof renderMntPad==="function")renderMntPad();}
 // Show the position pad whenever a wall keyhole OR a power cut-out is on (both are placed on it).
 function mntSyncPad(){var w=document.getElementById("tg_mntWall"),p=document.getElementById("tg_mntPow"),pad=document.getElementById("mntPad");if(!pad)return;var on=(w&&w.classList.contains("on"))||(p&&p.classList.contains("on"));pad.style.display=on?"flex":"none";}
-function mntLabel(){[["mntWallX","mntWallXLbl"],["mntWallY","mntWallYLbl"],["mntPowX","mntPowXLbl"],["mntPowY","mntPowYLbl"],["mntBaseW","mntBaseWLbl"],["mntBaseD","mntBaseDLbl"],["mntBaseT","mntBaseTLbl"],["mntBaseRaise","mntBaseRaiseLbl"]].forEach(function(p){var e=document.getElementById(p[0]),l=document.getElementById(p[1]);if(e&&l)l.textContent=e.value;});}
+function mntLabel(){[["mntWallX","mntWallXLbl"],["mntWallY","mntWallYLbl"],["mntWallSpace","mntWallSpaceLbl"],["mntPowX","mntPowXLbl"],["mntPowY","mntPowYLbl"],["mntBaseW","mntBaseWLbl"],["mntBaseD","mntBaseDLbl"],["mntBaseT","mntBaseTLbl"],["mntBaseRaise","mntBaseRaiseLbl"]].forEach(function(p){var e=document.getElementById(p[0]),l=document.getElementById(p[1]);if(e&&l)l.textContent=e.value;});
+  // The spacing slider only applies to 2+ keyholes.
+  var _wc=document.getElementById("mntWallCount"),_sr=document.getElementById("mntWallSpaceRow");if(_wc&&_sr)_sr.style.display=(parseInt(_wc.value,10)>1)?"flex":"none";}
 function mntRebuild(){mntLabel();if(typeof scheduleBuild==="function")scheduleBuild();else if(typeof rebuild==="function")rebuild();}
 window.mntToggle=mntToggle;window.mntLabel=mntLabel;window.mntRebuild=mntRebuild;
 function toggleRGB(){window.__rgbMode=!window.__rgbMode;var b=g("rgbPill");if(b)b.classList.toggle("on",window.__rgbMode);applyLight();}
@@ -2299,7 +2301,7 @@ function _mountRead(){
   const nv=(id,d)=>{var e=document.getElementById(id);var v=e?parseFloat(e.value):NaN;return isNaN(v)?d:v;};
   const sv=(id,d)=>{var e=document.getElementById(id);return (e&&e.value)||d;};
   return {
-    wall:{on:on("tg_mntWall"), x:nv("mntWallX",0), y:nv("mntWallY",0), count:Math.max(1,Math.min(4,nv("mntWallCount",1)))},
+    wall:{on:on("tg_mntWall"), x:nv("mntWallX",0), y:nv("mntWallY",0), count:Math.max(1,Math.min(4,nv("mntWallCount",1))), space:nv("mntWallSpace",55)},
     power:{on:on("tg_mntPow"), shape:sv("mntPowShape","usbc"), x:nv("mntPowX",0), y:nv("mntPowY",0)},
     base:{on:on("tg_mntBase"), shape:sv("mntBaseShape","round"), w:nv("mntBaseW",90), d:nv("mntBaseD",58), t:nv("mntBaseT",6), raise:nv("mntBaseRaise",0)}
   };
@@ -2469,7 +2471,7 @@ async function buildModel(){
       const inner=off(filled,-wall);
       if(inner&&inner.length){
         let _backHoles=null;   // keyhole + power cutout through the back wall (positioned relative to the panel centre cx,cy in mm)
-        if(_mnt&&(_mnt.wall.on||_mnt.power.on)){_backHoles=[];var _span=Math.max(20,Math.min(LW*0.6,140));if(_mnt.wall.on)_backHoles=_backHoles.concat(_keyholeGroupPaths(cx+_mnt.wall.x,cy+_mnt.wall.y,_mnt.wall.count,_span));if(_mnt.power.on)_backHoles=_backHoles.concat(_powerPaths(cx+_mnt.power.x,cy+_mnt.power.y,_mnt.power.shape));}
+        if(_mnt&&(_mnt.wall.on||_mnt.power.on)){_backHoles=[];var _span=(_mnt.wall.count>1)?((_mnt.wall.space||55)*(_mnt.wall.count-1)):0;if(_mnt.wall.on)_backHoles=_backHoles.concat(_keyholeGroupPaths(cx+_mnt.wall.x,cy+_mnt.wall.y,_mnt.wall.count,_span));if(_mnt.power.on)_backHoles=_backHoles.concat(_powerPaths(cx+_mnt.power.x,cy+_mnt.power.y,_mnt.power.shape));}
         const shellGeo=buildBodyShell(filled,inner,depth,wall,cx,cy,_backHoles);   // name mode honours the full Light box depth (no 16mm cap)
         bodyGroup.add(new THREE.Mesh(shellGeo,MATS.body));builtHollow=true;}
     }catch(e){}}
