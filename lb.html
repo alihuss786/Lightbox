@@ -2507,7 +2507,7 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap)
   // Resample the profile outline to ~1.1mm steps. The SAME resampled loop is used for the top/bottom caps and the
   // side grid so every perimeter vertex is shared — no T-junctions, so the repair pass exits instantly (fast for
   // even the densest textures) and the whole base is one clean watertight shell.
-  function _resampleOuter(){var out=[],step=1.5;for(var i=0;i<outer.length;i++){var a=outer[i],b=outer[(i+1)%outer.length];var dx=b.x-a.x,dy=b.y-a.y,L=Math.sqrt(dx*dx+dy*dy);var n=Math.max(1,Math.round(L/step));for(var k=0;k<n;k++){var t=k/n;out.push(new THREE.Vector2(a.x+dx*t,a.y+dy*t));}}return out;}
+  function _resampleOuter(){var out=[],step=0.5;for(var i=0;i<outer.length;i++){var a=outer[i],b=outer[(i+1)%outer.length];var dx=b.x-a.x,dy=b.y-a.y,L=Math.sqrt(dx*dx+dy*dy);var n=Math.max(1,Math.round(L/step));for(var k=0;k<n;k++){var t=k/n;out.push(new THREE.Vector2(a.x+dx*t,a.y+dy*t));}}return out;}
   function _sideEmboss(zHi,zLo,res){
     if(!_texObj||!_texObj.gen||!res||res.length<3)return;var i,j;
     var M=res.length,cx0=0,cy0=0;for(i=0;i<M;i++){cx0+=res[i].x;cy0+=res[i].y;}cx0/=M;cy0/=M;
@@ -2523,7 +2523,7 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap)
     var bw=4.0,bk=Object.create(null);function bkey(bx,by){return bx+"_"+by;}
     for(var c0=0;c0<cells.length;c0++){var cel=cells[c0],xmn=1e18,ymn=1e18,xmx=-1e18,ymx=-1e18;for(var v0=0;v0<cel.length;v0++){var X=cel[v0].X/S,Y=cel[v0].Y/S;if(X<xmn)xmn=X;if(X>xmx)xmx=X;if(Y<ymn)ymn=Y;if(Y>ymx)ymx=Y;}var bx0=Math.floor((xmn-gx0)/bw),bx1=Math.floor((xmx-gx0)/bw),by0=Math.floor((ymn-gy0)/bw),by1=Math.floor((ymx-gy0)/bw);for(var bx=bx0;bx<=bx1;bx++)for(var by=by0;by<=by1;by++){var kk=bkey(bx,by);(bk[kk]||(bk[kk]=[])).push(cel);}}
     function inTile(px,py){var lst=bk[bkey(Math.floor((px-gx0)/bw),Math.floor((py-gy0)/bw))];if(!lst)return false;var pt={X:Math.round(px*S),Y:Math.round(py*S)},w=0;for(var c=0;c<lst.length;c++){if(ClipperLib.Clipper.PointInPolygon(pt,lst[c])!==0)w^=1;}return w===1;}
-    var nz=Math.max(4,Math.round(depth/0.9)),HZ=[];for(j=0;j<=nz;j++)HZ.push(zLo+depth*j/nz);
+    var nz=Math.max(4,Math.round(depth/0.5)),HZ=[];for(j=0;j<=nz;j++)HZ.push(zLo+depth*j/nz);
     var V=[];for(i=0;i<M;i++){V[i]=[];for(j=0;j<=nz;j++){var d=0;if(j>0&&j<nz){var h=zHi-HZ[j],qx=res[i].x+nrm[i].x*h,qy=res[i].y+nrm[i].y*h;if(!inTile(qx,qy))d=-_relief;}V[i][j]={x:res[i].x+nrm[i].x*d,y:res[i].y+nrm[i].y*d,z:HZ[j]};}}
     for(i=0;i<M;i++){var i2=(i+1)%M;for(j=0;j<nz;j++){var A=V[i][j],B=V[i2][j],C=V[i2][j+1],D=V[i][j+1];quad([A.x,A.y,A.z],[B.x,B.y,B.z],[C.x,C.y,C.z],[D.x,D.y,D.z]);}}
   }
