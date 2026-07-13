@@ -1212,10 +1212,11 @@ function renderTexList(){var el=document.getElementById("texgrid");if(!el)return
   TEXTURES.forEach(function(t){var cv=document.getElementById("texcv_"+t.id);if(cv){try{drawTexPreview(cv,t);}catch(e){}}});}
 // Fill the desk-base texture dropdown from the same pattern list the lid uses (skip photo/relief-only entries).
 var BASE_TEX_SKIP={subway:1};   // subway bricks are too large to triangulate cleanly on curved bases
-// Edge-wrap (TestBase) only offers textures whose filled tiles wrap over the rim and down the sides as ONE
-// watertight solid on EVERY profile (round / square / pill, letter + name). isocube and scallop verify clean
-// across all of them; the others self-overlap on the curved pill ends or leave stray non-manifold edges.
-var BASE_EW_OK={isocube:1,scallop:1};
+// Edge-wrap (TestBase) only offers textures whose tiles wrap over the rim AND flute down the sides as ONE
+// watertight solid on EVERY profile (round / square / pill, letter + name). isocube, scallop and fishscale
+// verify clean; the dense patterns (basketweave, herringbone, puzzle) and the wireframe ones (isostar,
+// crackle, crackleinv) tangle into non-manifold geometry when the grooves recess at the edge.
+var BASE_EW_OK={isocube:1,scallop:1,fishscale:1};
 function initBaseTexList(){["mntBaseTex","tbBaseTex"].forEach(function(sid){var sel=document.getElementById(sid);if(!sel)return;var ew=(sid==="tbBaseTex");var cur=sel.value||(ew?"isocube":"none");sel.innerHTML=TEXTURES.filter(function(t){if(ew)return !!BASE_EW_OK[t.id];return (t.id==="none"||t.gen)&&!BASE_TEX_SKIP[t.id];}).map(function(t){return '<option value="'+t.id+'"'+(t.id===cur?" selected":"")+'>'+t.name+'</option>';}).join("");});}
 
 
@@ -2409,6 +2410,21 @@ function _tjRepair(pos){
   }
   return pos;
 }
+// Keep only the largest connected component — drops the few tiny rib slivers the edge-wrap can leave floating
+// where the pattern clips to a sub-relief speck at a sharp corner (nothing behind them to attach to).
+function _keepLargest(pos){
+  var nt=pos.length/9;if(nt<2)return pos;
+  var Q=1e3,key=Object.create(null),id=new Int32Array(nt*3),nv=0,i;
+  for(i=0;i<nt*3;i++){var k=Math.round(pos[i*3]*Q)+","+Math.round(pos[i*3+1]*Q)+","+Math.round(pos[i*3+2]*Q);var d=key[k];if(d===undefined){d=nv++;key[k]=d;}id[i]=d;}
+  var par=new Int32Array(nv);for(i=0;i<nv;i++)par[i]=i;
+  function find(x){while(par[x]!==x){par[x]=par[par[x]];x=par[x];}return x;}
+  for(i=0;i<nt;i++){var a=id[i*3],b=id[i*3+1],c=id[i*3+2];par[find(a)]=find(b);par[find(b)]=find(c);}
+  var cnt=Object.create(null);for(i=0;i<nt;i++){var r=find(id[i*3]);cnt[r]=(cnt[r]||0)+1;}
+  var best=-1,bestN=-1;for(var r2 in cnt){if(cnt[r2]>bestN){bestN=cnt[r2];best=+r2;}}
+  if(bestN===nt)return pos;
+  var out=new Float32Array(bestN*9),w=0;for(i=0;i<nt;i++){if(find(id[i*3])===best){for(var j=0;j<9;j++)out[w++]=pos[i*9+j];}}
+  return out;
+}
 function _orientOut(pos){
   var nt=pos.length/9;if(nt<1)return pos;
   var Q=1e4,key=Object.create(null),ids=new Int32Array(nt*3),nv=0,i;
@@ -2524,14 +2540,17 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap)
     _ts.forEach(function(sh){var ep=sh.extractPoints();var O=_dd(ep.shape||[]);if(O.length>=3)_touter.push(O);(ep.holes||[]).forEach(function(hh){var H=_dd(hh);if(H.length>=3)_tinner.push(H);});});
     _ts.forEach(function(sh){var ep=sh.extractPoints();var O=_dd(ep.shape||[]),Hs=(ep.holes||[]).map(_dd).filter(function(x){return x.length>=3;});capUpV(O,Hs,zTop+_relief,true);});   // tile tops (z=relief)
     if(_ew){
-      // PRISM UNION. Build grout and every tile as full closed prisms down to zBot, then let the XOR pass cancel
-      // the coincident internal walls between adjacent prisms — no fragile "is this edge on the rim" test. What
-      // survives is exactly the outer skin, so the pattern rolls over the top edge and drops down the sides.
+      // PRISM UNION on a floor slab. The grout is recessed to (profile − relief) so the tiles that reach the rim
+      // stand PROUD to the edge while the grout pulls inward — the side face becomes fluted (ribs + grooves), i.e.
+      // the pattern really continues down the sides. A full-profile slab under the pattern keeps every rib
+      // anchored (no floating pieces), and the XOR pass cancels the coincident internal walls so only the outer
+      // skin survives.
       var _zT=zTop+_relief;
-      var _Graw=_groutEW||diff(prof,_tiles);
+      var _core=off(prof,-_relief);if(!_core||!_core.length)_core=prof;
+      var _Graw=diff(_core,_tiles);
       var _gShapes=_toShapes(_Graw);
-      // groove punched as a DIRECT hole (exact `hole` vertices) into the grout region that contains it, so it
-      // matches the separately-built groove walls; the groove doesn't pierce the bottom, so the base cap is solid.
+      // groove punched as a DIRECT hole (exact `hole` vertices) into the grout region that contains it, matching
+      // the separately-built groove walls; the groove doesn't pierce the bottom, so the base cap is solid.
       var _big=-1,_bigA=-1;_gShapes.forEach(function(sh,idx){var O=sh.extractPoints().shape||[];var ar=0;for(var i=0;i<O.length;i++){var a=O[i],b=O[(i+1)%O.length];ar+=a.x*b.y-b.x*a.y;}ar=Math.abs(ar/2);if(ar>_bigA){_bigA=ar;_big=idx;}});
       _gShapes.forEach(function(sh,idx){var ep=sh.extractPoints();var O=_dd(ep.shape||[]),Hs=(ep.holes||[]).map(_dd).filter(function(x){return x.length>=3;});
         capUpV(O,(idx===_big?Hs.concat([_dd(hole)]):Hs),zTop,true);      // grout top (z=0)
@@ -2540,7 +2559,7 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap)
       });
       _ts.forEach(function(sh){var ep=sh.extractPoints();var O=_dd(ep.shape||[]),Hs=(ep.holes||[]).map(_dd).filter(function(x){return x.length>=3;});
         capUpV(O,Hs,zBot,false);                                          // tile bottom (zBot)
-        [O].concat(Hs).forEach(function(L){_wqLoop(L,zBot,zTop);_wqLoop(L,zTop,_zT);});   // tile walls split at z=0: zBot..0 cancels against grout, 0..relief is the step/side
+        [O].concat(Hs).forEach(function(L){_wqLoop(L,zBot,zTop);_wqLoop(L,zTop,_zT);});   // tile walls: zBot..0 cancels against grout, 0..relief is the rib side
       });
     }else{
       // grout top = profile, holes = groove + every tile OUTER (z=0)
@@ -2569,7 +2588,7 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap)
   }
   quad([xs[0],ymn(0),zTop],[xs[0],ymx(0),zTop],[xs[0],ymx(0),-gd[0]],[xs[0],ymn(0),-gd[0]]);   // end cap start
   quad([xs[M],ymx(M),zTop],[xs[M],ymn(M),zTop],[xs[M],ymn(M),-gd[M]],[xs[M],ymx(M),-gd[M]]);   // end cap end
-  if(_ew){try{pos=_tjRepair(pos);}catch(e){}}   // edge-wrap side/top come from separate clipper booleans; stitch any T-junctions before welding
+  if(_ew){try{pos=_tjRepair(pos);pos=_keepLargest(pos);}catch(e){}}   // edge-wrap: stitch T-junctions, then drop any tiny floating rib slivers
   try{pos=_orientOut(pos);}catch(e){}   // consistent outward normals so the slicer keeps the pocket + prints one solid
   var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
   geo.computeVertexNormals();geo.computeBoundingBox();
