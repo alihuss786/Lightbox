@@ -2525,7 +2525,18 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap)
     function bpt(s,t,off){s=((s%P)+P)%P;var lo=0,hi=M;while(hi-lo>1){var mid=(lo+hi)>>1;if(arc[mid]<=s)lo=mid;else hi=mid;}var i0=lo,i1=(lo+1)%M,seg=arc[lo+1]-arc[lo],f=seg>1e-9?(s-arc[lo])/seg:0;var px=res[i0].x+(res[i1].x-res[i0].x)*f,py=res[i0].y+(res[i1].y-res[i0].y)*f,nx=nrm[i0].x+(nrm[i1].x-nrm[i0].x)*f,ny=nrm[i0].y+(nrm[i1].y-nrm[i0].y)*f,nl=Math.sqrt(nx*nx+ny*ny)||1;return [px+nx/nl*off,py+ny/nl*off,zHi-t];}
     function _ri(v){return {X:Math.round(v[0]*S),Y:Math.round(v[1]*S)};}
     var stripRect=[[_ri([0,0]),_ri([P,0]),_ri([P,sideH]),_ri([0,sideH])]];
-    var cells=_texObj.gen(0,0,P,sideH);if(!cells||!cells.length)return;
+    // Generate the pattern in the SAME world space + phase as the TOP (tiles sit at fixed world positions), over a
+    // band reaching `sideH` past the rim, then UNFOLD it onto the wall: project each tile vertex to (arc-length s,
+    // outward depth t) by dropping it onto the resampled profile. So a tile straddling the edge keeps flowing — its
+    // inside half is the top tile, its outside half folds down the wall and lines up exactly at the rim (continuous).
+    var _mnX=1e18,_mnY=1e18,_mxX=-1e18,_mxY=-1e18;for(i=0;i<M;i++){var rp=res[i];if(rp.x<_mnX)_mnX=rp.x;if(rp.x>_mxX)_mxX=rp.x;if(rp.y<_mnY)_mnY=rp.y;if(rp.y>_mxY)_mxY=rp.y;}
+    var _bpad=sideH+2,cellsW=_texObj.gen(_mnX-_bpad,_mnY-_bpad,_mxX+_bpad,_mxY+_bpad);if(!cellsW||!cellsW.length)return;
+    // Coarse projection polyline (~1.8mm) — sub-tile accuracy is plenty for the fold and keeps the per-vertex
+    // nearest-point search fast even on a 200mm base with a dense pattern.
+    var _pj=[],_pjS=Math.max(1,Math.round(1.8/(P/M||0.6)));for(i=0;i<M;i+=_pjS)_pj.push([res[i].x,res[i].y,arc[i],nrm[i].x,nrm[i].y]);_pj.push([res[0].x,res[0].y,P,nrm[0].x,nrm[0].y]);
+    function _proj(qx,qy){var best=1e18,bs=0,bt=0,k,N=_pj.length-1;for(k=0;k<N;k++){var a=_pj[k],b=_pj[k+1],ex=b[0]-a[0],ey=b[1]-a[1],L2=ex*ex+ey*ey||1e-9,f=((qx-a[0])*ex+(qy-a[1])*ey)/L2;if(f<0)f=0;else if(f>1)f=1;var px=a[0]+ex*f,py=a[1]+ey*f,dx=qx-px,dy=qy-py,d2=dx*dx+dy*dy;if(d2<best){best=d2;bs=a[2]+f*(b[2]-a[2]);bt=dx*a[3]+dy*a[4];}}return {X:Math.round(bs*S),Y:Math.round(bt*S)};}
+    var cells=[];for(var _wi=0;_wi<cellsW.length;_wi++){var _cw=cellsW[_wi];if(_cw.length<3)continue;var _pc=[],_smin=1e18,_smax=-1e18,_any=false;for(var _vi=0;_vi<_cw.length;_vi++){var _pp=_proj(_cw[_vi].X/S,_cw[_vi].Y/S);_pc.push(_pp);if(_pp.Y>-0.5*S)_any=true;if(_pp.X<_smin)_smin=_pp.X;if(_pp.X>_smax)_smax=_pp.X;}if(!_any)continue;if(_smax-_smin>P*0.5*S)continue;cells.push(_pc);}   // drop interior-only cells and the lone seam-straddling cell
+    if(!cells.length)return;
     var rel=_relief,bite=Math.min(0.25,rel*0.5);   // pad base sunk `bite` into the wall so the solids overlap + fuse
     // Build the list of pad polygons {O,H}. Solid textures union their cells into one clean surface (no coincident
     // faces); wireframe textures (thin overlapping struts whose union self-touches and won't triangulate) instead
