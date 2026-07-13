@@ -868,6 +868,22 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       </div>
     </div>
   </div>
+  <div class="acc" data-feat="testbase">
+    <div class="acc-h" onclick="accT(this)">TestBase <i class="chev">⌄</i></div>
+    <div class="acc-b">
+      <div class="hint">⚗️ <b>Experimental base.</b> Same stand as the Desk base, but the surface pattern runs <b>all the way to the edge and wraps down the sides</b> — no smooth border. Prints as its own plate. Try it and test-print before we roll it into the main base.</div>
+      <div class="toggle-row"><span class="lbl">🧪 TestBase (edge-wrap)</span><div class="tg" id="tg_tbBase" onclick="mntToggle('tbBase')"><div class="k"></div></div></div>
+      <div id="tbBaseCtl" style="display:none;flex-direction:column;gap:11px">
+        <div class="row"><span class="lbl">Profile</span><select id="tbBaseShape" class="psel" style="width:auto" onchange="mntRebuild()"><option value="round">Rounded rectangle</option><option value="square">Square</option><option value="pill">Pill</option></select></div>
+        <div class="row"><span class="lbl">Texture</span><select id="tbBaseTex" class="psel" style="width:auto" onchange="mntRebuild()"><option value="none">None (smooth)</option></select></div>
+        <div class="hint">The pattern reaches the edge and drops onto the side walls.</div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Width — <b id="tbBaseWLbl">90</b> mm</span><input type="range" id="tbBaseW" min="40" max="200" step="1" value="90" oninput="mntLabel()" onchange="mntRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth — <b id="tbBaseDLbl">58</b> mm</span><input type="range" id="tbBaseD" min="40" max="120" step="1" value="58" oninput="mntLabel()" onchange="mntRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickness — <b id="tbBaseTLbl">6</b> mm</span><input type="range" id="tbBaseT" min="3" max="20" step="1" value="6" oninput="mntLabel()" onchange="mntRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Model up / down — <b id="tbBaseRaiseLbl">0</b> mm</span><input type="range" id="tbBaseRaise" min="-20" max="20" step="0.5" value="0" oninput="mntLabel()" onchange="mntRebuild()"></div>
+      </div>
+    </div>
+  </div>
   <div class="acc" data-feat="dimensions">
     <div class="acc-h" onclick="accT(this)">Dimensions <i class="chev">⌄</i></div>
     <div class="acc-b" id="dimRows"></div>
@@ -1196,7 +1212,11 @@ function renderTexList(){var el=document.getElementById("texgrid");if(!el)return
   TEXTURES.forEach(function(t){var cv=document.getElementById("texcv_"+t.id);if(cv){try{drawTexPreview(cv,t);}catch(e){}}});}
 // Fill the desk-base texture dropdown from the same pattern list the lid uses (skip photo/relief-only entries).
 var BASE_TEX_SKIP={subway:1};   // subway bricks are too large to triangulate cleanly on curved bases
-function initBaseTexList(){var sel=document.getElementById("mntBaseTex");if(!sel)return;var cur=sel.value||"none";sel.innerHTML=TEXTURES.filter(function(t){return (t.id==="none"||t.gen)&&!BASE_TEX_SKIP[t.id];}).map(function(t){return '<option value="'+t.id+'"'+(t.id===cur?" selected":"")+'>'+t.name+'</option>';}).join("");}
+// Edge-wrap (TestBase) only offers textures whose filled tiles wrap over the rim and down the sides as ONE
+// watertight solid on EVERY profile (round / square / pill, letter + name). isocube and scallop verify clean
+// across all of them; the others self-overlap on the curved pill ends or leave stray non-manifold edges.
+var BASE_EW_OK={isocube:1,scallop:1};
+function initBaseTexList(){["mntBaseTex","tbBaseTex"].forEach(function(sid){var sel=document.getElementById(sid);if(!sel)return;var ew=(sid==="tbBaseTex");var cur=sel.value||(ew?"isocube":"none");sel.innerHTML=TEXTURES.filter(function(t){if(ew)return !!BASE_EW_OK[t.id];return (t.id==="none"||t.gen)&&!BASE_TEX_SKIP[t.id];}).map(function(t){return '<option value="'+t.id+'"'+(t.id===cur?" selected":"")+'>'+t.name+'</option>';}).join("");});}
 
 
 
@@ -1314,7 +1334,7 @@ function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle
 function mntToggle(k){var t=document.getElementById("tg_"+k);if(!t)return;t.classList.toggle("on");var c=document.getElementById(k+"Ctl");if(c)c.style.display=t.classList.contains("on")?"flex":"none";mntSyncPad();mntRebuild();if(typeof renderMntPad==="function")renderMntPad();}
 // Show the position pad whenever a wall keyhole OR a power cut-out is on (both are placed on it).
 function mntSyncPad(){var w=document.getElementById("tg_mntWall"),p=document.getElementById("tg_mntPow"),pad=document.getElementById("mntPad");if(!pad)return;var on=(w&&w.classList.contains("on"))||(p&&p.classList.contains("on"));pad.style.display=on?"flex":"none";}
-function mntLabel(){[["mntWallX","mntWallXLbl"],["mntWallY","mntWallYLbl"],["mntWallSpace","mntWallSpaceLbl"],["mntPowX","mntPowXLbl"],["mntPowY","mntPowYLbl"],["mntBaseW","mntBaseWLbl"],["mntBaseD","mntBaseDLbl"],["mntBaseT","mntBaseTLbl"],["mntBaseRaise","mntBaseRaiseLbl"]].forEach(function(p){var e=document.getElementById(p[0]),l=document.getElementById(p[1]);if(e&&l)l.textContent=e.value;});
+function mntLabel(){[["mntWallX","mntWallXLbl"],["mntWallY","mntWallYLbl"],["mntWallSpace","mntWallSpaceLbl"],["mntPowX","mntPowXLbl"],["mntPowY","mntPowYLbl"],["mntBaseW","mntBaseWLbl"],["mntBaseD","mntBaseDLbl"],["mntBaseT","mntBaseTLbl"],["mntBaseRaise","mntBaseRaiseLbl"],["tbBaseW","tbBaseWLbl"],["tbBaseD","tbBaseDLbl"],["tbBaseT","tbBaseTLbl"],["tbBaseRaise","tbBaseRaiseLbl"]].forEach(function(p){var e=document.getElementById(p[0]),l=document.getElementById(p[1]);if(e&&l)l.textContent=e.value;});
   // The spacing slider only applies to 2+ keyholes.
   var _wc=document.getElementById("mntWallCount"),_sr=document.getElementById("mntWallSpaceRow");if(_wc&&_sr)_sr.style.display=(parseInt(_wc.value,10)>1)?"flex":"none";}
 function mntRebuild(){mntLabel();if(typeof scheduleBuild==="function")scheduleBuild();else if(typeof rebuild==="function")rebuild();}
@@ -2308,7 +2328,8 @@ function _mountRead(){
   return {
     wall:{on:on("tg_mntWall"), x:nv("mntWallX",0), y:nv("mntWallY",0), count:Math.max(1,Math.min(4,nv("mntWallCount",1))), space:nv("mntWallSpace",55)},
     power:{on:on("tg_mntPow"), shape:sv("mntPowShape","usbc"), x:nv("mntPowX",0), y:nv("mntPowY",0)},
-    base:{on:on("tg_mntBase"), shape:sv("mntBaseShape","round"), w:nv("mntBaseW",90), d:nv("mntBaseD",58), t:nv("mntBaseT",6), raise:nv("mntBaseRaise",0)}
+    base:{on:on("tg_mntBase"), shape:sv("mntBaseShape","round"), w:nv("mntBaseW",90), d:nv("mntBaseD",58), t:nv("mntBaseT",6), raise:nv("mntBaseRaise",0)},
+    testbase:{on:on("tg_tbBase"), shape:sv("tbBaseShape","round"), tex:sv("tbBaseTex","isocube"), w:nv("tbBaseW",90), d:nv("tbBaseD",58), t:nv("tbBaseT",6), raise:nv("tbBaseRaise",0)}
   };
 }
 window.__mountRead=_mountRead;
@@ -2348,6 +2369,46 @@ function _baseProfilePaths(shape,w,d){
 // flipped; that passes topology checks but the slicer reads the flipped normals as solid and fills pockets.
 // Flood-fill orientation across shared edges (welded), then flip everything if the net signed volume is
 // negative, so every normal points out of the solid. Returns a new flat position array.
+// T-junction repair: where a boundary edge has another vertex lying on it (a T-junction from mismatched
+// clipper subdivisions), split that edge so both sides share the vertex. Fan-retriangulates only the affected
+// triangles; the rest pass through untouched. Iterates until stable so cascaded splits resolve.
+function _tjRepair(pos){
+  for(var pass=0;pass<12;pass++){
+    var nt=pos.length/9;if(nt<1)return pos;
+    var Q=200,key=Object.create(null),verts=[],vid=new Int32Array(nt*3),i;   // weld at ~0.005mm: merges the sub-micron clipper slivers where symmetrised tile/grout boundaries disagree, without touching the 0.008mm groove perturbation or the mm-scale pattern
+    for(i=0;i<nt*3;i++){var x=pos[i*3],y=pos[i*3+1],z=pos[i*3+2];var k=Math.round(x*Q)+","+Math.round(y*Q)+","+Math.round(z*Q);var id=key[k];if(id===undefined){id=verts.length;key[k]=id;verts.push([x,y,z]);}vid[i]=id;}
+    // XOR-cancel coincident faces: internal double-walls (two overlapping quads that should merge) share the
+    // same 3 vertices with opposite winding and appear an even number of times -> drop them; real surface faces
+    // appear once (odd) -> keep one. Degenerate (repeated vertex) triangles are dropped.
+    var fg=Object.create(null),forder=[];
+    for(i=0;i<nt;i++){var a=vid[i*3],b=vid[i*3+1],c=vid[i*3+2];if(a===b||b===c||c===a)continue;var s=[a,b,c].sort(function(p,q){return p-q;}),fk=s[0]+"_"+s[1]+"_"+s[2];if(fg[fk]===undefined){fg[fk]=[a,b,c];forder.push(fk);fg[fk]._n=1;}else{fg[fk]._n=(fg[fk]._n||1)+1;}}
+    var kvid=[];forder.forEach(function(fk){if(fg[fk]._n%2===1){kvid.push(fg[fk][0],fg[fk][1],fg[fk][2]);}});
+    vid=Int32Array.from(kvid);nt=vid.length/3;if(nt<1)return new Float32Array(0);
+    // undirected edge use-count -> boundary edges (used once)
+    var ec=Object.create(null);function ek(a,b){return a<b?a+"_"+b:b+"_"+a;}
+    for(i=0;i<nt;i++){var a=vid[i*3],b=vid[i*3+1],c=vid[i*3+2];ec[ek(a,b)]=(ec[ek(a,b)]||0)+1;ec[ek(b,c)]=(ec[ek(b,c)]||0)+1;ec[ek(c,a)]=(ec[ek(c,a)]||0)+1;}
+    // any non-2-manifold edges to repair? (count 1 = boundary/T-junction seam, count>2 = overlapping internal
+    // walls that haven't cancelled yet because a T-junction split them differently on each side)
+    var anyB=false;for(var kk in ec){if(ec[kk]!==2){anyB=true;break;}}
+    if(!anyB)return pos;
+    // candidate split vertices = ALL welded vertices (the needed vertex may sit on a straight edge without itself
+    // being a boundary-edge endpoint, e.g. a wall/wall junction on the bottom-cap perimeter)
+    var candL=[];for(i=0;i<verts.length;i++)candL.push(i);
+    var out=[],changed=false;
+    for(i=0;i<nt;i++){
+      var C=[vid[i*3],vid[i*3+1],vid[i*3+2]];var poly=[];
+      for(var e=0;e<3;e++){var A=C[e],B=C[(e+1)%3];poly.push(A);
+        if(ec[ek(A,B)]!==2){var pA=verts[A],pB=verts[B],ex=pB[0]-pA[0],ey=pB[1]-pA[1],ez=pB[2]-pA[2],L2=ex*ex+ey*ey+ez*ez;
+          if(L2>1e-12){var hits=[];for(var ci=0;ci<candL.length;ci++){var v=candL[ci];if(v===A||v===B)continue;var P=verts[v];var dx=P[0]-pA[0],dy=P[1]-pA[1],dz=P[2]-pA[2];var tt=(dx*ex+dy*ey+dz*ez)/L2;if(tt<=6e-5||tt>=1-6e-5)continue;var qx=pA[0]+ex*tt,qy=pA[1]+ey*tt,qz=pA[2]+ez*tt;var d2=(P[0]-qx)*(P[0]-qx)+(P[1]-qy)*(P[1]-qy)+(P[2]-qz)*(P[2]-qz);if(d2<1.2e-5)hits.push([tt,v]);}
+            if(hits.length){hits.sort(function(p,q){return p[0]-q[0];});for(var h=0;h<hits.length;h++)poly.push(hits[h][1]);changed=true;}}}
+      }
+      for(var f=1;f+1<poly.length;f++){var v0=verts[poly[0]],v1=verts[poly[f]],v2=verts[poly[f+1]];out.push(v0[0],v0[1],v0[2],v1[0],v1[1],v1[2],v2[0],v2[1],v2[2]);}
+    }
+    pos=new Float32Array(out);
+    if(!changed)return pos;
+  }
+  return pos;
+}
 function _orientOut(pos){
   var nt=pos.length/9;if(nt<1)return pos;
   var Q=1e4,key=Object.create(null),ids=new Int32Array(nt*3),nv=0,i;
@@ -2369,7 +2430,7 @@ function _orientOut(pos){
   for(i=0;i<nt;i++){var t3=tri[i],o0=t3[0],o1=t3[1],o2=t3[2];if(flip){var tt=o1;o1=o2;o2=tt;}var A=coord[o0],B=coord[o1],C=coord[o2];out[i*9]=A[0];out[i*9+1]=A[1];out[i*9+2]=A[2];out[i*9+3]=B[0];out[i*9+4]=B[1];out[i*9+5]=B[2];out[i*9+6]=C[0];out[i*9+7]=C[1];out[i*9+8]=C[2];}
   return out;
 }
-function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt){try{
+function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap){try{
   if(!filled||!filled.length)return null;
   var clr=0.4,foot=Math.max(3,Math.min(6,t*0.8)),bandH=Math.max(1.5,Math.min(2.5,t*0.35));   // tiny socket — the model sits ON TOP, only the very tip locates into a shallow notch
   var mnx=1e18,mxx=-1e18;
@@ -2425,21 +2486,35 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt){try{
   function wallUp(paths,z0,z1){if(!paths||!paths.length)return;_toShapes(paths).forEach(function(sh){var ep=sh.extractPoints();var loops=[_dd(ep.shape||[])].concat((ep.holes||[]).map(_dd));loops.forEach(function(lp,li){if(lp.length<3)return;for(var i=0;i<lp.length;i++){var a=lp[i],b=lp[(i+1)%lp.length];if(li===0)quad([a.x,a.y,z0],[b.x,b.y,z0],[b.x,b.y,z1],[a.x,a.y,z1]);else quad([b.x,b.y,z0],[a.x,a.y,z0],[a.x,a.y,z1],[b.x,b.y,z1]);}});});}
   function capUpV(O,H,z,up){if(!O||O.length<3)return;var faces=THREE.ShapeUtils.triangulateShape(O,H||[]),V=O.concat.apply(O,H||[]);faces.forEach(function(f){var p0=V[f[0]],p1=V[f[1]],p2=V[f[2]];var A=[p0.x,p0.y,z],B=[p1.x,p1.y,z],C=[p2.x,p2.y,z];var cr=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);if((cr>0)===up)tri(A,B,C);else tri(A,C,B);});}
   function wallLoop(L,z0,z1,isHole){if(!L||L.length<3)return;for(var i=0;i<L.length;i++){var a=L[i],b=L[(i+1)%L.length];if(!isHole)quad([a.x,a.y,z0],[b.x,b.y,z0],[b.x,b.y,z1],[a.x,a.y,z1]);else quad([b.x,b.y,z0],[a.x,a.y,z0],[a.x,a.y,z1],[b.x,b.y,z1]);}}
+  // Deterministic vertical-wall quad: the diagonal is chosen from the lower-keyed column, so the SAME physical
+  // wall built from either side (grout loop vs tile loop, opposite traversal) emits identical triangles -> the
+  // internal walls between adjacent tile/grout prisms cancel exactly in the XOR pass, leaving only the outer skin.
+  function _wq(ax,ay,bx,by,z0,z1){var ka=Math.round(ax*1e3)+"|"+Math.round(ay*1e3),kb=Math.round(bx*1e3)+"|"+Math.round(by*1e3);var A0=[ax,ay,z0],A1=[ax,ay,z1],B0=[bx,by,z0],B1=[bx,by,z1];if(ka<kb){tri(A0,B0,B1);tri(A0,B1,A1);}else{tri(B0,A0,A1);tri(B0,A1,B1);}}
+  function _wqLoop(L,z0,z1){if(!L||L.length<3)return;for(var i=0;i<L.length;i++){var a=L[i],b=L[(i+1)%L.length];_wq(a.x,a.y,b.x,b.y,z0,z1);}}
   // Optional texture tiles (clipper), fused into ONE shell with the foot top.
-  var _seatDrop=0,_tiles=null,_relief=0;
-  try{var _bt=document.getElementById("mntBaseTex");var _bv=_bt&&_bt.value;var _texObj=(_bv&&_bv!=="none"&&!(typeof BASE_TEX_SKIP!=="undefined"&&BASE_TEX_SKIP[_bv])&&typeof TEXFN!=="undefined"&&TEXFN[_bv]&&TEXFN[_bv].gen)?TEXFN[_bv]:null;
+  var _seatDrop=0,_tiles=null,_relief=0,_groutEW=null;
+  try{var _bv=(texId!=null)?texId:((document.getElementById("mntBaseTex")||{}).value);var _texObj=(_bv&&_bv!=="none"&&!(typeof BASE_TEX_SKIP!=="undefined"&&BASE_TEX_SKIP[_bv])&&typeof TEXFN!=="undefined"&&TEXFN[_bv]&&TEXFN[_bv].gen)?TEXFN[_bv]:null;
     if(_texObj){
       var _exX0=mx0-1.2,_exX1=mx1+1.2,_exY0=-halfFront-1.2,_exY1=halfBack+1.2;   // keep-out = the carved groove pocket
       var _exRect=[[{X:Math.round(_exX0*S),Y:Math.round(_exY0*S)},{X:Math.round(_exX1*S),Y:Math.round(_exY0*S)},{X:Math.round(_exX1*S),Y:Math.round(_exY1*S)},{X:Math.round(_exX0*S),Y:Math.round(_exY1*S)}]];
-      var _topReg=diff(prof,_exRect);var _Rin=off(_topReg,-1.6);
+      var _topReg=diff(prof,_exRect);var _Rin=edgeWrap?_topReg:off(_topReg,-1.6);   // edge-wrap runs the pattern right up to the profile edge (no smooth border band)
       if(_Rin&&_Rin.length){
         var _mnX=1e9,_mnY=1e9,_mxX=-1e9,_mxY=-1e9;_Rin.forEach(function(pp){pp.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<_mnX)_mnX=X;if(X>_mxX)_mxX=X;if(Y<_mnY)_mnY=Y;if(Y>_mxY)_mxY=Y;});});
         var _cells=_texObj.gen(_mnX,_mnY,_mxX,_mxY);var _tt=intersect(_cells,_Rin);
         var _fz=0.35;try{var _tg=off(_tt,_fz);if(_tg){_tg=off(_tg,-_fz*0.5);}if(_tg&&_tg.length)_tt=cleanPaths(_tg);}catch(e){}   // morphological close: fuses wireframe pinch points AND smooths filled-tile boundaries so the grout triangulates cleanly
+        if(edgeWrap){try{var _tc=intersect(_tt,_topReg);if(_tc&&_tc.length)_tt=cleanPaths(_tc);}catch(e){}
+          // Grout = prof − tiles, kept EXACTLY complementary (no re-deriving the tiles). Any vertex mismatch on the
+          // shared boundary is a T-junction, which _tjRepair stitches after the mesh is built — trying to symmetrise
+          // the two boolean results instead introduced sub-micron overlaps that doubled the side walls.
+          try{var _gr=diff(prof,_tt);if(_gr&&_gr.length)_groutEW=cleanPaths(_gr);}catch(e){}
+        }
         if(_tt&&_tt.length){_tiles=_tt;_relief=Math.min(_texObj.relief||0.9,Math.max(0.5,foot*0.35));}
       }
     }
   }catch(e){_tiles=null;_relief=0;}
+  // TEST BASE (edge-wrap): the pattern reaches the profile edge and its outer walls drop the full foot height,
+  // so the texture wraps over the top edge and down the sides instead of stopping at a smooth border.
+  var _ew=!!(edgeWrap&&_tiles&&_relief>0);
   // TOP surface
   if(_tiles&&_relief>0){
     // Derive EVERY boundary from one canonical tile-shape set, so the grout hole, the tile top and the tile
@@ -2447,23 +2522,44 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt){try{
     // (no seam gaps, no floating pucks). tile inner holes (e.g. cube rhombi) are grout islands at z=0.
     var _ts=_toShapes(_tiles).filter(function(sh){var O=(sh.extractPoints().shape)||[];var ar=0;for(var i=0;i<O.length;i++){var a=O[i],b=O[(i+1)%O.length];ar+=a.x*b.y-b.x*a.y;}return Math.abs(ar/2)>1.2;}),_touter=[],_tinner=[];
     _ts.forEach(function(sh){var ep=sh.extractPoints();var O=_dd(ep.shape||[]);if(O.length>=3)_touter.push(O);(ep.holes||[]).forEach(function(hh){var H=_dd(hh);if(H.length>=3)_tinner.push(H);});});
-    // grout top = profile, holes = groove + every tile OUTER (z=0)
-    capUpV(outer,[_dd(hole)].concat(_touter),zTop,true);
-    _tinner.forEach(function(H){capUpV(H,[],zTop,true);});          // grout islands inside ring/cube tiles
-    _ts.forEach(function(sh){var ep=sh.extractPoints();var O=_dd(ep.shape||[]),Hs=(ep.holes||[]).map(_dd).filter(function(x){return x.length>=3;});capUpV(O,Hs,zTop+_relief,true);});   // tile tops
-    _touter.forEach(function(L){wallLoop(L,zTop,zTop+_relief,false);});
-    _tinner.forEach(function(L){wallLoop(L,zTop,zTop+_relief,true);});
+    _ts.forEach(function(sh){var ep=sh.extractPoints();var O=_dd(ep.shape||[]),Hs=(ep.holes||[]).map(_dd).filter(function(x){return x.length>=3;});capUpV(O,Hs,zTop+_relief,true);});   // tile tops (z=relief)
+    if(_ew){
+      // PRISM UNION. Build grout and every tile as full closed prisms down to zBot, then let the XOR pass cancel
+      // the coincident internal walls between adjacent prisms — no fragile "is this edge on the rim" test. What
+      // survives is exactly the outer skin, so the pattern rolls over the top edge and drops down the sides.
+      var _zT=zTop+_relief;
+      var _Graw=_groutEW||diff(prof,_tiles);
+      var _gShapes=_toShapes(_Graw);
+      // groove punched as a DIRECT hole (exact `hole` vertices) into the grout region that contains it, so it
+      // matches the separately-built groove walls; the groove doesn't pierce the bottom, so the base cap is solid.
+      var _big=-1,_bigA=-1;_gShapes.forEach(function(sh,idx){var O=sh.extractPoints().shape||[];var ar=0;for(var i=0;i<O.length;i++){var a=O[i],b=O[(i+1)%O.length];ar+=a.x*b.y-b.x*a.y;}ar=Math.abs(ar/2);if(ar>_bigA){_bigA=ar;_big=idx;}});
+      _gShapes.forEach(function(sh,idx){var ep=sh.extractPoints();var O=_dd(ep.shape||[]),Hs=(ep.holes||[]).map(_dd).filter(function(x){return x.length>=3;});
+        capUpV(O,(idx===_big?Hs.concat([_dd(hole)]):Hs),zTop,true);      // grout top (z=0)
+        capUpV(O,Hs,zBot,false);                                          // grout bottom (zBot)
+        [O].concat(Hs).forEach(function(L){_wqLoop(L,zBot,zTop);});       // grout walls zBot..0 (internal ones cancel)
+      });
+      _ts.forEach(function(sh){var ep=sh.extractPoints();var O=_dd(ep.shape||[]),Hs=(ep.holes||[]).map(_dd).filter(function(x){return x.length>=3;});
+        capUpV(O,Hs,zBot,false);                                          // tile bottom (zBot)
+        [O].concat(Hs).forEach(function(L){_wqLoop(L,zBot,zTop);_wqLoop(L,zTop,_zT);});   // tile walls split at z=0: zBot..0 cancels against grout, 0..relief is the step/side
+      });
+    }else{
+      // grout top = profile, holes = groove + every tile OUTER (z=0)
+      capUpV(outer,[_dd(hole)].concat(_touter),zTop,true);
+      _tinner.forEach(function(H){capUpV(H,[],zTop,true);});          // grout islands inside ring/cube tiles
+      _touter.forEach(function(L){wallLoop(L,zTop,zTop+_relief,false);});
+      _tinner.forEach(function(L){wallLoop(L,zTop,zTop+_relief,true);});
+    }
     _seatDrop=_relief;
   }else{
     var tf=THREE.ShapeUtils.triangulateShape(outer,[hole]),tp=outer.concat(hole);
     tf.forEach(function(f){var p0=tp[f[0]],p1=tp[f[1]],p2=tp[f[2]];var A=[p0.x,p0.y,zTop],B=[p1.x,p1.y,zTop],C=[p2.x,p2.y,zTop];var cr=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);if(cr>0)tri(A,B,C);else tri(A,C,B);});
   }
-  // BOTTOM cap (full profile) at Z=-TT, facing -Z
-  var bf=THREE.ShapeUtils.triangulateShape(outer,[]);
+  // BOTTOM cap (full profile) at Z=-TT, facing -Z  (edge-wrap builds per-prism bottom caps instead)
+  if(!_ew){var bf=THREE.ShapeUtils.triangulateShape(outer,[]);
   bf.forEach(function(f){var p0=outer[f[0]],p1=outer[f[1]],p2=outer[f[2]];var A=[p0.x,p0.y,zBot],B=[p1.x,p1.y,zBot],C=[p2.x,p2.y,zBot];
-    var cr=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);if(cr>0)tri(A,C,B);else tri(A,B,C);});
-  // perimeter walls along the profile outline
-  for(i0=0;i0<outer.length;i0++){var pA=outer[i0],pB=outer[(i0+1)%outer.length];
+    var cr=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);if(cr>0)tri(A,C,B);else tri(A,B,C);});}
+  // perimeter walls along the profile outline (edge-wrap builds its own per-segment side walls above)
+  if(!_ew)for(i0=0;i0<outer.length;i0++){var pA=outer[i0],pB=outer[(i0+1)%outer.length];
     quad([pA.x,pA.y,zTop],[pB.x,pB.y,zTop],[pB.x,pB.y,zBot],[pA.x,pA.y,zBot]);}
   // contoured floor + two side walls (straight top edge, contoured bottom) + two end caps
   for(i0=0;i0<M;i0++){var x0=xs[i0],x1=xs[i0+1],f0=-gd[i0],f1=-gd[i0+1];
@@ -2473,6 +2569,7 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt){try{
   }
   quad([xs[0],ymn(0),zTop],[xs[0],ymx(0),zTop],[xs[0],ymx(0),-gd[0]],[xs[0],ymn(0),-gd[0]]);   // end cap start
   quad([xs[M],ymx(M),zTop],[xs[M],ymn(M),zTop],[xs[M],ymn(M),-gd[M]],[xs[M],ymx(M),-gd[M]]);   // end cap end
+  if(_ew){try{pos=_tjRepair(pos);}catch(e){}}   // edge-wrap side/top come from separate clipper booleans; stitch any T-junctions before welding
   try{pos=_orientOut(pos);}catch(e){}   // consistent outward normals so the slicer keeps the pocket + prints one solid
   var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
   geo.computeVertexNormals();geo.computeBoundingBox();
@@ -2673,6 +2770,11 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       var _baseSil=filled;try{var _ls=off(filled,clearance+capW);if(_ls&&_ls.length)_baseSil=_ls;}catch(e){}
       var _bres=buildCradleBase(_baseSil,cx,cy,depth,_mnt.base.w,_mnt.base.d,_mnt.base.t,_mnt.base.shape,TT);   // TT = lid front-cap protrusion; widens the pocket front-to-back to the LID depth, not the back box
       if(_bres&&_bres.geo){var _bgrp=new THREE.Group();_bgrp.add(new THREE.Mesh(_bres.geo,MATS.body));_bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mnt.base.raise||0),-depth/2);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.body});}}
+    // TestBase (experimental) — same cradle, but the texture runs to the edge and wraps down the sides (edgeWrap).
+    if(_mnt&&_mnt.testbase&&_mnt.testbase.on&&filled&&filled.length){
+      var _tsil=filled;try{var _tls=off(filled,clearance+capW);if(_tls&&_tls.length)_tsil=_tls;}catch(e){}
+      var _tb=_mnt.testbase;var _tbres=buildCradleBase(_tsil,cx,cy,depth,_tb.w,_tb.d,_tb.t,_tb.shape,TT,_tb.tex,true);
+      if(_tbres&&_tbres.geo){var _tgrp=new THREE.Group();_tgrp.add(new THREE.Mesh(_tbres.geo,MATS.body));_tgrp.rotation.x=-Math.PI/2;_tgrp.position.set(0,_tbres.yWallTop-(_tb.raise||0),-depth/2);partList.push({group:_tgrp,name:"TestBase",flip:false,isBase:true,color:COLORS.body});}}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
 
