@@ -2344,6 +2344,31 @@ function _baseProfilePaths(shape,w,d){
 // groove is a set of equal-depth strip pockets that follow the silhouette's lower edge. The caller lays it flat
 // via the group transform and seats it at yWallTop. Returns {geo, yWallTop}.
 //   filled = model silhouette (clipper paths); cx,cy = its centre; depth = box thickness; w,d,t = foot W/D/T.
+// Force a triangle-soup into consistent OUTWARD winding. Manual tri/quad emission can leave individual faces
+// flipped; that passes topology checks but the slicer reads the flipped normals as solid and fills pockets.
+// Flood-fill orientation across shared edges (welded), then flip everything if the net signed volume is
+// negative, so every normal points out of the solid. Returns a new flat position array.
+function _orientOut(pos){
+  var nt=pos.length/9;if(nt<1)return pos;
+  var Q=1e4,key=Object.create(null),ids=new Int32Array(nt*3),nv=0,i;
+  for(i=0;i<nt*3;i++){var k=(Math.round(pos[i*3]*Q))+","+(Math.round(pos[i*3+1]*Q))+","+(Math.round(pos[i*3+2]*Q));var id=key[k];if(id===undefined){id=nv++;key[k]=id;}ids[i]=id;}
+  var tri=new Array(nt);for(i=0;i<nt;i++)tri[i]=[ids[i*3],ids[i*3+1],ids[i*3+2]];
+  var em=Object.create(null);function ek(a,b){return a<b?a+"_"+b:b+"_"+a;}
+  for(i=0;i<nt;i++){var t=tri[i];for(var e=0;e<3;e++){var kk=ek(t[e],t[(e+1)%3]);(em[kk]||(em[kk]=[])).push(i);}}
+  function dir(t,a,b){for(var e=0;e<3;e++){if(t[e]===a&&t[(e+1)%3]===b)return 1;if(t[e]===b&&t[(e+1)%3]===a)return -1;}return 0;}
+  var vis=new Uint8Array(nt);
+  for(var s=0;s<nt;s++){if(vis[s])continue;vis[s]=1;var st=[s];
+    while(st.length){var ti=st.pop(),t=tri[ti];
+      for(var e2=0;e2<3;e2++){var a=t[e2],b=t[(e2+1)%3],lst=em[ek(a,b)]||[];
+        for(var j=0;j<lst.length;j++){var nj=lst[j];if(nj===ti||vis[nj])continue;var n2=tri[nj];
+          if(dir(n2,a,b)===1){var tm=n2[1];n2[1]=n2[2];n2[2]=tm;}   // same direction as us => flipped, reverse it
+          vis[nj]=1;st.push(nj);}}}}
+  var coord=new Array(nv);for(i=0;i<nt*3;i++){if(coord[ids[i]]===undefined)coord[ids[i]]=[pos[i*3],pos[i*3+1],pos[i*3+2]];}
+  var vol=0;for(i=0;i<nt;i++){var t2=tri[i],p=coord[t2[0]],q=coord[t2[1]],r=coord[t2[2]];vol+=(p[0]*(q[1]*r[2]-r[1]*q[2])-p[1]*(q[0]*r[2]-r[0]*q[2])+p[2]*(q[0]*r[1]-r[0]*q[1]));}
+  var flip=(vol<0),out=new Float32Array(nt*9);
+  for(i=0;i<nt;i++){var t3=tri[i],o0=t3[0],o1=t3[1],o2=t3[2];if(flip){var tt=o1;o1=o2;o2=tt;}var A=coord[o0],B=coord[o1],C=coord[o2];out[i*9]=A[0];out[i*9+1]=A[1];out[i*9+2]=A[2];out[i*9+3]=B[0];out[i*9+4]=B[1];out[i*9+5]=B[2];out[i*9+6]=C[0];out[i*9+7]=C[1];out[i*9+8]=C[2];}
+  return out;
+}
 function buildCradleBase(filled,cx,cy,depth,w,d,t,shape){try{
   if(!filled||!filled.length)return null;
   var clr=0.4,foot=Math.max(3,Math.min(6,t*0.8)),bandH=Math.max(1.5,Math.min(2.5,t*0.35));   // tiny socket — the model sits ON TOP, only the very tip locates into a shallow notch
@@ -2444,6 +2469,7 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape){try{
   }
   quad([xs[0],ymn(0),zTop],[xs[0],ymx(0),zTop],[xs[0],ymx(0),-gd[0]],[xs[0],ymn(0),-gd[0]]);   // end cap start
   quad([xs[M],ymx(M),zTop],[xs[M],ymn(M),zTop],[xs[M],ymn(M),-gd[M]],[xs[M],ymx(M),-gd[M]]);   // end cap end
+  try{pos=_orientOut(pos);}catch(e){}   // consistent outward normals so the slicer keeps the pocket + prints one solid
   var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
   geo.computeVertexNormals();geo.computeBoundingBox();
   return {geo:geo,yWallTop:yWallTop-_seatDrop};   // textured: drop the foot so tile tops meet the original seat plane
