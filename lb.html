@@ -2523,7 +2523,7 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap)
     // side stays fast even for the densest textures (thousands of cells) instead of point-testing every cell.
     var rr=0.3,W=Math.max(1,Math.ceil((mxX-mnX+2*pad)/rr)),Ht=Math.max(1,Math.ceil((mxY-mnY+2*pad)/rr)),img=null;
     try{var _cv=document.createElement("canvas");_cv.width=W;_cv.height=Ht;var _ct=_cv.getContext("2d");_ct.fillStyle="#000";_ct.fillRect(0,0,W,Ht);_ct.fillStyle="#fff";
-      for(var c0=0;c0<cells.length;c0++){var cel=cells[c0];if(cel.length<3)continue;_ct.beginPath();for(var v0=0;v0<cel.length;v0++){var px2=(cel[v0].X/S-gx0)/rr,py2=(cel[v0].Y/S-gy0)/rr;if(v0===0)_ct.moveTo(px2,py2);else _ct.lineTo(px2,py2);}_ct.closePath();}_ct.fill();
+      for(var c0=0;c0<cells.length;c0++){var cel=cells[c0];if(cel.length<3)continue;_ct.beginPath();for(var v0=0;v0<cel.length;v0++){var px2=(cel[v0].X/S-gx0)/rr,py2=(cel[v0].Y/S-gy0)/rr;if(v0===0)_ct.moveTo(px2,py2);else _ct.lineTo(px2,py2);}_ct.closePath();_ct.fill();}
       img=_ct.getImageData(0,0,W,Ht).data;}catch(e){img=null;}
     function inTile(px,py){if(img){var ix=Math.floor((px-gx0)/rr),iy=Math.floor((py-gy0)/rr);if(ix<0||iy<0||ix>=W||iy>=Ht)return false;return img[(iy*W+ix)*4]>128;}var pt={X:Math.round(px*S),Y:Math.round(py*S)},w=0;for(var c=0;c<cells.length;c++){if(ClipperLib.Clipper.PointInPolygon(pt,cells[c])!==0)w^=1;}return w===1;}
     var nz=Math.max(4,Math.round(depth/0.5)),HZ=[];for(j=0;j<=nz;j++)HZ.push(zLo+depth*j/nz);
