@@ -156,6 +156,7 @@ details.precise>*:not(summary){padding:0 12px 12px}
 .amschk{display:flex;align-items:center;gap:8px;margin-top:11px;font-size:12.5px;color:var(--txt2);cursor:pointer;line-height:1.3}
 .amschk input{width:16px;height:16px;flex:none}
 .amsPalBox{margin-top:9px}
+.mchip .mlsw{width:15px;height:15px;border-width:1.5px;box-shadow:none;margin-right:2px}
 
 /* ----- placement pads ----- */
 .pad{position:relative;height:200px;border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden;touch-action:none;background-image:linear-gradient(var(--hair) 1px,transparent 1px),linear-gradient(90deg,var(--hair) 1px,transparent 1px);background-size:24px 24px}
@@ -1307,7 +1308,11 @@ rebuildPalGrid();
 function renderAmsSwatches(){var html=window.__amsPalette.map((c,i)=>'<div class="sw-item"><span class="sw" style="background:'+_amsSlotBg(i)+'" onclick="openPal(\'ams:'+i+'\',event)"></span><span class="swl">AMS '+(i+1)+'</span></div>').join("");document.querySelectorAll(".amsSwatches").forEach(function(el){el.innerHTML=html;});var legacy=g("amsSwatches");if(legacy&&!legacy.classList.contains("amsSwatches"))legacy.innerHTML=html;}
 function toggleAMS(on){window.__hasAMS=!!on;document.querySelectorAll(".amsPalBox").forEach(function(el){el.style.display=on?"block":"none";});document.querySelectorAll(".amsToggleCb").forEach(function(cb){cb.checked=!!on;});var lp=g("amsPal");if(lp)lp.style.display=on?"block":"none";var lc=g("amsToggle");if(lc)lc.checked=!!on;renderAmsSwatches();if(typeof buildModel==="function")buildModel();}
 function palTextId(t){return (typeof t==="string"&&t.indexOf("text:")===0)?(+t.slice(5)):null;}
-function openPal(t,ev){palTarget=t;const p=g("palette");rebuildPalGrid();const tid=palTextId(t);let cur;if(typeof t==="string"&&t.indexOf("ams:")===0){cur=window.__amsPalette[+t.slice(4)]||"#FFFFFF";}else if(tid!=null){const tx=texts.find(x=>x.id===tid);cur=(tx&&tx.color)||"#FFFFFF";}else{cur=COLORS[t];}g("palHex").value=cur;
+function palModelId(t){return (typeof t==="string"&&t.indexOf("cmodel:")===0)?(+t.slice(7)):null;}
+// Each placed catalog model owns its colour. Update ONLY that model's meshes live (no rebuild); fall back to a
+// rebuild if its mesh isn't in the scene yet (e.g. Plates view).
+function onModelColor(id,val){var mo=models.find(m=>m.id===id);if(!mo)return;mo.color=val;var done=false;if(pivot){pivot.traverse(function(o){if(o.userData&&o.userData.modelId===id){o.traverse(function(m){if(m.isMesh&&m.material&&m.material.color){m.material.color.set(val);m.material.needsUpdate=true;done=true;}});}});}var s=g("sw_cmodel_"+id);if(s)s.style.background=val;if(!done)scheduleBuild();}
+function openPal(t,ev){palTarget=t;const p=g("palette");rebuildPalGrid();const tid=palTextId(t);const mid=palModelId(t);let cur;if(typeof t==="string"&&t.indexOf("ams:")===0){cur=window.__amsPalette[+t.slice(4)]||"#FFFFFF";}else if(tid!=null){const tx=texts.find(x=>x.id===tid);cur=(tx&&tx.color)||"#FFFFFF";}else if(mid!=null){const mm=models.find(x=>x.id===mid);cur=(mm&&mm.color)||COLORS.model;}else{cur=COLORS[t];}g("palHex").value=cur;
   if(window.innerWidth<=700){
     // Mobile: dock the palette as a bottom sheet so every filament group is reachable by scrolling inside it.
     p.style.left="8px";p.style.right="8px";p.style.width="auto";p.style.top="auto";p.style.bottom="8px";p.style.maxHeight="72vh";
@@ -1318,11 +1323,14 @@ function openPal(t,ev){palTarget=t;const p=g("palette");rebuildPalGrid();const t
   }
   p.classList.add("show");ev.stopPropagation();}
 function pickColor(hex,keepFin){if(!palTarget)return;if(typeof palTarget==="string"&&palTarget.indexOf("ams:")===0){var _si=+palTarget.slice(4);window.__amsPalette[_si]=hex;if(!keepFin&&window.__amsMeta)delete window.__amsMeta[_si];renderAmsSwatches();g("palHex").value=hex;g("palette").classList.remove("show");return;}const tid=palTextId(palTarget);if(tid!=null){onTextColor(tid,hex);const s=g("sw_text_"+tid);if(s)s.style.background=hex;g("palHex").value=hex;g("palette").classList.remove("show");return;}
+  const mid=palModelId(palTarget);if(mid!=null){onModelColor(mid,hex);g("palHex").value=hex;g("palette").classList.remove("show");return;}
   // A plain colour has no finish — clear any stale finish on this part so it exports as PLA Basic (not a
   // leftover Silk/Matte/Glow from an earlier pick). pickFilament passes keepFin=true to preserve its finish.
   if(!keepFin&&window.__matFinish)delete window.__matFinish[palTarget];
-  COLORS[palTarget]=hex;applyColors();applyLight();try{applyFinishes();}catch(e){}g("palette").classList.remove("show");}
-function palHexIn(){let h=g("palHex").value.trim();if(/^#?[0-9a-fA-F]{6}$/.test(h)){if(h[0]!=="#")h="#"+h;const tid=palTextId(palTarget);if(tid!=null){onTextColor(tid,h);const s=g("sw_text_"+tid);if(s)s.style.background=h;return;}COLORS[palTarget]=h;applyColors();applyLight();}}
+  COLORS[palTarget]=hex;applyColors();applyLight();try{applyFinishes();}catch(e){}
+  if(palTarget==="model"){models.forEach(function(m){onModelColor(m.id,hex);});try{renderModelList();}catch(e){}}   // the tab's "3D model" swatch = set every placed model (individual swatches override afterwards)
+  g("palette").classList.remove("show");}
+function palHexIn(){let h=g("palHex").value.trim();if(/^#?[0-9a-fA-F]{6}$/.test(h)){if(h[0]!=="#")h="#"+h;const tid=palTextId(palTarget);if(tid!=null){onTextColor(tid,h);const s=g("sw_text_"+tid);if(s)s.style.background=h;return;}const mid=palModelId(palTarget);if(mid!=null){onModelColor(mid,h);return;}COLORS[palTarget]=h;applyColors();applyLight();}}
 document.addEventListener("pointerdown",e=>{const p=g("palette");if(p.classList.contains("show")&&!p.contains(e.target)&&!(e.target.classList&&e.target.classList.contains("sw")))p.classList.remove("show");});
 function refreshSwatches(){document.querySelectorAll(".sw[data-role]").forEach(function(s){var r=s.getAttribute("data-role");if(COLORS[r]!=null)s.style.background=COLORS[r];});texts.forEach(t=>{const s=g("sw_text_"+t.id);if(s)s.style.background=t.color||"#FFFFFF";});}
 function applyColors(){refreshSwatches();if(MATS.front)MATS.front.color.set(COLORS.front);if(MATS.name)MATS.name.color.set(COLORS.name);if(MATS.image)MATS.image.color.set(COLORS.image);if(MATS.body)MATS.body.color.set(COLORS.body);if(MATS.model)MATS.model.color.set(COLORS.model);if(MATS.basetext)MATS.basetext.color.set(COLORS.basetext);}
@@ -1555,10 +1563,10 @@ function addModelObj(obj3d,name){
   obj3d.position.x-=c.x;obj3d.position.y-=c.y;obj3d.position.z-=mn.z;   // centre XY, base at z=0 (pre-flattened)
   const wrap=new THREE.Group();wrap.add(obj3d);
   const maxd=Math.max(sz.x,sz.y,sz.z)||1;
-  models.push({id:uid++,obj:wrap,name,size:40,x:0,y:0,rz:0,maxd,fw:sz.x,fh:sz.y});
+  models.push({id:uid++,obj:wrap,name,size:40,x:0,y:0,rz:0,maxd,fw:sz.x,fh:sz.y,color:COLORS.model});
   selModel=models.length-1;g("modelControls").style.display="flex";renderModelList();drawStlPad();scheduleBuild();
 }
-function renderModelList(){const strip=g("modelStrip");if(!strip)return;strip.innerHTML="";models.forEach((mo,idx)=>{const d=document.createElement("div");d.className="mchip"+(idx===selModel?" sel":"");d.innerHTML=`<span>🧸 ${(mo.name||"model").slice(0,12)}</span><button class="ix">×</button>`;d.onclick=(e)=>{if(e.target.classList.contains("ix")){e.stopPropagation();models.splice(idx,1);if(selModel>=models.length)selModel=models.length-1;renderModelList();drawStlPad();scheduleBuild();if(!models.length)g("modelControls").style.display="none";return;}selModel=idx;syncModel();renderModelList();drawStlPad();};strip.appendChild(d);});g("modelControls").style.display=models.length?"flex":"none";syncModel();}
+function renderModelList(){const strip=g("modelStrip");if(!strip)return;strip.innerHTML="";models.forEach((mo,idx)=>{const d=document.createElement("div");d.className="mchip"+(idx===selModel?" sel":"");d.innerHTML=`<span class="sw mlsw" id="sw_cmodel_${mo.id}" title="Model colour" style="background:${mo.color||COLORS.model}" onclick="event.stopPropagation();openPal('cmodel:${mo.id}',event)"></span><span>🧸 ${(mo.name||"model").slice(0,12)}</span><button class="ix">×</button>`;d.onclick=(e)=>{if(e.target.classList.contains("ix")){e.stopPropagation();models.splice(idx,1);if(selModel>=models.length)selModel=models.length-1;renderModelList();drawStlPad();scheduleBuild();if(!models.length)g("modelControls").style.display="none";return;}selModel=idx;syncModel();renderModelList();drawStlPad();};strip.appendChild(d);});g("modelControls").style.display=models.length?"flex":"none";syncModel();}
 function syncModel(){if(selModel<0||!models[selModel])return;const mo=models[selModel];if(g("mSize"))g("mSize").value=mo.size;if(g("mSizeR"))g("mSizeR").value=Math.round(mo.size);if(g("mrz"))g("mrz").value=mo.rz||0;if(g("mrzR"))g("mrzR").value=mo.rz||0;}
 function syncMSlider(){const r=g("mSizeR");if(r&&selModel>=0&&models[selModel])r.value=Math.round(models[selModel].size);}
 function setModelSizeMm(mm){if(selModel<0||!models[selModel])return;const mo=models[selModel];mo.size=Math.max(5,Math.min(280,mm||40));if(g("mSize"))g("mSize").value=mo.size;drawStlPad();scheduleBuild();}
@@ -2069,6 +2077,7 @@ function computeFlat(mo,TT){
   inst.position.x-=cxm;inst.position.y-=cym;inst.position.z+=(TT-box.min.z);inst.updateMatrixWorld(true);
   return {inst};
 }
+function modelMat(mo){return new THREE.MeshStandardMaterial({color:(mo&&mo.color)||COLORS.model,roughness:0.5,metalness:0.0,envMapIntensity:0.35});}
 function buildFlatModelGroup(mo,TT){
   if(!mo.obj)return null;
   const key=flatKey(mo,TT);
@@ -2077,7 +2086,7 @@ function buildFlatModelGroup(mo,TT){
   if(c.empty)return {empty:true};
   const grp=new THREE.Group();
   const inst=c.inst.clone(true);
-  inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});
+  const _mm=modelMat(mo);inst.traverse(o=>{if(o.isMesh)o.material=_mm;});
   grp.add(inst);   // the raw STL, exactly as modelled — no pedestal, skirt or added thickness
   return {group:grp,modelId:mo.id};
 }
@@ -2791,17 +2800,17 @@ async function buildModel(){
           if(rcm&&!rcm.empty&&rcm.group){
             rcm.group.position.set(+mo.x||0,+mo.y||0,0);
             rcm.group.userData={isStl:true,modelId:mo.id};
-            part={group:rcm.group,name:"3D "+((mo.name||"model").slice(0,9)),flip:false,modelId:mo.id};
+            part={group:rcm.group,name:"3D "+((mo.name||"model").slice(0,9)),flip:false,modelId:mo.id,color:mo.color||COLORS.model};
           }
         }catch(e){}
         if(!part){
           // Fallback: rest the raw mesh flat on the lid surface.
           const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);
-          const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});
+          const inst=mo.obj.clone(true);const _mm=modelMat(mo);inst.traverse(o=>{if(o.isMesh)o.material=_mm;});
           inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));
           inst.position.set(+mo.x||0,+mo.y||0,TT);   // base flush on the lid top surface
           grp.userData={isStl:true,modelId:mo.id};grp.add(inst);
-          part={group:grp,name:"3D "+((mo.name||"model").slice(0,9)),flip:false,modelId:mo.id};
+          part={group:grp,name:"3D "+((mo.name||"model").slice(0,9)),flip:false,modelId:mo.id,color:mo.color||COLORS.model};
         }
         stlParts.push(part);
       });
@@ -2841,29 +2850,30 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // seated flat on the lid — there is no free Z axis. The 2D pad clamps to this.
     window.__GB={hx:Math.max(8,LW/2),hy:Math.max(8,LH/2)};
     const partList=[{group:capGroup,name:"Lid · front",flip:false,isLid:true,color:(nameMode?"#FFFFFF":COLORS.front)},{group:bodyGroup,name:"Body",flip:false,color:COLORS.body}];
-    // Shared plates are grouped by whether the pieces can be individually coloured:
-    //  • Catalog models + images print in ONE fixed colour each (MATS.model / MATS.image) — they can't be coloured
-    //    piece-by-piece, so each type ALWAYS collapses onto a single plate (one filament, AMS or not).
-    //  • Text / name / logo layers each carry their OWN colour — different colours may only live on one plate with
-    //    an AMS (multi-material). So with AMS they share one plate; without AMS they split into one plate per colour.
-    // Every shared plate is auto-arranged into a bed grid by layoutTextPlate.
-    // Gather the catalog-model parts.
+    // Secondary pieces (catalog models, images, text/name/logo layers) each carry their OWN colour now, so they
+    // are all packable together. Collect them with a footprint + colour, then bin-pack onto as FEW bed-sized
+    // plates as possible:
+    //  • AMS (multi-material): pack EVERYTHING together — models, images and text may share a plate in any colours,
+    //    because the AMS prints each piece in its own filament. Fill a plate, spill onto the next only when full.
+    //  • No AMS (single filament per plate): pack per colour, so a plate is never asked to print two colours.
+    // Every plate is auto-arranged into a tidy bed grid by layoutTextPlate.
     var modelParts=[];
     if(stlParts&&stlParts.length){stlParts.forEach(p=>modelParts.push(p));}
-    else{models.forEach((mo,i)=>{if(!mo.obj)return;const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));inst.position.set(+mo.x||0,+mo.y||0,TT);grp.userData={isStl:true,modelId:mo.id};grp.add(inst);modelParts.push({group:grp,name:"3D "+((mo.name||("model "+(i+1))).slice(0,9)),flip:false,modelId:mo.id,color:COLORS.model});});}
-    // Catalog models → one shared plate (single colour, can't be individually coloured).
-    if(modelParts.length){var _mg=new THREE.Group();modelParts.forEach(function(p){_mg.add(p.group);});partList.push({group:_mg,name:"Models · "+modelParts.length,flip:false,textPlate:true,cat:"model",isDense:true,color:COLORS.model});}
-    // Images → one shared plate (single colour, can't be individually coloured).
-    if(imgGroups.length){var _ig=new THREE.Group();imgGroups.forEach(function(gr){_ig.add(gr);});partList.push({group:_ig,name:"Images · "+imgGroups.length,flip:false,textPlate:true,cat:"image",color:COLORS.image});}
-    // Text / name / logo layers → individually colourable. Disconnected from the lid in every mode.
-    if(nameGroups.length){
+    else{models.forEach((mo,i)=>{if(!mo.obj)return;const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);const inst=mo.obj.clone(true);const _mm=modelMat(mo);inst.traverse(o=>{if(o.isMesh)o.material=_mm;});inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));inst.position.set(+mo.x||0,+mo.y||0,TT);grp.userData={isStl:true,modelId:mo.id};grp.add(inst);modelParts.push({group:grp,name:"3D "+((mo.name||("model "+(i+1))).slice(0,9)),flip:false,modelId:mo.id,color:mo.color||COLORS.model});});}
+    var _items=[];
+    modelParts.forEach(function(p){var f=_footprint(p.group);_items.push({group:p.group,color:p.color||COLORS.model,w:f.w,d:f.d,dense:true});});
+    imgGroups.forEach(function(gr){var f=_footprint(gr);_items.push({group:gr,color:COLORS.image,w:f.w,d:f.d});});
+    nameGroups.forEach(function(gr){var col=COLORS.front;gr.traverse(function(o){if(o.isMesh&&o.material&&o.material.color)col="#"+o.material.color.getHexString();});var f=_footprint(gr);_items.push({group:gr,color:col,w:f.w,d:f.d});});
+    if(_items.length){
+      var _bed=(typeof PRINTERS!=="undefined"&&PRINTERS[selPrinter])||{x:256,y:256};
+      var _bw=Math.max(40,_bed.x-12),_bd=Math.max(40,_bed.y-12),_gp=7;
+      var _mkPlate=function(list,name,color){var G=new THREE.Group(),dense=false;list.forEach(function(it){G.add(it.group);if(it.dense)dense=true;});partList.push({group:G,name:name,flip:false,textPlate:true,cat:"parts",isDense:dense,color:color});};
       if(window.__hasAMS){
-        var _tg=new THREE.Group();nameGroups.forEach(function(gr){_tg.add(gr);});
-        partList.push({group:_tg,name:"Text · "+nameGroups.length+(nameGroups.length>1?" pieces":" piece"),flip:false,textPlate:true,cat:"text",color:COLORS.front});
+        var _bins=_packBins(_items,_bw,_bd,_gp);
+        _bins.forEach(function(bin,bi){_mkPlate(bin,(_bins.length>1?("Parts "+(bi+1)+"/"+_bins.length):"Parts")+" · "+bin.length+(bin.length>1?" pieces":" piece"),COLORS.front);});
       }else{
-        // No AMS: one plate per distinct colour, so a single-extruder printer prints each plate in one filament.
-        var _byCol={},_order=[];nameGroups.forEach(function(gr){var col=COLORS.front;gr.traverse(function(o){if(o.isMesh&&o.material&&o.material.color)col="#"+o.material.color.getHexString();});if(!_byCol[col]){_byCol[col]=[];_order.push(col);}_byCol[col].push(gr);});
-        _order.forEach(function(col){var arr=_byCol[col],g=new THREE.Group();arr.forEach(function(gr){g.add(gr);});partList.push({group:g,name:"Text"+(_order.length>1?(" "+col):"")+(arr.length>1?(" · "+arr.length):""),flip:false,textPlate:true,cat:"text",color:col});});
+        var _byCol={},_order=[];_items.forEach(function(it){if(!_byCol[it.color]){_byCol[it.color]=[];_order.push(it.color);}_byCol[it.color].push(it);});
+        _order.forEach(function(col){var _bins2=_packBins(_byCol[col],_bw,_bd,_gp);_bins2.forEach(function(bin,bi){_mkPlate(bin,"Parts "+col+(_bins2.length>1?(" "+(bi+1)):"")+" · "+bin.length,col);});});
       }
     }
     if(typeof photoPanelGroup!=="undefined"&&photoPanelGroup)partList.push({group:photoPanelGroup,name:"Photo panel",flip:false,color:"#FFFFFF"});
@@ -3148,6 +3158,17 @@ function _fitsFootprint(w,h,bx,by){if(!(w>0)||!(h>0))return true;if((w<=bx&&h<=b
 function updateFitWarn(){try{var fw=document.getElementById("fitWarn");if(!fw)return;var pf=window.__plateFoot,bed=(typeof PRINTERS!=="undefined"&&PRINTERS[selPrinter])||{x:256,y:256};if(!pf||!pf.w){fw.style.display="none";return;}var pw=pf.w,ph=pf.h,fits=_fitsFootprint(pw,ph,bed.x,bed.y);if(fits){fw.style.display="none";return;}fw.innerHTML="\u26a0 This name is <b>"+(pw/10).toFixed(0)+"\u00d7"+(ph/10).toFixed(0)+" cm</b> \u2014 too big for your "+(bed.x/10)+"\u00d7"+(bed.y/10)+" cm printer. Lower <b>Letter height</b> in the Size tab, or pick a larger printer.";fw.style.display="block";}catch(e){}}
 function buildSummary(){try{updateFitWarn();}catch(e){}const nameExt=mmOf("nameExt")||10;let pocket=Math.max(0,Math.min(mmOf("nameDepth")||0,nameExt));const above=Math.round((nameExt-pocket)*10)/10;const liveTexts=texts.filter(t=>(t.str||"").trim());const parts=2+liveTexts.length+images.length+models.length;const bed=PRINTERS[selPrinter];const tnames=liveTexts.map(t=>t.str.trim()).join(", ")||"—";g("summary").innerHTML=`<b>${(v("letter")||"A").toUpperCase()}</b> · ${selFont.name} · overall ${fmt(mmOf("lh"))} tall × ${fmt(mmOf("bd"))} deep<br>Text layers (${liveTexts.length||"none"}): <b>${tnames}</b> · ${fmt(nameExt)} tall, ${fmt(above)} proud<br>Images: ${images.length||"none"} · 3D models: ${models.length||"none"}<br>Printer <b>${bed.n}</b> (${bed.x}×${bed.y} mm bed)<br><b>${parts} separate printable parts</b> — lid prints face-down`;}
 
+/* footprint (bed-plane extent) of a piece's group, in mm */
+function _footprint(grp){grp.updateMatrixWorld(true);var b=new THREE.Box3().setFromObject(grp);return {w:Math.max(1,b.max.x-b.min.x),d:Math.max(1,b.max.y-b.min.y)};}
+/* First-fit-decreasing bin packing: split items across as FEW bed-sized plates as possible. Each bin is
+   validated with the same shelf layout layoutTextPlate uses, so a bin only accepts a piece if the whole bin
+   still fits bedW x bedD once shelf-packed. Returns an array of bins (each an array of the given items). */
+function _packBins(items,bedW,bedD,gap){
+  function shelfFits(list){var rows=[],cur=[],curW=0,i;for(i=0;i<list.length;i++){var it=list[i],add=(cur.length?gap:0)+it.w;if(cur.length&&curW+add>bedW){rows.push(cur);cur=[];curW=0;add=it.w;}cur.push(it);curW+=add;}if(cur.length)rows.push(cur);var H=0;for(i=0;i<rows.length;i++){var mh=0;for(var k=0;k<rows[i].length;k++)mh=Math.max(mh,rows[i][k].d);H+=mh+(i?gap:0);}return H<=bedD;}
+  var sorted=items.slice().sort(function(a,b){return b.d-a.d;}),bins=[];
+  sorted.forEach(function(it){var placed=false;for(var bi=0;bi<bins.length;bi++){if(shelfFits(bins[bi].concat([it]))){bins[bi].push(it);placed=true;break;}}if(!placed)bins.push([it]);});
+  return bins;
+}
 /* ---------- Shared plate: auto-arrange the pieces in a tidy GRID that fits the bed (like a slicer) ----------
    The old packer laid every piece in ONE long row, which overflowed the bed and got spun diagonally. Instead
    shelf-pack the footprints into rows across the bed width, wrapping to a new row when the current one is full,
