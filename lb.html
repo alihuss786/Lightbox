@@ -718,7 +718,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="sw-item"><span class="sw" id="sw_model" onclick="openPal('model',event)"></span><span class="swl">3D model</span></div>
       </div>
       <div class="sub">Body plate</div>
-      <div class="sw-grid"><div class="sw-item"><span class="sw" id="sw_body" onclick="openPal('body',event)"></span><span class="swl">Body / edge</span></div></div>
+      <div class="sw-grid"><div class="sw-item"><span class="sw" id="sw_body" onclick="openPal('body',event)"></span><span class="swl">Body / edge</span></div><div class="sw-item"><span class="sw" id="sw_basetext" onclick="openPal('basetext',event)"></span><span class="swl">Base text</span></div></div>
       <div class="hint">Background is the white plate behind a name; Name/letter is the glowing text. When lit, the front glows and casts colour forward.</div>
     </div>
   </div>
@@ -1109,7 +1109,7 @@ _dimAdv.appendChild(_dimReset);_dimAdv.style.display="none";   // advanced start
 let images=[],selImg=-1,models=[],selModel=-1,uid=1,t1=null,mode="render",lightOn=true,diffOn=false,selPlate=0,DIM=null;
 // Dynamic, independent text layers on the lid. Each: {id, str, size(mm), x, y}. selText = active layer.
 let texts=[{id:uid++,str:"Aiyla",size:22,x:0,y:0,color:"#FFFFFF",bold:0}],selText=0;
-const COLORS={front:"#E2663B",name:"#FFFFFF",image:"#FFFFFF",model:"#E8C99B",body:"#C9542C"};
+const COLORS={front:"#E2663B",name:"#FFFFFF",image:"#FFFFFF",model:"#E8C99B",body:"#C9542C",basetext:"#F4E9DC"};
 /* ===== Lid surface textures (printable relief, lid front only) ===== */
 var TAU=Math.PI*2;
 function _tsat(v){return v<0?0:v>1?1:v;}
@@ -1321,8 +1321,8 @@ function pickColor(hex,keepFin){if(!palTarget)return;if(typeof palTarget==="stri
   COLORS[palTarget]=hex;applyColors();applyLight();try{applyFinishes();}catch(e){}g("palette").classList.remove("show");}
 function palHexIn(){let h=g("palHex").value.trim();if(/^#?[0-9a-fA-F]{6}$/.test(h)){if(h[0]!=="#")h="#"+h;const tid=palTextId(palTarget);if(tid!=null){onTextColor(tid,h);const s=g("sw_text_"+tid);if(s)s.style.background=h;return;}COLORS[palTarget]=h;applyColors();applyLight();}}
 document.addEventListener("pointerdown",e=>{const p=g("palette");if(p.classList.contains("show")&&!p.contains(e.target)&&!(e.target.classList&&e.target.classList.contains("sw")))p.classList.remove("show");});
-function refreshSwatches(){["front","name","image","model","body"].forEach(k=>{const s=g("sw_"+k);if(s)s.style.background=COLORS[k];});texts.forEach(t=>{const s=g("sw_text_"+t.id);if(s)s.style.background=t.color||"#FFFFFF";});}
-function applyColors(){refreshSwatches();if(MATS.front)MATS.front.color.set(COLORS.front);if(MATS.name)MATS.name.color.set(COLORS.name);if(MATS.image)MATS.image.color.set(COLORS.image);if(MATS.body)MATS.body.color.set(COLORS.body);if(MATS.model)MATS.model.color.set(COLORS.model);}
+function refreshSwatches(){["front","name","image","model","body","basetext"].forEach(k=>{const s=g("sw_"+k);if(s)s.style.background=COLORS[k];});texts.forEach(t=>{const s=g("sw_text_"+t.id);if(s)s.style.background=t.color||"#FFFFFF";});}
+function applyColors(){refreshSwatches();if(MATS.front)MATS.front.color.set(COLORS.front);if(MATS.name)MATS.name.color.set(COLORS.name);if(MATS.image)MATS.image.color.set(COLORS.image);if(MATS.body)MATS.body.color.set(COLORS.body);if(MATS.model)MATS.model.color.set(COLORS.model);if(MATS.basetext)MATS.basetext.color.set(COLORS.basetext);}
 
 function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");const lt=document.documentElement.getAttribute("data-theme")==="light";const onBg=lt?"#ffffff":"rgba(255,255,255,.12)";const onCol=lt?"#1d1d1f":"#fff";const offCol=lt?"#8a8a8f":"rgba(255,255,255,.55)";const onSh=lt?"0 1px 4px rgba(0,0,0,.12)":"none";R.style.background=r?onBg:"transparent";R.style.color=r?onCol:offCol;R.style.boxShadow=r?onSh:"none";P.style.background=!r?onBg:"transparent";P.style.color=!r?onCol:offCol;P.style.boxShadow=!r?onSh:"none";}
 function setMode(m){mode=m;zoom=1;try{document.body.classList.toggle("plates-mode",m==="plates");}catch(e){}paintSeg();g("platelist").style.display=m==="plates"?"flex":"none";g("printerbox").style.display=m==="plates"?"flex":"none";g("zoomhint").style.display="block";clearTimeout(zhT);zhT=setTimeout(()=>g("zoomhint").style.display="none",1900);if(m==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}buildModel();buildSummary();}
@@ -2615,7 +2615,10 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap,
   quad([xs[M],ymx(M),zTop],[xs[M],ymn(M),zTop],[xs[M],ymn(M),-gd[M]],[xs[M],ymx(M),-gd[M]]);   // end cap end
   // FRONT NAMEPLATE: raised text on the front vertical wall (the min-Y face the viewer sees). Each glyph is a closed
   // prism standing proud of the wall (its back sunk into the foot so the two solids fuse); orientOut fixes normals.
+  var _tpos=[];   // front nameplate lives in its own vertex buffer so it can carry its own colour
   if(baseTextPaths&&baseTextPaths.length){try{
+    function _ttri(a,b,c){var d1=Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])+Math.abs(a[2]-b[2]);var d2=Math.abs(b[0]-c[0])+Math.abs(b[1]-c[1])+Math.abs(b[2]-c[2]);var d3=Math.abs(a[0]-c[0])+Math.abs(a[1]-c[1])+Math.abs(a[2]-c[2]);if(d1<1e-5||d2<1e-5||d3<1e-5)return;_tpos.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]);}
+    function _tquad(a,b,c,e){_ttri(a,b,c);_ttri(a,c,e);}
     var _tmnx=1e18,_tmny=1e18,_tmxx=-1e18,_tmxy=-1e18;
     baseTextPaths.forEach(function(p){p.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<_tmnx)_tmnx=X;if(X>_tmxx)_tmxx=X;if(Y<_tmny)_tmny=Y;if(Y>_tmxy)_tmxy=Y;});});
     var _tW=_tmxx-_tmnx,_tH=_tmxy-_tmny;
@@ -2625,8 +2628,8 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap,
       var _tcx=(_tmnx+_tmxx)/2,_tcy=(_tmny+_tmxy)/2,_zc=-TT/2,_rel=Math.min(0.7,Math.max(0.4,foot*0.28));
       // map glyph (x right, y up) -> front face (X width, Z height, upright), as clipper paths so holes are detected
       var _face=baseTextPaths.map(function(p){return p.map(function(q){return {X:Math.round(((q.X/S-_tcx)*_sc)*S),Y:Math.round((_zc+(q.Y/S-_tcy)*_sc)*S)};});});
-      function _tcap(O,H,yy){var f=THREE.ShapeUtils.triangulateShape(O,H),V=O.concat.apply(O,H);f.forEach(function(fc){var p0=V[fc[0]],p1=V[fc[1]],p2=V[fc[2]];tri([p0.x,yy,p0.y],[p1.x,yy,p1.y],[p2.x,yy,p2.y]);});}
-      function _twall(L,y0,y1){for(var k=0;k<L.length;k++){var a=L[k],b=L[(k+1)%L.length];quad([a.x,y0,a.y],[b.x,y0,b.y],[b.x,y1,b.y],[a.x,y1,a.y]);}}
+      function _tcap(O,H,yy){var f=THREE.ShapeUtils.triangulateShape(O,H),V=O.concat.apply(O,H);f.forEach(function(fc){var p0=V[fc[0]],p1=V[fc[1]],p2=V[fc[2]];_ttri([p0.x,yy,p0.y],[p1.x,yy,p1.y],[p2.x,yy,p2.y]);});}
+      function _twall(L,y0,y1){for(var k=0;k<L.length;k++){var a=L[k],b=L[(k+1)%L.length];_tquad([a.x,y0,a.y],[b.x,y0,b.y],[b.x,y1,b.y],[a.x,y1,a.y]);}}
       _toShapes(_face).forEach(function(sh){var ep=sh.extractPoints();var O=_dd(ep.shape||[]);if(O.length<3)return;var H=(ep.holes||[]).map(_dd).filter(function(x){return x.length>=3;});
         _tcap(O,H,_frontY-_rel);_tcap(O,H,_frontY+0.5);_twall(O,_frontY-_rel,_frontY+0.5);H.forEach(function(h){_twall(h,_frontY-_rel,_frontY+0.5);});});
     }
@@ -2634,7 +2637,9 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap,
   try{pos=_orientOut(pos);}catch(e){}   // consistent outward normals per body so the slicer keeps the pocket, and fuses the overlapping raised pads into one solid
   var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
   geo.computeVertexNormals();geo.computeBoundingBox();
-  return {geo:geo,yWallTop:yWallTop-_seatDrop};   // textured: drop the foot so tile tops meet the original seat plane
+  var _txtGeo=null;
+  if(_tpos.length){try{_tpos=_orientOut(_tpos);}catch(e){}_txtGeo=new THREE.BufferGeometry();_txtGeo.setAttribute("position",new THREE.Float32BufferAttribute(_tpos,3));_txtGeo.computeVertexNormals();_txtGeo.computeBoundingBox();}
+  return {geo:geo,txtGeo:_txtGeo,yWallTop:yWallTop-_seatDrop};   // textured: drop the foot so tile tops meet the original seat plane
 }catch(e){return null;}}
 
 let PLATES=[],PLATE_THUMBS=[];
@@ -2665,6 +2670,7 @@ async function buildModel(){
   MATS.name=new THREE.MeshStandardMaterial({color:COLORS.name,roughness:0.45,metalness:0.0,envMapIntensity:0.35});
   MATS.image=new THREE.MeshStandardMaterial({color:COLORS.image,roughness:0.5,metalness:0.0,envMapIntensity:0.35});
   MATS.model=new THREE.MeshStandardMaterial({color:COLORS.model,roughness:0.5,metalness:0.0,envMapIntensity:0.35});
+  MATS.basetext=new THREE.MeshStandardMaterial({color:COLORS.basetext,roughness:0.5,metalness:0.0,envMapIntensity:0.35});
   const skirtMat=MATS.front,backMat=MATS.body,floorMat=MATS.front,topMat=MATS.front;
 
   let LW=lh*0.7,LH=lh;
@@ -2831,7 +2837,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       var _baseSil=filled;try{var _ls=off(filled,clearance+capW);if(_ls&&_ls.length)_baseSil=_ls;}catch(e){}
       var _btp=null;if(_mnt.base.text){try{var _bo=await loadOT(selNameFont.url);_btp=nameSubjOT(_bo,_mnt.base.text,100);}catch(e){_btp=null;}}   // front nameplate glyph outlines
       var _bres=buildCradleBase(_baseSil,cx,cy,depth,_mnt.base.w,_mnt.base.d,_mnt.base.t,_mnt.base.shape,TT,null,false,_btp);   // TT = lid front-cap protrusion; widens the pocket front-to-back to the LID depth, not the back box
-      if(_bres&&_bres.geo){var _bgrp=new THREE.Group();_bgrp.add(new THREE.Mesh(_bres.geo,MATS.body));_bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mnt.base.raise||0),-depth/2);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.body});}}
+      if(_bres&&_bres.geo){var _bgrp=new THREE.Group();_bgrp.add(new THREE.Mesh(_bres.geo,MATS.body));if(_bres.txtGeo)_bgrp.add(new THREE.Mesh(_bres.txtGeo,MATS.basetext));_bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mnt.base.raise||0),-depth/2);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.body});}}
     // TestBase (experimental) — same cradle, but the texture runs to the edge and wraps down the sides (edgeWrap).
     if(_mnt&&_mnt.testbase&&_mnt.testbase.on&&filled&&filled.length){
       var _tsil=filled;try{var _tls=off(filled,clearance+capW);if(_tls&&_tls.length)_tsil=_tls;}catch(e){}
