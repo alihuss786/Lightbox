@@ -2608,10 +2608,11 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap)
   var bf=THREE.ShapeUtils.triangulateShape(_capOut,[]);
   bf.forEach(function(f){var p0=_capOut[f[0]],p1=_capOut[f[1]],p2=_capOut[f[2]];var A=[p0.x,p0.y,zBot],B=[p1.x,p1.y,zBot],C=[p2.x,p2.y,zBot];
     var cr=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);if(cr>0)tri(A,C,B);else tri(A,B,C);});
-  // Side wall: plain vertical wall (grout level). TestBase additionally wraps raised tile pads onto it below.
+  // Side wall: plain smooth vertical wall. The texture covers the full top and runs right to the edge; the sides
+  // are left clean because wrapping the pattern down the short vertical walls reads cluttered (busy folded tiles +
+  // a ragged bottom), especially for geometric patterns. _sidePads() is kept available for a future edge treatment.
   for(i0=0;i0<outer.length;i0++){var pA=outer[i0],pB=outer[(i0+1)%outer.length];
     quad([pA.x,pA.y,zTop],[pB.x,pB.y,zTop],[pB.x,pB.y,zBot],[pA.x,pA.y,zBot]);}
-  if(_ew){_sidePads(zTop,zBot,_res);}
   // contoured floor + two side walls (straight top edge, contoured bottom) + two end caps
   for(i0=0;i0<M;i0++){var x0=xs[i0],x1=xs[i0+1],f0=-gd[i0],f1=-gd[i0+1];
     quad([x0,ymn(i0),f0],[x1,ymn(i0+1),f1],[x1,ymx(i0+1),f1],[x0,ymx(i0),f0]);                 // floor
