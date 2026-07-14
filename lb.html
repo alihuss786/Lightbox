@@ -861,7 +861,9 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="row"><span class="lbl">Texture</span><select id="mntBaseTex" class="psel" style="width:auto" onchange="mntRebuild()"><option value="none">None (smooth)</option></select></div>
         <div class="hint">A raised pattern on the foot border around your design — the model still seats flush.</div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Front text</span><input type="text" id="mntBaseText" maxlength="20" placeholder="e.g. a name (optional)" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:15px system-ui,sans-serif;box-sizing:border-box" oninput="mntRebuild()"></div>
-        <div class="hint">Raised text along the front edge of the foot.</div>
+        <button class="upfont" id="upBaseFontBtn" onclick="g('baseFontFile').click()">⬆ Upload text font (.ttf / .otf)</button>
+        <input type="file" id="baseFontFile" accept=".ttf,.otf,font/ttf,font/otf,application/font-sfnt" style="display:none" onchange="onBaseFontUpload(this)">
+        <div class="hint" id="baseFontHint">Raised text along the front edge of the foot. Defaults to your Name font — upload your own here to override it.</div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Width — <b id="mntBaseWLbl">90</b> mm</span><input type="range" id="mntBaseW" min="40" max="200" step="1" value="90" oninput="mntLabel()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth — <b id="mntBaseDLbl">58</b> mm</span><input type="range" id="mntBaseD" min="40" max="120" step="1" value="58" oninput="mntLabel()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickness — <b id="mntBaseTLbl">10</b> mm</span><input type="range" id="mntBaseT" min="3" max="24" step="1" value="10" oninput="mntLabel()" onchange="mntRebuild()"></div>
@@ -1084,9 +1086,25 @@ function onFontUpload(input){const file=input&&input.files&&input.files[0];if(!f
   reader.readAsArrayBuffer(file);input.value="";
 }
 function removeNameFont(key){const i=NAME_FONTS.findIndex(f=>f.url===key);if(i<0)return;const wasSel=NAME_FONTS[i]===selNameFont;NAME_FONTS.splice(i,1);delete otCache[key];dbDelFont(key);if(wasSel)selNameFont=NAME_FONTS[0];renderNameGrid();if(wasSel)rebuild();}
+// Base nameplate font: its own uploadable typeface. null = fall back to the selected Name font at build time.
+let baseTextFont=null;
+function baseFontUrl(){return (baseTextFont&&baseTextFont.url)||selNameFont.url;}
+function updateBaseFontHint(){const h=g("baseFontHint");if(!h)return;h.innerHTML=baseTextFont?('Using <b>'+baseTextFont.name+'</b> for the front text. <a href="#" onclick="clearBaseFont();return false" style="color:var(--acc)">Reset to Name font</a>.'):'Raised text along the front edge of the foot. Defaults to your Name font — upload your own here to override it.';}
+function setBaseFont(id,name,buf,apply){try{const otf=opentype.parse(buf);otCache[id]=otf;baseTextFont={name,url:id};if(apply){updateBaseFontHint();if(typeof mntRebuild==="function")mntRebuild();}return true;}catch(_){return false;}}
+function clearBaseFont(){baseTextFont=null;updateBaseFontHint();if(typeof mntRebuild==="function")mntRebuild();}
+function onBaseFontUpload(input){const file=input&&input.files&&input.files[0];if(!file)return;
+  showFontLoading(true,"Reading "+file.name+"…");
+  const reader=new FileReader();
+  reader.onload=ev=>{const buf=ev.target.result;const nm=(file.name.replace(/\.(ttf|otf)$/i,"").trim().slice(0,18))||"Custom";const id="base-"+Date.now()+"-"+Math.floor(Math.random()*1e4);
+    const ok=setBaseFont(id,nm,buf,true);showFontLoading(false);
+    if(ok)dbPutFont({id,name:nm,buf,kind:"base"});                 // persist so it survives a page refresh
+    else uiAlert("Could not read that font. Please upload a standard .ttf or .otf file.");};
+  reader.onerror=()=>{showFontLoading(false);uiAlert("Could not read that file.");};
+  reader.readAsArrayBuffer(file);input.value="";
+}
 renderNameGrid();
 // Auto-hydrate previously-uploaded custom fonts from IndexedDB on launch (non-blocking, additive).
-dbAllFonts().then(recs=>{recs.forEach(r=>{if(r&&r.id&&r.buf){if(r.kind==="letter")addCustomLetterFont(r.id,r.name||"Letter",r.buf,false);else addCustomFont(r.id,r.name||"Custom",r.buf,false);}});}).catch(()=>{});
+dbAllFonts().then(recs=>{recs.forEach(r=>{if(r&&r.id&&r.buf){if(r.kind==="letter")addCustomLetterFont(r.id,r.name||"Letter",r.buf,false);else if(r.kind==="base")setBaseFont(r.id,r.name||"Custom",r.buf,true);else addCustomFont(r.id,r.name||"Custom",r.buf,false);}});}).catch(()=>{});
 
 const DIMS=[{id:"lh",l:"Letter height",min:50,max:400,st:1,val:140},{id:"bd",l:"Light box depth",min:40,max:150,st:1,val:40},{id:"wall",l:"Wall thickness",min:1.5,max:8,st:.5,val:2},{id:"topT",l:"Lid top thickness",min:1,max:12,st:.5,val:1},{id:"capW",l:"Cap wall",min:1.5,max:8,st:.5,val:3},{id:"skirt",l:"Skirt depth",min:3,max:120,st:1,val:14}];
 const dr=g("dimRows");
@@ -2835,7 +2853,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       // Seat/contour to the LID silhouette (the outermost, LOWEST part the eye sees) not the body — in logo/name
       // mode the lid overhangs the body by ~clearance+capW, so seating to the body buried the visible lid.
       var _baseSil=filled;try{var _ls=off(filled,clearance+capW);if(_ls&&_ls.length)_baseSil=_ls;}catch(e){}
-      var _btp=null;if(_mnt.base.text){try{var _bo=await loadOT(selNameFont.url);_btp=nameSubjOT(_bo,_mnt.base.text,100);}catch(e){_btp=null;}}   // front nameplate glyph outlines
+      var _btp=null;if(_mnt.base.text){try{var _bo=await loadOT((typeof baseFontUrl==="function")?baseFontUrl():selNameFont.url);_btp=nameSubjOT(_bo,_mnt.base.text,100);}catch(e){_btp=null;}}   // front nameplate glyph outlines (custom base font if uploaded, else the Name font)
       var _bres=buildCradleBase(_baseSil,cx,cy,depth,_mnt.base.w,_mnt.base.d,_mnt.base.t,_mnt.base.shape,TT,null,false,_btp);   // TT = lid front-cap protrusion; widens the pocket front-to-back to the LID depth, not the back box
       if(_bres&&_bres.geo){var _bgrp=new THREE.Group();_bgrp.add(new THREE.Mesh(_bres.geo,MATS.body));if(_bres.txtGeo)_bgrp.add(new THREE.Mesh(_bres.txtGeo,MATS.basetext));_bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mnt.base.raise||0),-depth/2);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.body});}}
     // TestBase (experimental) — same cradle, but the texture runs to the edge and wraps down the sides (edgeWrap).
