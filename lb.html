@@ -150,6 +150,12 @@ details.precise>*:not(summary){padding:0 12px 12px}
 .sw{width:28px;height:28px;border-radius:50%;border:2px solid var(--line2);cursor:pointer;flex:none;box-shadow:0 2px 6px rgba(0,0,0,.4)}
 .sw:hover{border-color:var(--txt2)}
 .sw-item .swl{font-size:12px;color:var(--txt2)}
+/* slim always-visible colour bar (body/edge + AMS) that replaces the old Colour tab */
+.colourbar{display:flex;flex-direction:column;gap:10px;padding:10px 12px;margin-bottom:4px;border:1px solid var(--hair);border-radius:12px;background:var(--card)}
+.colourbar .cb-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.colourbar .cb-lbl{font-size:12.5px;color:var(--txt2);margin-right:auto}
+.colourbar .cb-ams{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--txt2);cursor:pointer}
+.colourbar .cb-ams input{width:16px;height:16px;flex:none}
 
 /* ----- placement pads ----- */
 .pad{position:relative;height:200px;border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden;touch-action:none;background-image:linear-gradient(var(--hair) 1px,transparent 1px),linear-gradient(90deg,var(--hair) 1px,transparent 1px);background-size:24px 24px}
@@ -701,28 +707,19 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
 <div class="fontwait" id="fontWait"><div class="fwspin"></div><span id="fontWaitMsg">Parsing font…</span></div>
 
 <div class="controls"><div class="pl-head"><button class="pl-title" onclick="plToggle()"><span class="pl-ic">✦</span><span>Designer Studio</span><i class="pl-chev">⌄</i></button><button class="pl-dice" onclick="plRandom()" title="Randomise colour">⚄</button></div>
-  <div class="acc open" data-feat="colour">
-    <div class="acc-h" onclick="accT(this)">Colour <i class="chev">⌄</i></div>
-    <div class="acc-b">
-      <label style="display:flex;align-items:center;gap:8px;margin:2px 0 12px;font-size:12.5px;cursor:pointer;line-height:1.3"><input type="checkbox" id="amsToggle" onchange="toggleAMS(this.checked)" style="width:17px;height:17px;flex:none"> I have an AMS (multi-colour printer)</label>
-      <div id="amsPal" style="display:none;margin-bottom:14px">
-        <div class="sub">Your AMS filaments</div>
-        <div class="sw-grid" id="amsSwatches"></div>
-        <div class="hint" style="font-size:11px">Set the colours loaded in your AMS, then tap a part below and pick one. On export they bake into one multi-colour .3mf.</div>
-      </div>
-      <div class="sub">Front plate</div>
-      <div class="sw-grid">
-        <div class="sw-item"><span class="sw" id="sw_front" onclick="openPal('front',event)"></span><span class="swl">Name / letter</span></div>
-        <div class="sw-item"><span class="sw" id="sw_name" onclick="openPal('name',event)"></span><span class="swl">Background</span></div>
-        <div class="sw-item"><span class="sw" id="sw_image" onclick="openPal('image',event)"></span><span class="swl">Image</span></div>
-        <div class="sw-item"><span class="sw" id="sw_model" onclick="openPal('model',event)"></span><span class="swl">3D model</span></div>
-      </div>
-      <div class="sub">Body plate</div>
-      <div class="sw-grid"><div class="sw-item"><span class="sw" id="sw_body" onclick="openPal('body',event)"></span><span class="swl">Body / edge</span></div><div class="sw-item"><span class="sw" id="sw_basetext" onclick="openPal('basetext',event)"></span><span class="swl">Base text</span></div></div>
-      <div class="hint">Background is the white plate behind a name; Name/letter is the glowing text. When lit, the front glows and casts colour forward.</div>
+  <div class="colourbar" id="colourbar">
+    <div class="cb-row">
+      <span class="sw" data-role="body" onclick="openPal('body',event)" title="Body / edge colour"></span>
+      <span class="cb-lbl">Body / edge colour</span>
+      <label class="cb-ams"><input type="checkbox" id="amsToggle" onchange="toggleAMS(this.checked)"> <span>AMS multi-colour</span></label>
+    </div>
+    <div id="amsPal" style="display:none">
+      <div class="sub">Your AMS filaments</div>
+      <div class="sw-grid" id="amsSwatches"></div>
+      <div class="hint" style="font-size:11px">Set the colours loaded in your AMS, then tap any part’s colour dot (in its tab) and pick one. On export they bake into one multi-colour .3mf.</div>
     </div>
   </div>
-  <div class="acc" data-feat="templates">
+  <div class="acc open" data-feat="templates">
     <div class="acc-h" onclick="accT(this)">Templates <i class="chev">⌄</i></div>
     <div class="acc-b">
       <div class="hint">Ready-made designs — tap one to load it, then make it yours.</div>
@@ -759,6 +756,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
     <div class="acc-h" onclick="accT(this)">Letter <i class="chev">⌄</i></div>
     <div class="acc-b">
       <div class="row"><span class="lbl">Capital letter</span><input type="text" class="letter-big" id="letter" maxlength="1" value="A" oninput="this.value=(this.value.slice(-1)||'').toUpperCase();rebuild()"></div>
+      <div class="sw-grid"><div class="sw-item"><span class="sw" data-role="front" onclick="openPal('front',event)"></span><span class="swl">Letter / text glow colour</span></div></div>
       <div class="row"><span class="lbl">Letter font</span><div class="grid3" id="font-grid"></div></div>
       <button class="upfont" id="upLetterFontBtn" onclick="g('letterFontFile').click()">⬆ Upload Letter Font (.ttf / .otf)</button>
       <input type="file" id="letterFontFile" accept=".ttf,.otf,font/ttf,font/otf,application/font-sfnt" style="display:none" onchange="onLetterFontUpload(this)">
@@ -785,6 +783,9 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="hint">Turn the lid into a name plate — your name sits flat on a solid white glowing background. Uses your selected Letter font.</div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Name</span><input type="text" id="lidName" maxlength="24" placeholder="e.g. Leo" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:15px system-ui,sans-serif;box-sizing:border-box" oninput="onNameInput()"></div>
       <button class="addtext" onclick="clearName()">Clear name (back to single letter)</button>
+      <div class="sub" style="margin-top:14px">Colours</div>
+      <div class="sw-grid"><div class="sw-item"><span class="sw" data-role="front" onclick="openPal('front',event)"></span><span class="swl">Name colour</span></div><div class="sw-item"><span class="sw" data-role="name" onclick="openPal('name',event)"></span><span class="swl">Background</span></div></div>
+      <div class="hint">The background is the glowing white plate; the name is the coloured text on top of it.</div>
       <div class="sub" style="margin-top:16px">Add an icon <span style="font-weight:400;opacity:.55;font-size:11px">optional — sits by the name</span></div>
       <div style="display:flex;gap:6px;margin:6px 0 9px"><button type="button" class="iside sel" id="isideL" onclick="setIconSide('left')">◀ Left of name</button><button type="button" class="iside" id="isideR" onclick="setIconSide('right')">Right of name ▶</button></div>
       <div id="iconGrid" class="icon-grid"></div>
@@ -806,6 +807,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div id="imgControls" style="display:none;flex-direction:column;gap:12px">
         <div class="sub">Images</div>
         <div class="row"><span class="lbl">Tap to select, × to remove</span><div id="imgStrip" class="istrip"></div></div>
+        <div class="sw-grid"><div class="sw-item"><span class="sw" data-role="image" onclick="openPal('image',event)"></span><span class="swl">Image colour</span></div></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Selected image size</span><div class="szc"><button type="button" class="stp" onclick="nudgeImg(-1)">−</button><input type="range" id="imgSizeR" min="10" max="250" step="1" value="60" oninput="setImgSizeMm(+this.value)"><button type="button" class="stp" onclick="nudgeImg(1)">＋</button><div class="numbox" style="width:82px"><input type="number" id="imgSize" value="60" min="10" max="250" oninput="onImgSize();syncImgSlider()"><span class="u">mm</span></div></div></div>
         <div class="row"><span class="lbl">Position the image</span>
           <div class="pad" id="pad_img"><svg class="pad-svg" id="padSvg_img"></svg><div class="pad-cross h"></div><div class="pad-cross v"></div><div class="pad-layer" id="imgLayer"></div></div>
@@ -820,6 +822,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div id="modelControls" style="display:none;flex-direction:column;gap:12px">
         <div class="sub">Placed models</div>
         <div class="row"><span class="lbl">Tap to select, × to remove</span><div id="modelStrip" class="istrip"></div></div>
+        <div class="sw-grid"><div class="sw-item"><span class="sw" data-role="model" onclick="openPal('model',event)"></span><span class="swl">3D model colour</span></div></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Size (longest edge)</span><div class="szc"><button type="button" class="stp" onclick="nudgeModel(-1)">−</button><input type="range" id="mSizeR" min="5" max="280" step="1" value="40" oninput="setModelSizeMm(+this.value)"><button type="button" class="stp" onclick="nudgeModel(1)">＋</button><div class="numbox" style="width:82px"><input type="number" id="mSize" value="40" min="5" max="280" oninput="onModelChange();syncMSlider()"><span class="u2">mm</span></div></div></div>
         <div class="row"><span class="lbl">Rotate on lid</span><div class="srow"><input type="range" id="mrzR" min="0" max="359" step="1" value="0" oninput="g('mrz').value=this.value;onModelChange()"><div class="numbox"><input type="number" id="mrz" value="0" min="0" max="359" oninput="g('mrzR').value=this.value;onModelChange()"><span class="u2">°</span></div></div></div>
         <div class="row"><span class="lbl">Position on lid (top view)</span>
@@ -864,6 +867,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <button class="upfont" id="upBaseFontBtn" onclick="g('baseFontFile').click()">⬆ Upload text font (.ttf / .otf)</button>
         <input type="file" id="baseFontFile" accept=".ttf,.otf,font/ttf,font/otf,application/font-sfnt" style="display:none" onchange="onBaseFontUpload(this)">
         <div class="hint" id="baseFontHint">Raised text along the front edge of the foot. Defaults to your Name font — upload your own here to override it.</div>
+        <div class="sw-grid"><div class="sw-item"><span class="sw" data-role="basetext" onclick="openPal('basetext',event)"></span><span class="swl">Base text colour</span></div></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Width — <b id="mntBaseWLbl">90</b> mm</span><input type="range" id="mntBaseW" min="40" max="200" step="1" value="90" oninput="mntLabel()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth — <b id="mntBaseDLbl">58</b> mm</span><input type="range" id="mntBaseD" min="40" max="120" step="1" value="58" oninput="mntLabel()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickness — <b id="mntBaseTLbl">10</b> mm</span><input type="range" id="mntBaseT" min="3" max="24" step="1" value="10" oninput="mntLabel()" onchange="mntRebuild()"></div>
@@ -1339,7 +1343,7 @@ function pickColor(hex,keepFin){if(!palTarget)return;if(typeof palTarget==="stri
   COLORS[palTarget]=hex;applyColors();applyLight();try{applyFinishes();}catch(e){}g("palette").classList.remove("show");}
 function palHexIn(){let h=g("palHex").value.trim();if(/^#?[0-9a-fA-F]{6}$/.test(h)){if(h[0]!=="#")h="#"+h;const tid=palTextId(palTarget);if(tid!=null){onTextColor(tid,h);const s=g("sw_text_"+tid);if(s)s.style.background=h;return;}COLORS[palTarget]=h;applyColors();applyLight();}}
 document.addEventListener("pointerdown",e=>{const p=g("palette");if(p.classList.contains("show")&&!p.contains(e.target)&&!(e.target.classList&&e.target.classList.contains("sw")))p.classList.remove("show");});
-function refreshSwatches(){["front","name","image","model","body","basetext"].forEach(k=>{const s=g("sw_"+k);if(s)s.style.background=COLORS[k];});texts.forEach(t=>{const s=g("sw_text_"+t.id);if(s)s.style.background=t.color||"#FFFFFF";});}
+function refreshSwatches(){document.querySelectorAll(".sw[data-role]").forEach(function(s){var r=s.getAttribute("data-role");if(COLORS[r]!=null)s.style.background=COLORS[r];});texts.forEach(t=>{const s=g("sw_text_"+t.id);if(s)s.style.background=t.color||"#FFFFFF";});}
 function applyColors(){refreshSwatches();if(MATS.front)MATS.front.color.set(COLORS.front);if(MATS.name)MATS.name.color.set(COLORS.name);if(MATS.image)MATS.image.color.set(COLORS.image);if(MATS.body)MATS.body.color.set(COLORS.body);if(MATS.model)MATS.model.color.set(COLORS.model);if(MATS.basetext)MATS.basetext.color.set(COLORS.basetext);}
 
 function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");const lt=document.documentElement.getAttribute("data-theme")==="light";const onBg=lt?"#ffffff":"rgba(255,255,255,.12)";const onCol=lt?"#1d1d1f":"#fff";const offCol=lt?"#8a8a8f":"rgba(255,255,255,.55)";const onSh=lt?"0 1px 4px rgba(0,0,0,.12)":"none";R.style.background=r?onBg:"transparent";R.style.color=r?onCol:offCol;R.style.boxShadow=r?onSh:"none";P.style.background=!r?onBg:"transparent";P.style.color=!r?onCol:offCol;P.style.boxShadow=!r?onSh:"none";}
@@ -4715,7 +4719,7 @@ window.USDZExporter=USDZExporter;})();
       card.querySelector(".tDel").onclick=async function(){var ok=await dashConfirm("Delete template \u201c"+(t.name||"")+"\u201d? This removes it for everyone.");if(!ok)return;var dd=await sb.from("templates").delete().eq("id",t.id);if(dd&&dd.error){uiAlert("Delete failed: "+esc(dd.error.message));return;}renderTemplatesAdmin(host);try{if(window.__loadTemplates)window.__loadTemplates();}catch(e){}};
       var swap=async function(j){if(j<0||j>=rows.length)return;var a=rows[i],b=rows[j];await sb.from("templates").update({sort:b.sort}).eq("id",a.id);await sb.from("templates").update({sort:a.sort}).eq("id",b.id);renderTemplatesAdmin(host);try{if(window.__loadTemplates)window.__loadTemplates();}catch(e){}};
       card.querySelector(".tUp").onclick=function(){swap(i-1);};card.querySelector(".tDn").onclick=function(){swap(i+1);};list.appendChild(card);});}
-  function renderTabsAdmin(host){var sb=window.__sb;var FEATS=[["colour","Colour"],["templates","Templates"],["textures","Textures"],["lithophane","Lithophane"],["letter","Letter"],["name","Name"],["logo","Logo"],["models","Images & 3D models"],["dimensions","Dimensions"],["ar","View in AR button"],["kiosk","Kiosk (mode · orders · stock · analytics)"]];if(!_dashCfg||typeof _dashCfg!=="object")_dashCfg={};if(!_dashCfg.features)_dashCfg.features={};if(!_dashCfg.tiers)_dashCfg.tiers={};
+  function renderTabsAdmin(host){var sb=window.__sb;var FEATS=[["templates","Templates"],["textures","Textures"],["lithophane","Lithophane"],["letter","Letter"],["name","Name"],["logo","Logo"],["models","Images & 3D models"],["dimensions","Dimensions"],["ar","View in AR button"],["kiosk","Kiosk (mode · orders · stock · analytics)"]];if(!_dashCfg||typeof _dashCfg!=="object")_dashCfg={};if(!_dashCfg.features)_dashCfg.features={};if(!_dashCfg.tiers)_dashCfg.tiers={};
     var TIERS=[["features","Everyone"],["spark","Spark"],["hobby","Hobby"],["studio","Studio"],["merchant","Merchant"]];var isTier=_tabTier!=="features";if(isTier&&!_dashCfg.tiers[_tabTier])_dashCfg.tiers[_tabTier]={};var store=isTier?_dashCfg.tiers[_tabTier]:_dashCfg.features;if(isTier)FEATS.forEach(function(f){if(!store[f[0]])store[f[0]]=(_dashCfg.features[f[0]]||"on");});var STATES=[["on","On"],["soon","Coming soon"],["hidden","Hidden"]];
     var selBar=TIERS.map(function(t){var on=t[0]===_tabTier;return '<button data-tier="'+t[0]+'" style="padding:7px 13px;border-radius:9px;border:1px solid '+(on?"#e0c08d":"#2a2d35")+';background:'+(on?"rgba(224,192,141,.14)":"transparent")+';color:'+(on?"#e0c08d":"#c7cbd2")+';font-size:12px;font-weight:600;cursor:pointer">'+t[1]+'</button>';}).join("");
     var _tnm=TIERS.filter(function(x){return x[0]===_tabTier;})[0][1];var hint=isTier?('Set every tab manually for <b style="color:#e0c08d">'+esc(_tnm)+'</b> accounts. Seeded from the Everyone settings \u2014 tweak to give this tier features first.'):'The baseline for every visitor. Each tier is set separately below.';
