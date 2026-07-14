@@ -741,6 +741,36 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       </div>
     </div>
   </div>
+  <div class="acc" data-feat="labs">
+    <div class="acc-h" onclick="accT(this)">Labs ✨ <i class="chev">⌄</i></div>
+    <div class="acc-b">
+      <div class="hint">⚗️ <b>Experimental effects</b> — early prototypes. They ride on the front of the box and come alive when the lamp is on. Test-print before selling.</div>
+      <div class="sub" style="margin-top:6px">🫥 Hidden message</div>
+      <div class="toggle-row"><span class="lbl">Only appears when lit</span><div class="tg" id="tg_labs_hidden" onclick="labsToggle('hidden')"><div class="k"></div></div></div>
+      <div id="labs_hidden_ctl" style="display:none;flex-direction:column;gap:9px">
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Secret text</span><input type="text" id="labs_hidden_txt" maxlength="24" value="LOVE" placeholder="e.g. a name" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:15px system-ui,sans-serif;box-sizing:border-box" oninput="labsHiddenText(this.value)"></div>
+        <div class="hint">Flush and invisible in daylight; glows through when you turn the lamp on. Toggle the lamp to preview.</div>
+      </div>
+      <div class="sub" style="margin-top:14px">🌈 Colour print (backlit)</div>
+      <div class="toggle-row"><span class="lbl">Photo in real colours</span><div class="tg" id="tg_labs_clitho" onclick="labsToggle('clitho')"><div class="k"></div></div></div>
+      <div id="labs_clitho_ctl" style="display:none;flex-direction:column;gap:9px">
+        <label class="upfont" style="cursor:pointer">⬆ Upload a photo<input type="file" id="labs_clitho_file" accept="image/*" hidden onchange="labsLithoUpload(this)"></label>
+        <div id="labs_clitho_pal"></div>
+        <div class="hint">Splits the photo into a few filament colours (AMS filament-painting). Load matching filaments; it glows in colour when lit.</div>
+      </div>
+      <div class="sub" style="margin-top:14px">✨ Star map</div>
+      <div class="toggle-row"><span class="lbl">The night sky for a date &amp; place</span><div class="tg" id="tg_labs_star" onclick="labsToggle('star')"><div class="k"></div></div></div>
+      <div id="labs_star_ctl" style="display:none;flex-direction:column;gap:9px">
+        <div class="row"><span class="lbl">Date</span><input type="date" id="labs_star_date" onchange="labsStarParam()" style="padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:14px system-ui"></div>
+        <div class="row"><span class="lbl">City</span><select id="labs_star_city" class="psel" style="width:auto" onchange="labsCity(this)"><option value="">Pick a city…</option><option value="51.5,-0.12">London</option><option value="40.71,-74.01">New York</option><option value="48.86,2.35">Paris</option><option value="34.05,-118.24">Los Angeles</option><option value="-33.87,151.21">Sydney</option><option value="25.20,55.27">Dubai</option><option value="35.68,139.69">Tokyo</option><option value="19.43,-99.13">Mexico City</option></select></div>
+        <div class="grid2">
+          <div class="row"><span class="lbl">Latitude</span><div class="numbox"><input type="number" id="labs_star_lat" value="51.5" step="0.01" oninput="labsStarParam()"><span class="u">°</span></div></div>
+          <div class="row"><span class="lbl">Longitude</span><div class="numbox"><input type="number" id="labs_star_lon" value="-0.12" step="0.01" oninput="labsStarParam()"><span class="u">°</span></div></div>
+        </div>
+        <div class="hint">Bright-star sky projected for your evening — turn the lamp on to see the stars glow. (Prototype: brightest stars &amp; a couple of constellations.)</div>
+      </div>
+    </div>
+  </div>
   <div class="acc" data-feat="letter">
     <div class="acc-h" onclick="accT(this)">Letter <i class="chev">⌄</i></div>
     <div class="acc-b">
@@ -1356,7 +1386,7 @@ function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");cons
 function setMode(m){mode=m;zoom=1;try{document.body.classList.toggle("plates-mode",m==="plates");}catch(e){}paintSeg();g("platelist").style.display=m==="plates"?"flex":"none";g("printerbox").style.display=m==="plates"?"flex":"none";g("zoomhint").style.display="block";clearTimeout(zhT);zhT=setTimeout(()=>g("zoomhint").style.display="none",1900);if(m==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}buildModel();buildSummary();}
 function toggleLight(){if((window.__explodeAmt||0)>0.001)return;lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plTab(i){var wrap=document.querySelector(".controls");if(!wrap)return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));accs.forEach(function(a,j){a.classList.toggle("open",j===i);});maybeExitNameMode();var tabs=[].slice.call(wrap.querySelectorAll(".pl-tab"));tabs.forEach(function(t,j){t.classList.toggle("active",j===i);});var at=tabs[i];if(at&&at.scrollIntoView){try{at.scrollIntoView({inline:"nearest",block:"nearest"});}catch(e){}}try{wrap.scrollTop=0;}catch(e){}}
 function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export)$/i.test(name))return;var _df=acc.getAttribute("data-feat");if(_df&&featState(_df)==="hidden")return;var t=document.createElement("button");t.className="pl-tab"+(acc.classList.contains("feat-soon")?" pl-soon":"");t.textContent=name;t.setAttribute("data-i",i);t.onclick=function(){plTab(i);};bar.appendChild(t);});[].slice.call(bar.querySelectorAll(".pl-soon")).forEach(function(x){bar.appendChild(x);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
-function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Letter"],name:["\u270e","Name"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"],logo:["\u25a3","Logo"],lithophane:["\u25d0","Lithophane"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
+function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Letter"],name:["\u270e","Name"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"],logo:["\u25a3","Logo"],lithophane:["\u25d0","Lithophane"],labs:["\u2728","Labs"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
 // ---- Mounting tab: toggle a feature, reveal its controls, keep the slider labels live, and rebuild ----
 function mntToggle(k){var t=document.getElementById("tg_"+k);if(!t)return;t.classList.toggle("on");var c=document.getElementById(k+"Ctl");if(c)c.style.display=t.classList.contains("on")?"flex":"none";mntSyncPad();mntRebuild();if(typeof renderMntPad==="function")renderMntPad();}
@@ -1381,7 +1411,102 @@ function applyLight(){{var _lbl=g("lightLbl");if(_lbl)_lbl.textContent=lightOn?"
   if(glowFace){glowFace.visible=lightOn;glowFace.material.color.copy(fc.clone().lerp(new THREE.Color(0xffffff),0.06));glowFace.material.opacity=diffOn?0.8:0.92;}
   (window.__glowSpots||[]).forEach(function(g){g.color.copy(fc);g.intensity=lightOn?(g.userData.baseI||13):0;});
   try{if(typeof reassertGlow==="function")reassertGlow();}catch(e){}   // glow filaments stay lit even with the lamp off
+  try{applyLabsLight();}catch(e){}
 }
+
+/* ============================ LABS — experimental backlit features (prototypes) ============================
+   Three additive front-panel effects that ride on the box front, kept self-contained so the core builder is
+   untouched: (1) Hidden message that only appears when the lamp is on, (2) backlit Colour print from a photo
+   (AMS filament-painting), (3) a Star map for a date + place. Each builds its own part(s) in buildLabs(). */
+var LABS={hidden:{on:false,text:"LOVE"},clitho:{on:false,px:null,pal:null},star:{on:false,date:"",lat:51.5,lon:-0.12}};
+function labsToggle(k){if(!LABS[k])return;LABS[k].on=!LABS[k].on;var t=document.getElementById("tg_labs_"+k);if(t)t.classList.toggle("on",LABS[k].on);var c=document.getElementById("labs_"+k+"_ctl");if(c)c.style.display=LABS[k].on?"flex":"none";if(typeof scheduleBuild==="function")scheduleBuild();}
+function labsHiddenText(v){LABS.hidden.text=(v||"").slice(0,24);if(typeof scheduleBuild==="function")scheduleBuild();}
+function labsStarParam(){var d=(document.getElementById("labs_star_date")||{}).value;if(d!=null)LABS.star.date=d;var la=parseFloat((document.getElementById("labs_star_lat")||{}).value),lo=parseFloat((document.getElementById("labs_star_lon")||{}).value);if(isFinite(la))LABS.star.lat=la;if(isFinite(lo))LABS.star.lon=lo;if(typeof scheduleBuild==="function")scheduleBuild();}
+function labsCity(sel){var p=(sel.value||"").split(",");if(p.length===2){var a=document.getElementById("labs_star_lat"),b=document.getElementById("labs_star_lon");if(a)a.value=p[0];if(b)b.value=p[1];labsStarParam();}}
+/* sample an image to a G×G colour grid */
+function _labsSample(img,G){var cv=document.createElement("canvas");cv.width=cv.height=G;var cx=cv.getContext("2d");cx.drawImage(img,0,0,G,G);var d=cx.getImageData(0,0,G,G).data,cells=[];for(var i=0;i<G*G;i++){var r=d[i*4],g=d[i*4+1],b=d[i*4+2];cells.push({r:r,g:g,b:b,lum:(0.299*r+0.587*g+0.114*b)/255});}return {G:G,cells:cells};}
+/* derive a small print palette: bucket colours coarsely, keep the N most common, map each cell to nearest */
+function _labsPalette(px,N){var buckets={};px.cells.forEach(function(c){var k=(Math.round(c.r/64)*64)+","+(Math.round(c.g/64)*64)+","+(Math.round(c.b/64)*64);buckets[k]=(buckets[k]||0)+1;});var arr=Object.keys(buckets).map(function(k){var p=k.split(",").map(Number);return {r:p[0],g:p[1],b:p[2],n:buckets[k]};}).sort(function(a,b){return b.n-a.n;}).slice(0,N);px.cells.forEach(function(c){var bi=0,bd=1e18;for(var i=0;i<arr.length;i++){var dr=c.r-arr[i].r,dg=c.g-arr[i].g,db=c.b-arr[i].b,dd=dr*dr+dg*dg+db*db;if(dd<bd){bd=dd;bi=i;}}c.pi=bi;});return arr.map(function(a){return "#"+[a.r,a.g,a.b].map(function(x){return ("0"+Math.max(0,Math.min(255,x)).toString(16)).slice(-2);}).join("");});}
+function _labsRenderPal(){var host=document.getElementById("labs_clitho_pal");if(!host)return;var pal=LABS.clitho.pal||[];host.innerHTML=pal.length?('<div class="hint" style="margin-bottom:6px">Filaments you’ll want loaded:</div><div class="sw-grid">'+pal.map(function(c,i){return '<div class="sw-item"><span class="sw" style="background:'+c+'"></span><span class="swl">Colour '+(i+1)+'</span></div>';}).join("")+"</div>"):"";}
+function labsLithoUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();img.onload=function(){try{LABS.clitho.px=_labsSample(img,72);LABS.clitho.pal=_labsPalette(LABS.clitho.px,6);_labsRenderPal();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}};var rd=new FileReader();rd.onload=function(e){img.src=e.target.result;};rd.readAsDataURL(f);input.value="";}
+/* Bright-star catalog (name, RA hours, Dec deg, apparent magnitude). Orion first (0-6), Big Dipper next (7-13). */
+var LABS_STARS=[
+ {n:"Betelgeuse",ra:5.919,dec:7.41,mag:0.42},{n:"Bellatrix",ra:5.418,dec:6.35,mag:1.64},{n:"Alnitak",ra:5.679,dec:-1.94,mag:1.77},{n:"Alnilam",ra:5.604,dec:-1.20,mag:1.69},{n:"Mintaka",ra:5.533,dec:-0.30,mag:2.23},{n:"Rigel",ra:5.242,dec:-8.20,mag:0.13},{n:"Saiph",ra:5.796,dec:-9.67,mag:2.06},
+ {n:"Dubhe",ra:11.062,dec:61.75,mag:1.79},{n:"Merak",ra:11.031,dec:56.38,mag:2.37},{n:"Phecda",ra:11.897,dec:53.69,mag:2.44},{n:"Megrez",ra:12.257,dec:57.03,mag:3.31},{n:"Alioth",ra:12.900,dec:55.96,mag:1.76},{n:"Mizar",ra:13.399,dec:54.93,mag:2.23},{n:"Alkaid",ra:13.792,dec:49.31,mag:1.85},
+ {n:"Sirius",ra:6.752,dec:-16.72,mag:-1.46},{n:"Canopus",ra:6.399,dec:-52.70,mag:-0.74},{n:"Arcturus",ra:14.261,dec:19.18,mag:-0.05},{n:"Vega",ra:18.616,dec:38.78,mag:0.03},{n:"Capella",ra:5.278,dec:45.998,mag:0.08},{n:"Procyon",ra:7.655,dec:5.22,mag:0.34},{n:"Achernar",ra:1.629,dec:-57.24,mag:0.46},{n:"Altair",ra:19.846,dec:8.87,mag:0.77},{n:"Aldebaran",ra:4.599,dec:16.51,mag:0.85},{n:"Antares",ra:16.490,dec:-26.43,mag:1.09},{n:"Spica",ra:13.420,dec:-11.16,mag:1.04},{n:"Pollux",ra:7.755,dec:28.03,mag:1.14},{n:"Fomalhaut",ra:22.961,dec:-29.62,mag:1.16},{n:"Deneb",ra:20.690,dec:45.28,mag:1.25},{n:"Regulus",ra:10.139,dec:11.97,mag:1.35},{n:"Castor",ra:7.577,dec:31.89,mag:1.58},{n:"Polaris",ra:2.530,dec:89.26,mag:1.98}
+];
+var LABS_LINES=[[1,0],[1,4],[4,3],[3,2],[0,2],[4,5],[2,6],[7,8],[8,9],[9,10],[10,7],[10,11],[11,12],[12,13]];   // Orion + Big Dipper
+/* Project the visible bright sky for a date + latitude/longitude to a unit disc (0 at zenith → 1 at horizon). */
+function _labsSky(dateStr,lat,lon){
+  var dt=dateStr?new Date(dateStr+"T21:00:00Z"):new Date();if(isNaN(dt.getTime()))dt=new Date();
+  var Y=dt.getUTCFullYear(),M=dt.getUTCMonth()+1,D=dt.getUTCDate(),UT=dt.getUTCHours()+dt.getUTCMinutes()/60;
+  var JD=367*Y-Math.floor(7*(Y+Math.floor((M+9)/12))/4)+Math.floor(275*M/9)+D+1721013.5+UT/24;
+  var d=JD-2451545.0,GMST=(280.46061837+360.98564736629*d)%360,LST=((GMST+lon)%360+360)%360,la=lat*Math.PI/180;
+  var out=[],pos={};
+  LABS_STARS.forEach(function(s,idx){
+    var ha=((LST-s.ra*15)%360+360)%360;if(ha>180)ha-=360;ha*=Math.PI/180;var de=s.dec*Math.PI/180;
+    var alt=Math.asin(Math.sin(de)*Math.sin(la)+Math.cos(de)*Math.cos(la)*Math.cos(ha));if(alt<=0.02)return;
+    var az=Math.atan2(-Math.cos(de)*Math.sin(ha),Math.sin(de)*Math.cos(la)-Math.cos(de)*Math.sin(la)*Math.cos(ha));
+    var r=(Math.PI/2-alt)/(Math.PI/2),o={x:r*Math.sin(az),y:r*Math.cos(az),mag:s.mag,idx:idx};out.push(o);pos[idx]=o;
+  });
+  return {stars:out,pos:pos};
+}
+/* Build the active Labs panels. Returns partList entries. Sits on the box front (z≈TT), centred on the lid. */
+async function buildLabs(filled,cx,cy,TT){
+  var parts=[];if(typeof THREE==="undefined")return parts;
+  if(!(LABS.hidden.on||LABS.clitho.on||LABS.star.on))return parts;
+  var mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;(filled||[]).forEach(function(p){p.forEach(function(q){var X=q.X/S-cx,Yy=q.Y/S-cy;if(X<mnx)mnx=X;if(X>mxx)mxx=X;if(Yy<mny)mny=Yy;if(Yy>mxy)mxy=Yy;});});
+  if(!isFinite(mnx)){mnx=-45;mxx=45;mny=-55;mxy=55;}
+  var w=Math.max(30,mxx-mnx),h=Math.max(30,mxy-mny),midX=(mnx+mxx)/2,midY=(mny+mxy)/2,z0=(TT||1);
+  function place(grp){grp.position.set(midX,midY,z0);}
+  function rectPath(W,H){return [{X:Math.round(-W/2*S),Y:Math.round(-H/2*S)},{X:Math.round(W/2*S),Y:Math.round(-H/2*S)},{X:Math.round(W/2*S),Y:Math.round(H/2*S)},{X:Math.round(-W/2*S),Y:Math.round(H/2*S)}];}
+  // (1) HIDDEN MESSAGE — flush panel with the text sunk as a thin (backlight-transmitting) window
+  if(LABS.hidden.on&&(LABS.hidden.text||"").trim()){
+    try{
+      var otf=await loadOT((typeof baseFontUrl==="function")?baseFontUrl():selNameFont.url);
+      var tp0=nameSubjOT(otf,LABS.hidden.text.trim(),100);
+      var tmnx=1e18,tmny=1e18,tmxx=-1e18,tmxy=-1e18;tp0.forEach(function(p){p.forEach(function(q){var X=q.X/S,Yy=q.Y/S;if(X<tmnx)tmnx=X;if(X>tmxx)tmxx=X;if(Yy<tmny)tmny=Yy;if(Yy>tmxy)tmxy=Yy;});});
+      var tw=tmxx-tmnx,th=tmxy-tmny,sc=Math.min(w*0.72/Math.max(1,tw),h*0.5/Math.max(1,th)),tcx=(tmnx+tmxx)/2,tcy=(tmny+tmxy)/2;
+      var tp=tp0.map(function(p){return p.map(function(q){return {X:Math.round(((q.X/S-tcx)*sc)*S),Y:Math.round(((q.Y/S-tcy)*sc)*S)};});});
+      var rect=rectPath(w*0.92,h*0.66),T=1.8,skin=0.6,g=new THREE.Group();
+      var back=diffToShapes([rect],tp,0);if(back&&back.length){var bg=new THREE.ExtrudeGeometry(back,{depth:T,bevelEnabled:false,curveSegments:5});g.add(new THREE.Mesh(bg,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.55})));}
+      var txt=diffToShapes(tp,null,0);if(txt&&txt.length){var tg=new THREE.ExtrudeGeometry(txt,{depth:skin,bevelEnabled:false,curveSegments:5});tg.translate(0,0,T-skin);var tm=new THREE.Mesh(tg,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.5}));tm.userData.labsHidden=true;g.add(tm);}
+      place(g);parts.push({group:g,name:"Hidden message",flip:false,color:COLORS.front});
+    }catch(e){}
+  }
+  // (2) COLOUR PRINT — flat backlit picture built from the derived palette (each colour its own AMS mesh)
+  if(LABS.clitho.on&&LABS.clitho.px&&LABS.clitho.pal){
+    try{
+      var px=LABS.clitho.px,pal=LABS.clitho.pal,G=px.G,pw=w*0.9,ph=h*0.9,cellW=pw/G,cellH=ph/G,byCol={};
+      for(var gy=0;gy<G;gy++)for(var gx=0;gx<G;gx++){var c=px.cells[gy*G+gx];if(c.lum>0.985)continue;var pi=c.pi||0;var x0=-pw/2+gx*cellW,y0=ph/2-(gy+1)*cellH,arr=byCol[pi]||(byCol[pi]=[]);arr.push(x0,y0,x0+cellW,y0,x0+cellW,y0+cellH, x0,y0,x0+cellW,y0+cellH,x0,y0+cellH);}
+      var cg=new THREE.Group(),zc=1.0;
+      Object.keys(byCol).forEach(function(pi){var flat=byCol[pi],pos=[];for(var i=0;i<flat.length;i+=2)pos.push(flat[i],flat[i+1],zc);var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));geo.computeVertexNormals();var mm=new THREE.MeshStandardMaterial({color:pal[pi]||"#cccccc",roughness:0.5,side:THREE.DoubleSide});var msh=new THREE.Mesh(geo,mm);msh.userData.labsGlow=(pal[pi]||"#cccccc");cg.add(msh);});
+      var bp=new THREE.ExtrudeGeometry(new THREE.Shape(rectPath(pw,ph).map(function(q){return new THREE.Vector2(q.X/S,q.Y/S);})),{depth:zc,bevelEnabled:false});cg.add(new THREE.Mesh(bp,new THREE.MeshStandardMaterial({color:"#101216",roughness:0.7})));
+      place(cg);parts.push({group:cg,name:"Colour print",flip:false,textPlate:false,color:pal[0]||"#cccccc"});
+    }catch(e){}
+  }
+  // (3) STAR MAP — dark disc with glowing bright stars projected for the date + place
+  if(LABS.star.on){
+    try{
+      var sky=_labsSky(LABS.star.date,LABS.star.lat,LABS.star.lon),R=Math.min(w,h)*0.45,sg=new THREE.Group(),zs=1.2;
+      var disc=new THREE.CylinderGeometry(R,R,zs,64);disc.rotateX(Math.PI/2);disc.translate(0,0,zs/2);
+      sg.add(new THREE.Mesh(disc,new THREE.MeshStandardMaterial({color:"#0b1230",roughness:0.6})));
+      sky.stars.forEach(function(st){var sz=Math.max(0.7,1.9-st.mag*0.35),d=new THREE.SphereGeometry(sz*0.5,10,8);d.translate(st.x*R,st.y*R,zs);var dm=new THREE.MeshStandardMaterial({color:"#ffffff",roughness:0.3});var mp=new THREE.Mesh(d,dm);mp.userData.labsStar=Math.max(0.35,1.4-st.mag*0.3);sg.add(mp);});
+      LABS_LINES.forEach(function(ln){var a=sky.pos[ln[0]],b=sky.pos[ln[1]];if(!a||!b)return;var ax=a.x*R,ay=a.y*R,bx=b.x*R,by=b.y*R,dx=bx-ax,dy=by-ay,len=Math.sqrt(dx*dx+dy*dy);if(len<1)return;var lg=new THREE.BoxGeometry(len,0.5,0.5);lg.translate(len/2,0,0);var lm=new THREE.Mesh(lg,new THREE.MeshStandardMaterial({color:"#3b5a9a",roughness:0.5}));lm.position.set(ax,ay,zs);lm.rotation.z=Math.atan2(dy,dx);lm.userData.labsStar=0.25;sg.add(lm);});
+      place(sg);parts.push({group:sg,name:"Star map",flip:false,color:"#0b1230"});
+    }catch(e){}
+  }
+  return parts;
+}
+/* Backlit reveal / glow for the Labs panels — driven by the lamp, render mode only. */
+function applyLabsLight(){if(typeof pivot==="undefined"||!pivot)return;var lit=(lightOn&&mode==="render");
+  var labsOn=(LABS.hidden.on||LABS.clitho.on||LABS.star.on);   // a Labs panel IS the front — hide the competing name/text overlay so it reads clean
+  if(mode==="render")pivot.traverse(function(o){if(o.userData&&o.userData.textId!=null)o.visible=!labsOn;});
+  pivot.traverse(function(o){if(!o.isMesh||!o.material||!o.material.emissive)return;var u=o.userData||{};
+  if(u.labsHidden){o.material.emissive.copy(lit?new THREE.Color(COLORS.front).multiplyScalar(1.1):new THREE.Color(0));o.material.color.set(COLORS.front);}
+  else if(u.labsGlow){o.material.emissive.copy(lit?new THREE.Color(u.labsGlow).multiplyScalar(0.7):new THREE.Color(0));}
+  else if(u.labsStar!=null){o.material.emissive.copy(lit?new THREE.Color("#dfe8ff").multiplyScalar(u.labsStar):new THREE.Color(0x0a0a12));}
+});}
 
 function handleUpload(inp){const files=inp.files;if(!files||!files.length)return;Array.from(files).forEach(file=>{const ext=(file.name.split(".").pop()||"").toLowerCase();if(ext==="stl"||ext==="3mf"){uiAlert("Custom 3D uploads have been replaced by the Model catalog below — pick a model from there.");return;}loadImage(file);});inp.value="";}
 function loadImage(file){
@@ -2894,6 +3019,8 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       var _tsil=filled;try{var _tls=off(filled,clearance+capW);if(_tls&&_tls.length)_tsil=_tls;}catch(e){}
       var _tb=_mnt.testbase;var _tbsink=Math.max(0,-(_tb.raise||0));var _tbres=buildCradleBase(_tsil,cx,cy,depth,_tb.w,_tb.d,_tb.t,_tb.shape,TT,_tb.tex,true,null,_tbsink);
       if(_tbres&&_tbres.geo){var _tgrp=new THREE.Group();_tgrp.add(new THREE.Mesh(_tbres.geo,MATS.body));_tgrp.rotation.x=-Math.PI/2;_tgrp.position.set(0,_tbres.yWallTop-(_tb.raise||0),-depth/2);partList.push({group:_tgrp,name:"TestBase",flip:false,isBase:true,color:COLORS.body});}}
+    // LABS experimental front-panel effects (hidden message / colour print / star map) — additive, self-contained.
+    try{if(typeof buildLabs==="function"&&(LABS.hidden.on||LABS.clitho.on||LABS.star.on)){var _lab=await buildLabs(filled,cx,cy,TT);if(_lab&&_lab.length)_lab.forEach(function(p){partList.push(p);});}}catch(e){}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
 
