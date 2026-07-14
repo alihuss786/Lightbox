@@ -862,7 +862,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="hint">A raised pattern on the foot border around your design — the model still seats flush.</div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Width — <b id="mntBaseWLbl">90</b> mm</span><input type="range" id="mntBaseW" min="40" max="200" step="1" value="90" oninput="mntLabel()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth — <b id="mntBaseDLbl">58</b> mm</span><input type="range" id="mntBaseD" min="40" max="120" step="1" value="58" oninput="mntLabel()" onchange="mntRebuild()"></div>
-        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickness — <b id="mntBaseTLbl">6</b> mm</span><input type="range" id="mntBaseT" min="3" max="20" step="1" value="6" oninput="mntLabel()" onchange="mntRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickness — <b id="mntBaseTLbl">10</b> mm</span><input type="range" id="mntBaseT" min="3" max="24" step="1" value="10" oninput="mntLabel()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Model up / down — <b id="mntBaseRaiseLbl">0</b> mm</span><input type="range" id="mntBaseRaise" min="-20" max="20" step="0.5" value="0" oninput="mntLabel()" onchange="mntRebuild()"></div>
         <div class="hint">The groove is shaped to your design automatically. Nudge this if it sits too high or low.</div>
       </div>
@@ -2326,7 +2326,7 @@ function _mountRead(){
   return {
     wall:{on:on("tg_mntWall"), x:nv("mntWallX",0), y:nv("mntWallY",0), count:Math.max(1,Math.min(4,nv("mntWallCount",1))), space:nv("mntWallSpace",55)},
     power:{on:on("tg_mntPow"), shape:sv("mntPowShape","usbc"), x:nv("mntPowX",0), y:nv("mntPowY",0)},
-    base:{on:on("tg_mntBase"), shape:sv("mntBaseShape","round"), w:nv("mntBaseW",90), d:nv("mntBaseD",58), t:nv("mntBaseT",6), raise:nv("mntBaseRaise",0)},
+    base:{on:on("tg_mntBase"), shape:sv("mntBaseShape","round"), w:nv("mntBaseW",90), d:nv("mntBaseD",58), t:nv("mntBaseT",10), raise:nv("mntBaseRaise",0)},
     testbase:{on:on("tg_tbBase"), shape:sv("tbBaseShape","round"), tex:sv("tbBaseTex","isocube"), w:nv("tbBaseW",90), d:nv("tbBaseD",58), t:nv("tbBaseT",6), raise:nv("tbBaseRaise",0)}
   };
 }
@@ -2562,7 +2562,7 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap)
     if(_texObj){
       var _exX0=mx0-1.2,_exX1=mx1+1.2,_exY0=-halfFront-1.2,_exY1=halfBack+1.2;   // keep-out = the carved groove pocket
       var _exRect=[[{X:Math.round(_exX0*S),Y:Math.round(_exY0*S)},{X:Math.round(_exX1*S),Y:Math.round(_exY0*S)},{X:Math.round(_exX1*S),Y:Math.round(_exY1*S)},{X:Math.round(_exX0*S),Y:Math.round(_exY1*S)}]];
-      var _topReg=diff(prof,_exRect);var _Rin=off(_topReg,edgeWrap?-0.3:-1.6);   // edge-wrap keeps only a hairline top border (the side wall carries its own wrapped pattern)
+      var _topReg=diff(prof,_exRect);var _Rin=off(_topReg,-0.3);   // texture runs right to the edge (small hairline border) on both the mounting base and the TestBase
       if(_Rin&&_Rin.length){
         var _mnX=1e9,_mnY=1e9,_mxX=-1e9,_mxY=-1e9;_Rin.forEach(function(pp){pp.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<_mnX)_mnX=X;if(X>_mxX)_mxX=X;if(Y<_mnY)_mnY=Y;if(Y>_mxY)_mxY=Y;});});
         var _cells=_texObj.gen(_mnX,_mnY,_mxX,_mxY);var _tt=intersect(_cells,_Rin);
@@ -2602,7 +2602,7 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap)
   // Side wall: plain vertical wall (grout level). TestBase additionally wraps raised tile pads onto it below.
   for(i0=0;i0<outer.length;i0++){var pA=outer[i0],pB=outer[(i0+1)%outer.length];
     quad([pA.x,pA.y,zTop],[pB.x,pB.y,zTop],[pB.x,pB.y,zBot],[pA.x,pA.y,zBot]);}
-  if(_ew){_sidePads(zTop,zBot,_res);}
+  // if(_ew){_sidePads(zTop,zBot,_res);}   // side texture wrap temporarily disabled — sides stay plain smooth
   // contoured floor + two side walls (straight top edge, contoured bottom) + two end caps
   for(i0=0;i0<M;i0++){var x0=xs[i0],x1=xs[i0+1],f0=-gd[i0],f1=-gd[i0+1];
     quad([x0,ymn(i0),f0],[x1,ymn(i0+1),f1],[x1,ymx(i0+1),f1],[x0,ymx(i0),f0]);                 // floor
