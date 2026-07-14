@@ -3147,14 +3147,27 @@ function _fitsFootprint(w,h,bx,by){if(!(w>0)||!(h>0))return true;if((w<=bx&&h<=b
 function updateFitWarn(){try{var fw=document.getElementById("fitWarn");if(!fw)return;var pf=window.__plateFoot,bed=(typeof PRINTERS!=="undefined"&&PRINTERS[selPrinter])||{x:256,y:256};if(!pf||!pf.w){fw.style.display="none";return;}var pw=pf.w,ph=pf.h,fits=_fitsFootprint(pw,ph,bed.x,bed.y);if(fits){fw.style.display="none";return;}fw.innerHTML="\u26a0 This name is <b>"+(pw/10).toFixed(0)+"\u00d7"+(ph/10).toFixed(0)+" cm</b> \u2014 too big for your "+(bed.x/10)+"\u00d7"+(bed.y/10)+" cm printer. Lower <b>Letter height</b> in the Size tab, or pick a larger printer.";fw.style.display="block";}catch(e){}}
 function buildSummary(){try{updateFitWarn();}catch(e){}const nameExt=mmOf("nameExt")||10;let pocket=Math.max(0,Math.min(mmOf("nameDepth")||0,nameExt));const above=Math.round((nameExt-pocket)*10)/10;const liveTexts=texts.filter(t=>(t.str||"").trim());const parts=2+liveTexts.length+images.length+models.length;const bed=PRINTERS[selPrinter];const tnames=liveTexts.map(t=>t.str.trim()).join(", ")||"—";g("summary").innerHTML=`<b>${(v("letter")||"A").toUpperCase()}</b> · ${selFont.name} · overall ${fmt(mmOf("lh"))} tall × ${fmt(mmOf("bd"))} deep<br>Text layers (${liveTexts.length||"none"}): <b>${tnames}</b> · ${fmt(nameExt)} tall, ${fmt(above)} proud<br>Images: ${images.length||"none"} · 3D models: ${models.length||"none"}<br>Printer <b>${bed.n}</b> (${bed.x}×${bed.y} mm bed)<br><b>${parts} separate printable parts</b> — lid prints face-down`;}
 
-/* ---------- Combined text plate: pack each layer into a non-overlapping row on the shared plate ---------- */
+/* ---------- Shared plate: auto-arrange the pieces in a tidy GRID that fits the bed (like a slicer) ----------
+   The old packer laid every piece in ONE long row, which overflowed the bed and got spun diagonally. Instead
+   shelf-pack the footprints into rows across the bed width, wrapping to a new row when the current one is full,
+   then centre the block. Local X maps to bed X and local Y to bed depth, so this is a real bed grid. */
 function layoutTextPlate(group){
-  if(!group||group.children.length<2)return;   // a single layer is centred by the normal seat logic
+  if(!group||group.children.length<2)return;   // a single piece is centred by the normal seat logic
   group.position.set(0,0,0);group.rotation.set(0,0,0);group.updateMatrixWorld(true);
-  const gap=8;
-  const ms=group.children.map(ch=>{ch.position.set(0,0,0);ch.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(ch);return{ch,cx:(b.min.x+b.max.x)/2,cy:(b.min.y+b.max.y)/2,w:Math.max(1,b.max.x-b.min.x)};});
-  const total=ms.reduce((s,m)=>s+m.w,0)+gap*(ms.length-1);let x=-total/2;
-  ms.forEach(m=>{const target=x+m.w/2;m.ch.position.x+=(target-m.cx);m.ch.position.y+=(0-m.cy);x+=m.w+gap;});
+  var gap=7,margin=6;
+  var bed=(typeof PRINTERS!=="undefined"&&PRINTERS[selPrinter])||{x:256,y:256};
+  var bedW=Math.max(40,bed.x-2*margin);   // usable bed width to wrap rows against
+  var items=group.children.map(function(ch){ch.position.set(0,0,0);ch.updateMatrixWorld(true);var b=new THREE.Box3().setFromObject(ch);return {ch:ch,cx:(b.min.x+b.max.x)/2,cy:(b.min.y+b.max.y)/2,w:Math.max(1,b.max.x-b.min.x),d:Math.max(1,b.max.y-b.min.y)};});
+  items.sort(function(a,b){return b.d-a.d;});   // tallest rows first = tidier shelves
+  var rows=[],cur=[],curW=0;
+  items.forEach(function(it){var add=(cur.length?gap:0)+it.w;if(cur.length&&curW+add>bedW){rows.push({items:cur,w:curW});cur=[];curW=0;add=it.w;}cur.push(it);curW+=add;});
+  if(cur.length)rows.push({items:cur,w:curW});
+  var rowH=rows.map(function(r){return Math.max.apply(null,r.items.map(function(i){return i.d;}));});
+  var totalH=rowH.reduce(function(s,h){return s+h;},0)+gap*(rows.length-1);
+  var y=totalH/2;   // top of the block; rows fill downward
+  rows.forEach(function(r,ri){var h=rowH[ri],cyRow=y-h/2,x=-r.w/2;
+    r.items.forEach(function(it){var tx=x+it.w/2;it.ch.position.x+=(tx-it.cx);it.ch.position.y+=(cyRow-it.cy);x+=it.w+gap;});
+    y-=h+gap;});
   group.updateMatrixWorld(true);
 }
 
