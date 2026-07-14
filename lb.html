@@ -871,8 +871,8 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Width — <b id="mntBaseWLbl">90</b> mm</span><input type="range" id="mntBaseW" min="40" max="200" step="1" value="90" oninput="mntLabel()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth — <b id="mntBaseDLbl">58</b> mm</span><input type="range" id="mntBaseD" min="40" max="120" step="1" value="58" oninput="mntLabel()" onchange="mntRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickness — <b id="mntBaseTLbl">10</b> mm</span><input type="range" id="mntBaseT" min="3" max="24" step="1" value="10" oninput="mntLabel()" onchange="mntRebuild()"></div>
-        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Model up / down — <b id="mntBaseRaiseLbl">0</b> mm</span><input type="range" id="mntBaseRaise" min="-20" max="20" step="0.5" value="0" oninput="mntLabel()" onchange="mntRebuild()"></div>
-        <div class="hint">The groove is shaped to your design automatically. Nudge this if it sits too high or low.</div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Sink into base / lift up — <b id="mntBaseRaiseLbl">0</b> mm</span><input type="range" id="mntBaseRaise" min="-20" max="20" step="0.5" value="0" oninput="mntLabel()" onchange="mntRebuild()"></div>
+        <div class="hint">The groove hugs your design automatically. Slide left to <b>sink</b> the model deeper into the base — the pocket deepens to match (no clipping) and the foot thickens to keep a solid floor. Slide right to lift it up.</div>
       </div>
     </div>
   </div>
@@ -2467,9 +2467,11 @@ function _orientOut(pos){
   for(i=0;i<nt;i++){var t3=tri[i],o0=t3[0],o1=t3[1],o2=t3[2];if(flip){var tt=o1;o1=o2;o2=tt;}var A=coord[o0],B=coord[o1],C=coord[o2];out[i*9]=A[0];out[i*9+1]=A[1];out[i*9+2]=A[2];out[i*9+3]=B[0];out[i*9+4]=B[1];out[i*9+5]=B[2];out[i*9+6]=C[0];out[i*9+7]=C[1];out[i*9+8]=C[2];}
   return out;
 }
-function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap,baseTextPaths){try{
+function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap,baseTextPaths,sink){try{
   if(!filled||!filled.length)return null;
   var clr=0.4,foot=Math.max(3,Math.min(6,t*0.8)),bandH=Math.max(1.5,Math.min(2.5,t*0.35));   // tiny socket — the model sits ON TOP, only the very tip locates into a shallow notch
+  var _sink=Math.max(0,Math.min(sink||0,40));   // how far the model is pushed DOWN into the base; deepens the socket so it hugs the sunk model instead of the model clipping through a fixed shallow notch
+  var pocketMax=bandH+_sink;                     // deepest the groove floor may cut (shallow notch + the sink amount)
   var mnx=1e18,mxx=-1e18;
   filled.forEach(function(p){p.forEach(function(pt){var X=pt.X/S-cx;if(X<mnx)mnx=X;if(X>mxx)mxx=X;});});
   if(!isFinite(mnx)||mxx-mnx<1)return null;
@@ -2486,12 +2488,12 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap,
   // forward of the body opening by frontExt (=TT), so the front pocket wall (halfFront) is pushed out by that
   // much; the back wall (halfBack) already matches the body/lid back. Asymmetric groove = lid-width pocket.
   var _fe=Math.max(0,frontExt||0);
-  var yWallTop=yMin+bandH, TT=bandH+foot, halfBack=depth/2+clr, halfFront=depth/2+clr+_fe, zTop=0, zBot=-TT;
+  var yWallTop=yMin+bandH, TT=pocketMax+foot, halfBack=depth/2+clr, halfFront=depth/2+clr+_fe, zTop=0, zBot=-TT;   // base grows thicker as the model sinks so a solid `foot` floor always stays below the deepened socket
   var Df=Math.max(d, depth+16);
   // Keep the groove opening clear of the rounded/pill ends so it always sits inside the footprint.
   var endMargin=(shape==="pill")?(Df/2+2):(Df*0.22+3);
   var Wf=Math.max(w, modelW+2*endMargin+6);   // the FOOT spans the whole model width for stability…
-  function gdAt(xc){var bb=bottomAt(xc);if(bb==null)return 0;var g=yWallTop-bb;return Math.max(0,Math.min(g,bandH));}
+  function gdAt(xc){var bb=bottomAt(xc);if(bb==null)return 0;var g=yWallTop-bb+_sink;return Math.max(0,Math.min(g,pocketMax));}   // +_sink drops the whole socket floor to follow the model as it is pushed into the base
   // …but the GROOVE (pocket) is clipped to exactly the span where the model actually dips into the base, so the
   // pocket hugs the model's bottom instead of leaving a big rectangular slot around a narrow point.
   var thr=0.3, xL=1e18, xR=-1e18, NS=Math.max(80,Math.min(500,Math.round(modelW/0.5)));
@@ -2858,12 +2860,13 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       // mode the lid overhangs the body by ~clearance+capW, so seating to the body buried the visible lid.
       var _baseSil=filled;try{var _ls=off(filled,clearance+capW);if(_ls&&_ls.length)_baseSil=_ls;}catch(e){}
       var _btp=null;if(_mnt.base.text){try{var _bo=await loadOT((typeof baseFontUrl==="function")?baseFontUrl():selNameFont.url);_btp=nameSubjOT(_bo,_mnt.base.text,100);}catch(e){_btp=null;}}   // front nameplate glyph outlines (custom base font if uploaded, else the Name font)
-      var _bres=buildCradleBase(_baseSil,cx,cy,depth,_mnt.base.w,_mnt.base.d,_mnt.base.t,_mnt.base.shape,TT,null,false,_btp);   // TT = lid front-cap protrusion; widens the pocket front-to-back to the LID depth, not the back box
+      var _bsink=Math.max(0,-(_mnt.base.raise||0));   // pushing the model DOWN (negative raise = base rises around it) deepens the socket to match
+      var _bres=buildCradleBase(_baseSil,cx,cy,depth,_mnt.base.w,_mnt.base.d,_mnt.base.t,_mnt.base.shape,TT,null,false,_btp,_bsink);   // TT = lid front-cap protrusion; widens the pocket front-to-back to the LID depth, not the back box
       if(_bres&&_bres.geo){var _bgrp=new THREE.Group();_bgrp.add(new THREE.Mesh(_bres.geo,MATS.body));if(_bres.txtGeo)_bgrp.add(new THREE.Mesh(_bres.txtGeo,MATS.basetext));_bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mnt.base.raise||0),-depth/2);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.body});}}
     // TestBase (experimental) — same cradle, but the texture runs to the edge and wraps down the sides (edgeWrap).
     if(_mnt&&_mnt.testbase&&_mnt.testbase.on&&filled&&filled.length){
       var _tsil=filled;try{var _tls=off(filled,clearance+capW);if(_tls&&_tls.length)_tsil=_tls;}catch(e){}
-      var _tb=_mnt.testbase;var _tbres=buildCradleBase(_tsil,cx,cy,depth,_tb.w,_tb.d,_tb.t,_tb.shape,TT,_tb.tex,true);
+      var _tb=_mnt.testbase;var _tbsink=Math.max(0,-(_tb.raise||0));var _tbres=buildCradleBase(_tsil,cx,cy,depth,_tb.w,_tb.d,_tb.t,_tb.shape,TT,_tb.tex,true,null,_tbsink);
       if(_tbres&&_tbres.geo){var _tgrp=new THREE.Group();_tgrp.add(new THREE.Mesh(_tbres.geo,MATS.body));_tgrp.rotation.x=-Math.PI/2;_tgrp.position.set(0,_tbres.yWallTop-(_tb.raise||0),-depth/2);partList.push({group:_tgrp,name:"TestBase",flip:false,isBase:true,color:COLORS.body});}}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
