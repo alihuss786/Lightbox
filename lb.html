@@ -153,6 +153,9 @@ details.precise>*:not(summary){padding:0 12px 12px}
 /* per-tab "Colours" section auto-injected into every tab so each thing is colourable where it lives */
 .tabcolours{margin:0 0 14px;padding:0 0 12px;border-bottom:1px solid var(--hair)}
 .tabcolours .sub{margin-top:0}
+.amschk{display:flex;align-items:center;gap:8px;margin-top:11px;font-size:12.5px;color:var(--txt2);cursor:pointer;line-height:1.3}
+.amschk input{width:16px;height:16px;flex:none}
+.amsPalBox{margin-top:9px}
 
 /* ----- placement pads ----- */
 .pad{position:relative;height:200px;border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden;touch-action:none;background-image:linear-gradient(var(--hair) 1px,transparent 1px),linear-gradient(90deg,var(--hair) 1px,transparent 1px);background-size:24px 24px}
@@ -894,12 +897,6 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
   <div class="acc">
     <div class="acc-h" onclick="accT(this)">Export <i class="chev">⌄</i></div>
     <div class="acc-b">
-      <label style="display:flex;align-items:center;gap:8px;margin:2px 0 10px;font-size:12.5px;cursor:pointer;line-height:1.3"><input type="checkbox" id="amsToggle" onchange="toggleAMS(this.checked)" style="width:17px;height:17px;flex:none"> I have an AMS (multi-colour printer)</label>
-      <div id="amsPal" style="display:none;margin-bottom:14px">
-        <div class="sub">Your AMS filaments</div>
-        <div class="sw-grid" id="amsSwatches"></div>
-        <div class="hint" style="font-size:11px">Set the colours loaded in your AMS, then tap any part’s colour dot (in its tab) and pick one. On export they bake into one multi-colour .3mf.</div>
-      </div>
       <div class="summary" id="summary"></div>
       <button class="btn-gen" onclick="uiAlert('UI demo — the STL/3MF export backend comes next.')">Generate 3D files</button>
     </div>
@@ -1307,8 +1304,8 @@ function rebuildPalGrid(){const grid=g("palGrid");if(!grid)return;grid.innerHTML
   var _mp=window.__merchantPalette;if(_mp&&_mp.length){_mp.forEach(h=>addSw(h,false));}else{PRESETS.forEach(h=>addSw(h,false));}
   try{buildBambuGrid();}catch(e){}}
 rebuildPalGrid();
-function renderAmsSwatches(){const el=g("amsSwatches");if(!el)return;el.innerHTML=window.__amsPalette.map((c,i)=>'<div class="sw-item"><span class="sw" id="amssw_'+i+'" style="background:'+_amsSlotBg(i)+'" onclick="openPal(\'ams:'+i+'\',event)"></span><span class="swl">AMS '+(i+1)+'</span></div>').join("");}
-function toggleAMS(on){window.__hasAMS=!!on;const el=g("amsPal");if(el)el.style.display=on?"block":"none";const cb=g("amsToggle");if(cb)cb.checked=!!on;renderAmsSwatches();if(typeof buildModel==="function")buildModel();}
+function renderAmsSwatches(){var html=window.__amsPalette.map((c,i)=>'<div class="sw-item"><span class="sw" style="background:'+_amsSlotBg(i)+'" onclick="openPal(\'ams:'+i+'\',event)"></span><span class="swl">AMS '+(i+1)+'</span></div>').join("");document.querySelectorAll(".amsSwatches").forEach(function(el){el.innerHTML=html;});var legacy=g("amsSwatches");if(legacy&&!legacy.classList.contains("amsSwatches"))legacy.innerHTML=html;}
+function toggleAMS(on){window.__hasAMS=!!on;document.querySelectorAll(".amsPalBox").forEach(function(el){el.style.display=on?"block":"none";});document.querySelectorAll(".amsToggleCb").forEach(function(cb){cb.checked=!!on;});var lp=g("amsPal");if(lp)lp.style.display=on?"block":"none";var lc=g("amsToggle");if(lc)lc.checked=!!on;renderAmsSwatches();if(typeof buildModel==="function")buildModel();}
 function palTextId(t){return (typeof t==="string"&&t.indexOf("text:")===0)?(+t.slice(5)):null;}
 function openPal(t,ev){palTarget=t;const p=g("palette");rebuildPalGrid();const tid=palTextId(t);let cur;if(typeof t==="string"&&t.indexOf("ams:")===0){cur=window.__amsPalette[+t.slice(4)]||"#FFFFFF";}else if(tid!=null){const tx=texts.find(x=>x.id===tid);cur=(tx&&tx.color)||"#FFFFFF";}else{cur=COLORS[t];}g("palHex").value=cur;
   if(window.innerWidth<=700){
@@ -1338,10 +1335,12 @@ function injectTabColours(){
     var f=acc.getAttribute("data-feat"),roles=MAP[f];if(!roles)return;
     var bodyEl=acc.querySelector(".acc-b");if(!bodyEl||bodyEl.querySelector(".tabcolours"))return;
     var wrap=document.createElement("div");wrap.className="tabcolours";
-    wrap.innerHTML='<div class="sub">Colours</div><div class="sw-grid">'+roles.map(function(r){return '<div class="sw-item"><span class="sw" data-role="'+r+'" onclick="openPal(\''+r+'\',event)"></span><span class="swl">'+(LBL[r]||r)+'</span></div>';}).join("")+'</div>';
+    wrap.innerHTML='<div class="sub">Colours</div><div class="sw-grid">'+roles.map(function(r){return '<div class="sw-item"><span class="sw" data-role="'+r+'" onclick="openPal(\''+r+'\',event)"></span><span class="swl">'+(LBL[r]||r)+'</span></div>';}).join("")+'</div>'
+      +'<label class="amschk"><input type="checkbox" class="amsToggleCb" onchange="toggleAMS(this.checked)"> AMS multi-colour printer</label>'
+      +'<div class="amsPalBox" style="display:none"><div class="sw-grid amsSwatches"></div><div class="hint" style="font-size:11px">Set the colours loaded in your AMS, then tap any part’s colour dot above and pick one. On export they bake into one multi-colour .3mf.</div></div>';
     bodyEl.insertBefore(wrap,bodyEl.firstChild);
   });
-  try{refreshSwatches();}catch(e){}
+  try{renderAmsSwatches();}catch(e){}try{refreshSwatches();}catch(e){}
 }
 try{injectTabColours();}catch(e){}
 
@@ -2845,11 +2844,28 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // Text layers are physically small — group EVERY text element onto ONE shared text build plate instead
     // of one plate per layer. The combined group holds each layer at its design position (so the assembled
     // render is unchanged); on the plate it is auto-packed into a non-overlapping row (see layoutTextPlate).
-    if(nameGroups.length){if(window.__hasAMS&&(nameMode||logoMode)){nameGroups.forEach(gr=>capGroup.add(gr));partList[0].name="Lid + "+(logoMode?"Logo":"Name");}else{const textPlate=new THREE.Group();nameGroups.forEach(gr=>textPlate.add(gr));partList.push({group:textPlate,name:(nameGroups.length>1?("Text · "+nameGroups.length+" layers"):"Text"),flip:false,textPlate:true,color:COLORS.front});}}
-    imgGroups.forEach((gr,i)=>partList.push({group:gr,name:"Image "+(i+1),flip:false,color:COLORS.image}));
-    if(typeof photoPanelGroup!=="undefined"&&photoPanelGroup)partList.push({group:photoPanelGroup,name:"Photo panel",flip:false,color:"#FFFFFF"});
-    if(stlParts&&stlParts.length){stlParts.forEach(p=>partList.push(p));}
-    else{models.forEach((mo,i)=>{if(!mo.obj)return;const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));inst.position.set(+mo.x||0,+mo.y||0,TT);grp.userData={isStl:true,modelId:mo.id};grp.add(inst);partList.push({group:grp,name:"3D "+((mo.name||("model "+(i+1))).slice(0,9)),flip:false,modelId:mo.id,color:COLORS.model});});}
+    // Gather the catalog-model parts first so AMS mode can fold them into the shared plate.
+    var modelParts=[];
+    if(stlParts&&stlParts.length){stlParts.forEach(p=>modelParts.push(p));}
+    else{models.forEach((mo,i)=>{if(!mo.obj)return;const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));inst.position.set(+mo.x||0,+mo.y||0,TT);grp.userData={isStl:true,modelId:mo.id};grp.add(inst);modelParts.push({group:grp,name:"3D "+((mo.name||("model "+(i+1))).slice(0,9)),flip:false,modelId:mo.id,color:COLORS.model});});}
+    if(window.__hasAMS){
+      // AMS multi-colour: all the small secondary parts (text/name/logo layers, images AND catalog models) go on
+      // ONE shared plate — DISCONNECTED from the lid. Each mesh keeps its own colour; the exporter splits that one
+      // plate by material so the AMS prints them together (a single plate) each in its own filament. Names/logos
+      // are no longer fused into the lid, and multiple small pieces never spread across a plate each.
+      var _extras=new THREE.Group(),_nx=0;
+      nameGroups.forEach(function(gr){_extras.add(gr);_nx++;});
+      imgGroups.forEach(function(gr){_extras.add(gr);_nx++;});
+      modelParts.forEach(function(p){_extras.add(p.group);_nx++;});
+      if(_nx)partList.push({group:_extras,name:"Parts · "+_nx+(_nx>1?" pieces":" piece"),flip:false,textPlate:true,color:COLORS.front});
+      if(typeof photoPanelGroup!=="undefined"&&photoPanelGroup)partList.push({group:photoPanelGroup,name:"Photo panel",flip:false,color:"#FFFFFF"});
+    }else{
+      // No AMS: one colour per plate, so different-coloured parts stay separate. Text layers still share a plate.
+      if(nameGroups.length){const textPlate=new THREE.Group();nameGroups.forEach(gr=>textPlate.add(gr));partList.push({group:textPlate,name:(nameGroups.length>1?("Text · "+nameGroups.length+" layers"):"Text"),flip:false,textPlate:true,color:COLORS.front});}
+      imgGroups.forEach((gr,i)=>partList.push({group:gr,name:"Image "+(i+1),flip:false,color:COLORS.image}));
+      if(typeof photoPanelGroup!=="undefined"&&photoPanelGroup)partList.push({group:photoPanelGroup,name:"Photo panel",flip:false,color:"#FFFFFF"});
+      modelParts.forEach(p=>partList.push(p));
+    }
     // Desk base — a contoured cradle whose groove follows THIS model's bottom contour, so it nests perfectly
     // and sits on top of the base (nothing pokes through). Built in the model's own standing coordinates and
     // seated at the model's true bottom, so it just drops in with no rotation; the exporter lays it flat like
