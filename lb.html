@@ -2841,31 +2841,32 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // seated flat on the lid — there is no free Z axis. The 2D pad clamps to this.
     window.__GB={hx:Math.max(8,LW/2),hy:Math.max(8,LH/2)};
     const partList=[{group:capGroup,name:"Lid · front",flip:false,isLid:true,color:(nameMode?"#FFFFFF":COLORS.front)},{group:bodyGroup,name:"Body",flip:false,color:COLORS.body}];
-    // Text layers are physically small — group EVERY text element onto ONE shared text build plate instead
-    // of one plate per layer. The combined group holds each layer at its design position (so the assembled
-    // render is unchanged); on the plate it is auto-packed into a non-overlapping row (see layoutTextPlate).
-    // Gather the catalog-model parts first so AMS mode can fold them into the shared plate.
+    // Shared plates are grouped by whether the pieces can be individually coloured:
+    //  • Catalog models + images print in ONE fixed colour each (MATS.model / MATS.image) — they can't be coloured
+    //    piece-by-piece, so each type ALWAYS collapses onto a single plate (one filament, AMS or not).
+    //  • Text / name / logo layers each carry their OWN colour — different colours may only live on one plate with
+    //    an AMS (multi-material). So with AMS they share one plate; without AMS they split into one plate per colour.
+    // Every shared plate is auto-arranged into a bed grid by layoutTextPlate.
+    // Gather the catalog-model parts.
     var modelParts=[];
     if(stlParts&&stlParts.length){stlParts.forEach(p=>modelParts.push(p));}
     else{models.forEach((mo,i)=>{if(!mo.obj)return;const grp=new THREE.Group();const scale=(+mo.size||40)/Math.max(1e-6,mo.maxd);const inst=mo.obj.clone(true);inst.traverse(o=>{if(o.isMesh)o.material=MATS.model;});inst.scale.setScalar(scale);inst.rotation.set(0,0,deg(mo.rz||0));inst.position.set(+mo.x||0,+mo.y||0,TT);grp.userData={isStl:true,modelId:mo.id};grp.add(inst);modelParts.push({group:grp,name:"3D "+((mo.name||("model "+(i+1))).slice(0,9)),flip:false,modelId:mo.id,color:COLORS.model});});}
-    if(window.__hasAMS){
-      // AMS multi-colour: all the small secondary parts (text/name/logo layers, images AND catalog models) go on
-      // ONE shared plate — DISCONNECTED from the lid. Each mesh keeps its own colour; the exporter splits that one
-      // plate by material so the AMS prints them together (a single plate) each in its own filament. Names/logos
-      // are no longer fused into the lid, and multiple small pieces never spread across a plate each.
-      var _extras=new THREE.Group(),_nx=0;
-      nameGroups.forEach(function(gr){_extras.add(gr);_nx++;});
-      imgGroups.forEach(function(gr){_extras.add(gr);_nx++;});
-      modelParts.forEach(function(p){_extras.add(p.group);_nx++;});
-      if(_nx)partList.push({group:_extras,name:"Parts · "+_nx+(_nx>1?" pieces":" piece"),flip:false,textPlate:true,color:COLORS.front});
-      if(typeof photoPanelGroup!=="undefined"&&photoPanelGroup)partList.push({group:photoPanelGroup,name:"Photo panel",flip:false,color:"#FFFFFF"});
-    }else{
-      // No AMS: one colour per plate, so different-coloured parts stay separate. Text layers still share a plate.
-      if(nameGroups.length){const textPlate=new THREE.Group();nameGroups.forEach(gr=>textPlate.add(gr));partList.push({group:textPlate,name:(nameGroups.length>1?("Text · "+nameGroups.length+" layers"):"Text"),flip:false,textPlate:true,color:COLORS.front});}
-      imgGroups.forEach((gr,i)=>partList.push({group:gr,name:"Image "+(i+1),flip:false,color:COLORS.image}));
-      if(typeof photoPanelGroup!=="undefined"&&photoPanelGroup)partList.push({group:photoPanelGroup,name:"Photo panel",flip:false,color:"#FFFFFF"});
-      modelParts.forEach(p=>partList.push(p));
+    // Catalog models → one shared plate (single colour, can't be individually coloured).
+    if(modelParts.length){var _mg=new THREE.Group();modelParts.forEach(function(p){_mg.add(p.group);});partList.push({group:_mg,name:"Models · "+modelParts.length,flip:false,textPlate:true,cat:"model",isDense:true,color:COLORS.model});}
+    // Images → one shared plate (single colour, can't be individually coloured).
+    if(imgGroups.length){var _ig=new THREE.Group();imgGroups.forEach(function(gr){_ig.add(gr);});partList.push({group:_ig,name:"Images · "+imgGroups.length,flip:false,textPlate:true,cat:"image",color:COLORS.image});}
+    // Text / name / logo layers → individually colourable. Disconnected from the lid in every mode.
+    if(nameGroups.length){
+      if(window.__hasAMS){
+        var _tg=new THREE.Group();nameGroups.forEach(function(gr){_tg.add(gr);});
+        partList.push({group:_tg,name:"Text · "+nameGroups.length+(nameGroups.length>1?" pieces":" piece"),flip:false,textPlate:true,cat:"text",color:COLORS.front});
+      }else{
+        // No AMS: one plate per distinct colour, so a single-extruder printer prints each plate in one filament.
+        var _byCol={},_order=[];nameGroups.forEach(function(gr){var col=COLORS.front;gr.traverse(function(o){if(o.isMesh&&o.material&&o.material.color)col="#"+o.material.color.getHexString();});if(!_byCol[col]){_byCol[col]=[];_order.push(col);}_byCol[col].push(gr);});
+        _order.forEach(function(col){var arr=_byCol[col],g=new THREE.Group();arr.forEach(function(gr){g.add(gr);});partList.push({group:g,name:"Text"+(_order.length>1?(" "+col):"")+(arr.length>1?(" · "+arr.length):""),flip:false,textPlate:true,cat:"text",color:col});});
+      }
     }
+    if(typeof photoPanelGroup!=="undefined"&&photoPanelGroup)partList.push({group:photoPanelGroup,name:"Photo panel",flip:false,color:"#FFFFFF"});
     // Desk base — a contoured cradle whose groove follows THIS model's bottom contour, so it nests perfectly
     // and sits on top of the base (nothing pokes through). Built in the model's own standing coordinates and
     // seated at the model's true bottom, so it just drops in with no rotation; the exporter lays it flat like
@@ -2889,7 +2890,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     if(mode==="render"){
       // STL inlays can run to ~600k triangles each; casting their shadow would crush the shadow-map pass
       // and stutter dragging. Lid/body/name still cast; the dense models do not.
-      partList.forEach(p=>{const stl=!!p.modelId;p.group.traverse(o=>{if(o.isMesh&&o!==glowFace)o.castShadow=!stl;});pivot.add(p.group);});
+      partList.forEach(p=>{const stl=!!p.modelId||!!p.isDense;p.group.traverse(o=>{if(o.isMesh&&o!==glowFace)o.castShadow=!stl;});pivot.add(p.group);});
       pivot.position.set(0,0,0);pivot.rotation.set(0,0,0);pivot.updateMatrixWorld(true);
       const box=new THREE.Box3().setFromObject(pivot);const ctr=box.getCenter(new THREE.Vector3());const sz=box.getSize(new THREE.Vector3());
       floorPlane=new THREE.Mesh(new THREE.PlaneGeometry(8000,8000),new THREE.MeshStandardMaterial({color:floorHex(),roughness:0.92,metalness:0}));floorPlane.name="arSkip";floorPlane.rotation.x=-Math.PI/2;floorPlane.position.y=box.min.y-0.5;floorPlane.receiveShadow=true;pivot.add(floorPlane);
@@ -3404,9 +3405,9 @@ async function exportPlates(deliver){deliver=deliver||"download";
     // ===== LICENCE GATE: sign-in + an available export required before producing a file =====
     var _ownerFree=!!(window.__isOwner&&window.__isOwner());   // owner exports unlimited (testing) — no licence needed
     if(!_ownerFree&&typeof window.__consumeExport==="function"){var __lic=await window.__consumeExport();if(!__lic||!__lic.allowed){if(btn)btn.textContent=orig;return;}}
-    // Categorise every printable part, then enforce the STRICT 4-plate split:
-    //   Plate 1 = Main Box (body) · Plate 2 = Lid · Plate 3 = ALL text layers · Plate 4 = ALL catalog models.
-    // The lid is the only face-down (flip) part; text/models are detected by their flags.
+    // One Bambu plate per build plate in PLATES. AMS bakes each plate's colours into one multi-colour plate; a
+    // single-extruder export keeps every plate to one filament (models/images already collapse to one plate each,
+    // text splits per colour). The lid is the only face-down (flip) part; text/models are detected by their flags.
     const AMS=!!window.__hasAMS;
     const groups=[];window.__amsFilaments=null;
     if(AMS){
@@ -3420,21 +3421,18 @@ async function exportPlates(deliver){deliver=deliver||"download";
         kk=pal.length;pal.push(c);return kk+1;};   // only reached when no AMS palette is configured at all
       PLATES.forEach((part,pi)=>{const cols=partTrianglesByColor(part,false);if(!cols||!cols.length)return;
         const base=(part.name||("part "+(pi+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
-        const catA=part.isBase?"base":part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
+        const catA=part.cat||(part.isBase?"base":part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box")));
         const objects=cols.map((cg,ci)=>({name:base+(cols.length>1?(" #"+(ci+1)):""),tris:cg.tris,extruder:idxOf(cg.color),cat:catA}));
         groups.push({name:"Plate "+(groups.length+1)+" - "+base,baseName:base,merge:objects.length>1,objects:objects});});
       window.__amsFilaments=pal.slice();
     } else {
-      const bucket={box:[],lid:[],text:[],model:[],base:[]};
+      // One Bambu plate per build plate (mirrors the Plates preview). The plate grouping was already decided in
+      // buildModel — models → 1 plate, images → 1 plate, text → one plate per colour — so keep it 1:1 here so a
+      // single-extruder printer never gets two different colours on the same plate.
       PLATES.forEach((part,i)=>{const tris=partTriangles(part);if(!tris||!tris.length)return;
         const clean=(part.name||("part "+(i+1))).replace(/·/g,"-").replace(/\s+/g," ").trim();
-        const cat=part.isBase?"base":part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box"));
-        bucket[cat].push({name:clean,tris:tris,cat:cat});});
-      if(bucket.box.length)groups.push({name:"Plate "+(groups.length+1)+" - Main Box",objects:bucket.box});
-      if(bucket.lid.length)groups.push({name:"Plate "+(groups.length+1)+" - Lid",objects:bucket.lid});
-      if(bucket.text.length)groups.push({name:"Plate "+(groups.length+1)+" - Text Layers",objects:bucket.text});
-      if(bucket.model.length)groups.push({name:"Plate "+(groups.length+1)+" - Catalog Models",objects:bucket.model});
-      if(bucket.base.length)groups.push({name:"Plate "+(groups.length+1)+" - Desk Base",objects:bucket.base});
+        const cat=part.cat||(part.isBase?"base":part.textPlate?"text":((part.modelId!=null)?"model":(part.isLid?"lid":"box")));
+        groups.push({name:"Plate "+(groups.length+1)+" - "+clean,objects:[{name:clean,tris:tris,cat:cat}]});});
     }
     if(!groups.length){uiAlert("No printable geometry found to export.");return;}
     const plateCount=groups.length;
