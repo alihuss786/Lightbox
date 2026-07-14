@@ -2500,55 +2500,69 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap)
   function capUpV(O,H,z,up){if(!O||O.length<3)return;var faces=THREE.ShapeUtils.triangulateShape(O,H||[]),V=O.concat.apply(O,H||[]);faces.forEach(function(f){var p0=V[f[0]],p1=V[f[1]],p2=V[f[2]];var A=[p0.x,p0.y,z],B=[p1.x,p1.y,z],C=[p2.x,p2.y,z];var cr=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);if((cr>0)===up)tri(A,B,C);else tri(A,C,B);});}
   function wallLoop(L,z0,z1,isHole){if(!L||L.length<3)return;for(var i=0;i<L.length;i++){var a=L[i],b=L[(i+1)%L.length];if(!isHole)quad([a.x,a.y,z0],[b.x,b.y,z0],[b.x,b.y,z1],[a.x,a.y,z1]);else quad([b.x,b.y,z0],[a.x,a.y,z0],[a.x,a.y,z1],[b.x,b.y,z1]);}}
   // Resample the profile outline; the SAME loop drives the plain wall, the caps and the wrapped side pads.
-  var _edgeInset=0.35;   // (non-wrap desk base) inset the top tiles from the rim so the grout triangulates cleanly
+  var _edgeInset=0.35;   // top tiles stop this far from the rim (clean grout triangulation); the side pads fold up over it
   function _resampleOuter(){var out=[],step=0.6;for(var i=0;i<outer.length;i++){var a=outer[i],b=outer[(i+1)%outer.length];var dx=b.x-a.x,dy=b.y-a.y,L=Math.sqrt(dx*dx+dy*dy);var n=Math.max(1,Math.round(L/step));for(var k=0;k<n;k++){var t=k/n;out.push(new THREE.Vector2(a.x+dx*t,a.y+dy*t));}}return out;}
-  // DRAPE: the texture is ONE skin over the base — every tile lies flat on the top and, where it runs past the rim,
-  // folds over the edge and continues down the wall as the SAME piece (like a patterned cloth draped over a block).
-  // The pattern is generated once in world space over the top PLUS a skirt one wall-height wide; the map M3 keeps
-  // the on-top part flat (raised by `relief`) and bends the skirt down the wall, creasing right at the rim. So the
-  // top flows seamlessly into the sides with no border, no seam, and no separately-added side pattern.
-  function _drape(zHi,zLo,res){
+  // SIDE PADS: wrap the texture around the wall as REAL raised tile pads — exactly like the crisp raised tiles on
+  // the TOP, just folded around the vertical wall. Each tile becomes its own closed prism standing `relief` proud
+  // of the plain wall (its base is sunk 0.2mm INTO the wall so the two solids overlap and the slicer fuses them).
+  // Because every pad is closed on its own, there is no fragile rim/cap stitching: the sides read as crisp as the
+  // top, the mesh stays watertight per body, and the cost scales with the PATTERN (tile count), not the base size —
+  // so even a 200mm base wraps instantly instead of exploding a fine displacement grid.
+  function _sidePads(zHi,zLo,res){
     if(!_texObj||!_texObj.gen||!res||res.length<3)return;var i;
     var M=res.length,cx0=0,cy0=0;for(i=0;i<M;i++){cx0+=res[i].x;cy0+=res[i].y;}cx0/=M;cy0/=M;
+    // arc length + outward vertex normal per resampled point; bpt(s,t,off) maps unrolled (perimeter s, depth t) to
+    // the curved wall, pushed out radially by `off` (proud pads use +relief, their sunk base uses a small -bite).
     var arc=new Float64Array(M+1),nrm=[],acc=0;
     for(i=0;i<M;i++){arc[i]=acc;var a=res[i],b=res[(i+1)%M];acc+=Math.sqrt((b.x-a.x)*(b.x-a.x)+(b.y-a.y)*(b.y-a.y));var pv=res[(i-1+M)%M],nx2=res[(i+1)%M],dx=nx2.x-pv.x,dy=nx2.y-pv.y,L=Math.sqrt(dx*dx+dy*dy)||1,nx=dy/L,ny=-dx/L,mx=a.x-cx0,my=a.y-cy0;if(nx*mx+ny*my<0){nx=-nx;ny=-ny;}nrm[i]={x:nx,y:ny};}
     arc[M]=acc;var P=acc,sideH=zHi-zLo;if(P<2||sideH<0.5)return;
-    // Coarse projection polyline (~1.8mm): drops a world point onto the profile -> (arc-length s, signed outward t).
-    var _pj=[],_pjS=Math.max(1,Math.round(1.8/(P/M||0.6)));for(i=0;i<M;i+=_pjS)_pj.push([res[i].x,res[i].y,arc[i],nrm[i].x,nrm[i].y]);_pj.push([res[0].x,res[0].y,P,nrm[0].x,nrm[0].y]);
-    function _proj(qx,qy){var best=1e18,bs=0,bt=0,k,N=_pj.length-1;for(k=0;k<N;k++){var a=_pj[k],b=_pj[k+1],ex=b[0]-a[0],ey=b[1]-a[1],L2=ex*ex+ey*ey||1e-9,f=((qx-a[0])*ex+(qy-a[1])*ey)/L2;if(f<0)f=0;else if(f>1)f=1;var px=a[0]+ex*f,py=a[1]+ey*f,dx=qx-px,dy=qy-py,d2=dx*dx+dy*dy;if(d2<best){best=d2;bs=a[2]+f*(b[2]-a[2]);bt=dx*a[3]+dy*a[4];}}return [bs,bt];}
-    function bwall(s,t,off){s=((s%P)+P)%P;var lo=0,hi=M;while(hi-lo>1){var mid=(lo+hi)>>1;if(arc[mid]<=s)lo=mid;else hi=mid;}var i0=lo,i1=(lo+1)%M,seg=arc[lo+1]-arc[lo],f=seg>1e-9?(s-arc[lo])/seg:0;var px=res[i0].x+(res[i1].x-res[i0].x)*f,py=res[i0].y+(res[i1].y-res[i0].y)*f,nx=nrm[i0].x+(nrm[i1].x-nrm[i0].x)*f,ny=nrm[i0].y+(nrm[i1].y-nrm[i0].y)*f,nl=Math.sqrt(nx*nx+ny*ny)||1;return [px+nx/nl*off,py+ny/nl*off,zHi-t];}
-    // The drape map: on the top (t<=0) stay at the real (x,y) and lift by `off`; past the rim (t>0) fold down the
-    // wall, proud OUT by `off`. Consecutive vertices straddling the rim bridge into a small crease at the edge.
-    function M3(x,y,off){var pr=_proj(x,y),t=pr[1];if(t<=0)return [x,y,zHi+off];return bwall(pr[0],t,off);}
-    var rel=_relief,bite=Math.min(0.3,rel*0.6);   // tile base sunk into the body so the two solids overlap + fuse
-    var _region=off(prof,sideH);try{if(_exRect){var _rr=diff(_region,_exRect);if(_rr&&_rr.length)_region=_rr;}}catch(e){}   // top + a skirt one wall-height wide, minus the groove pocket
+    function bpt(s,t,off){s=((s%P)+P)%P;var lo=0,hi=M;while(hi-lo>1){var mid=(lo+hi)>>1;if(arc[mid]<=s)lo=mid;else hi=mid;}var i0=lo,i1=(lo+1)%M,seg=arc[lo+1]-arc[lo],f=seg>1e-9?(s-arc[lo])/seg:0;var px=res[i0].x+(res[i1].x-res[i0].x)*f,py=res[i0].y+(res[i1].y-res[i0].y)*f,nx=nrm[i0].x+(nrm[i1].x-nrm[i0].x)*f,ny=nrm[i0].y+(nrm[i1].y-nrm[i0].y)*f,nl=Math.sqrt(nx*nx+ny*ny)||1,ux=nx/nl,uy=ny/nl;
+      if(t<0)return [px+ux*t,py+uy*t,zHi+off];   // t<0: fold up onto the TOP — go inward by |t| and raise by `off` in +z, so the tile flows over the rim and covers the grout inset (bridged to the wall at t=0 = a chamfered edge)
+      return [px+ux*off,py+uy*off,zHi-t];         // t>=0: down the wall, proud OUT by `off`
+    }
+    function _ri(v){return {X:Math.round(v[0]*S),Y:Math.round(v[1]*S)};}
+    var _flap=_edgeInset+0.12;   // fold the pads up over the rim by the grout inset (+a hair of overlap) so no border shows
+    var stripRect=[[_ri([0,-_flap]),_ri([P,-_flap]),_ri([P,sideH]),_ri([0,sideH])]];
+    // Generate the pattern in the SAME world space + phase as the TOP (tiles sit at fixed world positions), over a
+    // band reaching `sideH` past the rim, then UNFOLD it onto the wall: project each tile vertex to (arc-length s,
+    // outward depth t) by dropping it onto the resampled profile. So a tile straddling the edge keeps flowing — its
+    // inside half is the top tile, its outside half folds down the wall and lines up exactly at the rim (continuous).
     var _mnX=1e18,_mnY=1e18,_mxX=-1e18,_mxY=-1e18;for(i=0;i<M;i++){var rp=res[i];if(rp.x<_mnX)_mnX=rp.x;if(rp.x>_mxX)_mxX=rp.x;if(rp.y<_mnY)_mnY=rp.y;if(rp.y>_mxY)_mxY=rp.y;}
     var _bpad=sideH+2,cellsW=_texObj.gen(_mnX-_bpad,_mnY-_bpad,_mxX+_bpad,_mxY+_bpad);if(!cellsW||!cellsW.length)return;
-    // Solid textures union their cells into one clean skin; the wireframe cubes emit each strut as its own simple
-    // pad (their union self-touches and won't triangulate), deduped, overlaps left for the slicer to fuse.
+    // Coarse projection polyline (~1.8mm) — sub-tile accuracy is plenty for the fold and keeps the per-vertex
+    // nearest-point search fast even on a 200mm base with a dense pattern.
+    var _pj=[],_pjS=Math.max(1,Math.round(1.8/(P/M||0.6)));for(i=0;i<M;i+=_pjS)_pj.push([res[i].x,res[i].y,arc[i],nrm[i].x,nrm[i].y]);_pj.push([res[0].x,res[0].y,P,nrm[0].x,nrm[0].y]);
+    function _proj(qx,qy){var best=1e18,bs=0,bt=0,k,N=_pj.length-1;for(k=0;k<N;k++){var a=_pj[k],b=_pj[k+1],ex=b[0]-a[0],ey=b[1]-a[1],L2=ex*ex+ey*ey||1e-9,f=((qx-a[0])*ex+(qy-a[1])*ey)/L2;if(f<0)f=0;else if(f>1)f=1;var px=a[0]+ex*f,py=a[1]+ey*f,dx=qx-px,dy=qy-py,d2=dx*dx+dy*dy;if(d2<best){best=d2;bs=a[2]+f*(b[2]-a[2]);bt=dx*a[3]+dy*a[4];}}return {X:Math.round(bs*S),Y:Math.round(bt*S)};}
+    var cells=[];for(var _wi=0;_wi<cellsW.length;_wi++){var _cw=cellsW[_wi];if(_cw.length<3)continue;var _pc=[],_smin=1e18,_smax=-1e18,_any=false;for(var _vi=0;_vi<_cw.length;_vi++){var _pp=_proj(_cw[_vi].X/S,_cw[_vi].Y/S);_pc.push(_pp);if(_pp.Y>-_flap*S)_any=true;if(_pp.X<_smin)_smin=_pp.X;if(_pp.X>_smax)_smax=_pp.X;}if(!_any)continue;if(_smax-_smin>P*0.5*S)continue;cells.push(_pc);}   // drop interior-only cells and the lone seam-straddling cell
+    if(!cells.length)return;
+    var rel=_relief,bite=Math.min(0.25,rel*0.5);   // pad base sunk `bite` into the wall so the solids overlap + fuse
+    // Build the list of pad polygons {O,H}. Solid textures union their cells into one clean surface (no coincident
+    // faces); wireframe textures (thin overlapping struts whose union self-touches and won't triangulate) instead
+    // emit each strut as its own simple pad — the overlaps just fuse in the slicer, and every pad stays closed.
     var _wire=(_bv==="isostar"),padList=[];
-    function _addLoops(paths){_toShapes(paths).forEach(function(sh){var ep=sh.extractPoints();var O=_dd(ep.shape||[]);if(O.length<3)return;var H=(ep.holes||[]).map(_dd).filter(function(x){return x.length>=3;});padList.push({O:O,H:H});});}
-    if(_wire){var _seen={};for(var ci=0;ci<cellsW.length;ci++){var _ck=cellsW[ci].map(function(p){return Math.round(p.X/50)+","+Math.round(p.Y/50);}).sort().join(";");if(_seen[_ck])continue;_seen[_ck]=1;var cl=intersect([cellsW[ci]],_region);if(cl&&cl.length)_addLoops(cl);}}
-    else{var tiles=intersect(cellsW,_region)||[];var _fz=0.35;try{var _tg=off(tiles,_fz);if(_tg)_tg=off(_tg,-_fz*0.5);if(_tg&&_tg.length)tiles=cleanPaths(_tg);}catch(e){}try{var _tc=intersect(tiles,_region);if(_tc&&_tc.length)tiles=cleanPaths(_tc);}catch(e){}if(tiles&&tiles.length)_addLoops(tiles);}
+    function _addLoops(paths){_toShapes(paths).forEach(function(sh){var ep=sh.extractPoints();var O=_dd(ep.shape||[]);if(O.length<3)return;var H=(ep.holes||[]).map(_dd).filter(function(x){return x.length>=3;});padList.push({O:O.map(function(p){return new THREE.Vector2(p.x,p.y);}),H:H.map(function(h){return h.map(function(p){return new THREE.Vector2(p.x,p.y);});})});});}
+    if(_wire){var _seen={};for(var ci=0;ci<cells.length;ci++){var _ck=cells[ci].map(function(p){return Math.round(p.X/50)+","+Math.round(p.Y/50);}).sort().join(";");if(_seen[_ck])continue;_seen[_ck]=1;var cl=intersect([cells[ci]],stripRect);if(cl&&cl.length)_addLoops(cl);}}   // dedupe struts shared by adjacent cells so overlapping pads don't fully coincide
+    else{var tiles=intersect(cells,stripRect)||[];var _fz=0.35;try{var _tg=off(tiles,_fz);if(_tg)_tg=off(_tg,-_fz*0.5);if(_tg&&_tg.length)tiles=cleanPaths(_tg);}catch(e){}try{var _tc=intersect(tiles,stripRect);if(_tc&&_tc.length)tiles=cleanPaths(_tc);}catch(e){}if(tiles&&tiles.length)_addLoops(tiles);}
     if(!padList.length)return;
-    // Densify to ~0.7mm so tile edges pick up a vertex near the rim -> the fold creases at the edge, not across it.
-    function _densL(loop){var out=[];for(var k=0;k<loop.length;k++){var a=loop[k],b=loop[(k+1)%loop.length];out.push(new THREE.Vector2(a.x,a.y));var dd=Math.sqrt((b.x-a.x)*(b.x-a.x)+(b.y-a.y)*(b.y-a.y)),n=Math.floor(dd/0.7);for(var m=1;m<=n;m++){var f=m/(n+1);out.push(new THREE.Vector2(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f));}}return out;}
+    function _densL(loop){var out=[];for(var k=0;k<loop.length;k++){var a=loop[k],b=loop[(k+1)%loop.length];out.push(a);var dd=Math.sqrt((b.x-a.x)*(b.x-a.x)+(b.y-a.y)*(b.y-a.y)),n=Math.floor(dd/1.0);for(var m=1;m<=n;m++){var f=m/(n+1);out.push(new THREE.Vector2(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f));}}return out;}
     function padFaces(O,H){try{var f=THREE.ShapeUtils.triangulateShape(O,H);return (f&&f.length)?f:null;}catch(e){return null;}}
-    function emitCap(faces,V,off,out){faces.forEach(function(fc){var p0=V[fc[0]],p1=V[fc[1]],p2=V[fc[2]];var A=M3(p0.x,p0.y,off),B=M3(p1.x,p1.y,off),C=M3(p2.x,p2.y,off);if(out)tri(A,B,C);else tri(A,C,B);});}
-    function padWall(L,oHi,oLo,hole){for(var k=0;k<L.length;k++){var a=L[k],b=L[(k+1)%L.length];if(!hole)quad(M3(a.x,a.y,oHi),M3(b.x,b.y,oHi),M3(b.x,b.y,oLo),M3(a.x,a.y,oLo));else quad(M3(b.x,b.y,oHi),M3(a.x,a.y,oHi),M3(a.x,a.y,oLo),M3(b.x,b.y,oLo));}}
+    function emitCap(faces,V,off,out){faces.forEach(function(fc){var p0=V[fc[0]],p1=V[fc[1]],p2=V[fc[2]];var A=bpt(p0.x,p0.y,off),B=bpt(p1.x,p1.y,off),C=bpt(p2.x,p2.y,off);if(out)tri(A,B,C);else tri(A,C,B);});}
+    function padWall(L,oHi,oLo,hole){for(var k=0;k<L.length;k++){var a=L[k],b=L[(k+1)%L.length];if(!hole)quad(bpt(a.x,a.y,oHi),bpt(b.x,b.y,oHi),bpt(b.x,b.y,oLo),bpt(a.x,a.y,oLo));else quad(bpt(b.x,b.y,oHi),bpt(a.x,a.y,oHi),bpt(a.x,a.y,oLo),bpt(b.x,b.y,oLo));}}
     function _loopA(L){var s=0;for(var k=0;k<L.length;k++){var a=L[k],b=L[(k+1)%L.length];s+=a.x*b.y-b.x*a.y;}return Math.abs(s)/2;}
     padList.forEach(function(pd){
       var O=_densL(pd.O);if(O.length<3)return;
       var H=pd.H.map(_densL).filter(function(x){return x.length>=3;});
-      var faces=padFaces(O,H);if(!faces)return;         // skip a sliver that won't triangulate rather than leave an open cap
+      var faces=padFaces(O,H);if(!faces)return;         // skip a sliver that won't triangulate rather than leave an open tube
       var V=O.concat.apply(O,H);
+      // Safety net: only build the pad if the triangulation actually covers the polygon, so a partial triangulation
+      // never emits an open cap — the body stays watertight for ANY texture, current or future.
       var _polyA=_loopA(O);H.forEach(function(h){_polyA-=_loopA(h);});
       var _triA=0;faces.forEach(function(fc){var p0=V[fc[0]],p1=V[fc[1]],p2=V[fc[2]];_triA+=Math.abs((p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x))/2;});
-      if(_polyA>1e-4&&_triA<_polyA*0.9)return;           // partial triangulation -> skip, keep the body watertight
-      emitCap(faces,V,rel,true);     // raised skin (proud)
-      emitCap(faces,V,-bite,false);  // underside, sunk into the body — same triangulation so the tile is closed
-      padWall(O,rel,-bite,false);    // tile edge wall
-      H.forEach(function(h){padWall(h,rel,-bite,true);});   // hole walls (grout islands stay recessed)
+      if(_polyA>1e-4&&_triA<_polyA*0.9)return;
+      emitCap(faces,V,rel,true);     // proud face (out)
+      emitCap(faces,V,-bite,false);  // base face, sunk into the wall (in) — same triangulation so the pad is closed
+      padWall(O,rel,-bite,false);    // outer skirt
+      H.forEach(function(h){padWall(h,rel,-bite,true);});   // hole skirts (grout islands stay recessed)
     });
   }
   // Optional texture tiles (clipper), fused into ONE shell with the foot top.
@@ -2557,7 +2571,7 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap)
     if(_texObj){
       var _exX0=mx0-1.2,_exX1=mx1+1.2,_exY0=-halfFront-1.2,_exY1=halfBack+1.2;   // keep-out = the carved groove pocket
       var _exRect=[[{X:Math.round(_exX0*S),Y:Math.round(_exY0*S)},{X:Math.round(_exX1*S),Y:Math.round(_exY0*S)},{X:Math.round(_exX1*S),Y:Math.round(_exY1*S)},{X:Math.round(_exX0*S),Y:Math.round(_exY1*S)}]];
-      var _topReg=diff(prof,_exRect);var _Rin=off(_topReg,edgeWrap?-_edgeInset:-1.6);   // edge-wrap only uses these tiles to size the relief; the actual texture is the continuous drape (see _drape), so the inset here is cosmetic
+      var _topReg=diff(prof,_exRect);var _Rin=off(_topReg,edgeWrap?-_edgeInset:-1.6);   // edge-wrap keeps a small grout inset so the top triangulates cleanly; the side pads fold up over that inset (see _sidePads) so no gap shows
       if(_Rin&&_Rin.length){
         var _mnX=1e9,_mnY=1e9,_mxX=-1e9,_mxY=-1e9;_Rin.forEach(function(pp){pp.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<_mnX)_mnX=X;if(X>_mxX)_mxX=X;if(Y<_mnY)_mnY=Y;if(Y>_mxY)_mxY=Y;});});
         var _cells=_texObj.gen(_mnX,_mnY,_mxX,_mxY);var _tt=intersect(_cells,_Rin);
@@ -2572,12 +2586,7 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap)
   var _ew=!!(edgeWrap&&_tiles&&_relief>0);
   var _res=_ew?_resampleOuter():null;var _capOut=outer;   // plain wall + caps trace the profile; pads wrap onto it
   // TOP surface
-  if(_ew){
-    // Plain flat top (grout level, groove punched out); _drape() lays the raised texture over it and folds it down
-    // the sides as one continuous skin, so the top is not built as separate raised tiles here.
-    capUpV(outer,[_dd(hole)],zTop,true);
-    _seatDrop=_relief;
-  }else if(_tiles&&_relief>0){
+  if(_tiles&&_relief>0){
     // Derive EVERY boundary from one canonical tile-shape set, so the grout hole, the tile top and the tile
     // wall all trace identical vertices -> the raised texture and the flat grout weld into ONE watertight shell
     // (no seam gaps, no floating pucks). tile inner holes (e.g. cube rhombi) are grout islands at z=0.
@@ -2602,7 +2611,7 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap)
   // Side wall: plain vertical wall (grout level). TestBase additionally wraps raised tile pads onto it below.
   for(i0=0;i0<outer.length;i0++){var pA=outer[i0],pB=outer[(i0+1)%outer.length];
     quad([pA.x,pA.y,zTop],[pB.x,pB.y,zTop],[pB.x,pB.y,zBot],[pA.x,pA.y,zBot]);}
-  if(_ew){_drape(zTop,zBot,_res);}
+  if(_ew){_sidePads(zTop,zBot,_res);}
   // contoured floor + two side walls (straight top edge, contoured bottom) + two end caps
   for(i0=0;i0<M;i0++){var x0=xs[i0],x1=xs[i0+1],f0=-gd[i0],f1=-gd[i0+1];
     quad([x0,ymn(i0),f0],[x1,ymn(i0+1),f1],[x1,ymx(i0+1),f1],[x0,ymx(i0),f0]);                 // floor
