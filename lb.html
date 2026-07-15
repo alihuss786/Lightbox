@@ -778,8 +778,10 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="sub" style="margin-top:6px">🌀 Shadowbox (layered depth)</div>
       <div class="toggle-row"><span class="lbl">Nested layers receding inward</span><div class="tg" id="tg_labs2_shadow" onclick="labs2Toggle('shadow')"><div class="k"></div></div></div>
       <div id="labs2_shadow_ctl" style="display:none;flex-direction:column;gap:9px">
-        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Layers — <b id="labs2_shadow_lbl">6</b></span><input type="range" id="labs2_shadow_layers" min="2" max="12" step="1" value="6" oninput="labs2Layers(this.value)"></div>
-        <div class="hint">Concentric copies of your shape step back into the box for a 3D tunnel of depth when lit.</div>
+        <label class="upfont" style="cursor:pointer">⬆ Upload a photo (for a real diorama)<input type="file" id="labs2_shadow_file" accept="image/*" hidden onchange="labs2ShadowUpload(this)"></label>
+        <div class="hint" id="labs2_shadow_photo" style="color:var(--acc)"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth layers — <b id="labs2_shadow_lbl">6</b></span><input type="range" id="labs2_shadow_layers" min="2" max="12" step="1" value="6" oninput="labs2Layers(this.value)"></div>
+        <div class="hint">Upload a photo and it’s split by brightness into stacked cut-out layers at different depths — a true backlit shadowbox scene. With no photo it falls back to a concentric “infinity tunnel” of your shape.</div>
       </div>
       <div class="sub" style="margin-top:14px">💡 Faux-neon</div>
       <div class="toggle-row"><span class="lbl">Your shape as glowing neon tubes</span><div class="tg" id="tg_labs2_neon" onclick="labs2Toggle('neon')"><div class="k"></div></div></div>
@@ -1556,11 +1558,12 @@ function applyLabsLight(){if(typeof pivot==="undefined"||!pivot)return;var lit=(
 /* ===================== LABS 2 — more experimental backlit features (prototypes) =====================
    Shadowbox (layered depth), Faux-neon (silhouette as glowing tubes), Moon phase (for a date), Word-fill
    (fill the shape with words). All clipped to / built from the CHOSEN shape and glow via the same tags. */
-var LABS2={shadow:{on:false,layers:6},neon:{on:false},moon:{on:false,date:""},wordfill:{on:false,text:"Love\nFamily\nAlways\nForever"}};
+var LABS2={shadow:{on:false,layers:6,px:null},neon:{on:false},moon:{on:false,date:""},wordfill:{on:false,text:"Love\nFamily\nAlways\nForever"}};
 function labs2Toggle(k){if(!LABS2[k])return;LABS2[k].on=!LABS2[k].on;var t=document.getElementById("tg_labs2_"+k);if(t)t.classList.toggle("on",LABS2[k].on);var c=document.getElementById("labs2_"+k+"_ctl");if(c)c.style.display=LABS2[k].on?"flex":"none";if(typeof scheduleBuild==="function")scheduleBuild();}
 function labs2Moon(){LABS2.moon.date=(document.getElementById("labs2_moon_date")||{}).value||"";if(typeof scheduleBuild==="function")scheduleBuild();}
 function labs2Words(v){LABS2.wordfill.text=v||"";if(typeof scheduleBuild==="function")scheduleBuild();}
 function labs2Layers(v){LABS2.shadow.layers=Math.max(2,Math.min(12,+v||6));var lb=document.getElementById("labs2_shadow_lbl");if(lb)lb.textContent=LABS2.shadow.layers;if(typeof scheduleBuild==="function")scheduleBuild();}
+function labs2ShadowUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();img.onload=function(){try{LABS2.shadow.px=(typeof _labsSample==="function")?_labsSample(img,96):null;var h=document.getElementById("labs2_shadow_photo");if(h)h.textContent="✓ Photo loaded — split into depth layers.";if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}};var rd=new FileReader();rd.onload=function(e){img.src=e.target.result;};rd.readAsDataURL(f);input.value="";}
 /* shared shape context (centred silhouette + point-in-shape test), same convention as buildLabs */
 function _labsShapeCtx(filled,cx,cy){
   var CXS=Math.round(cx*S),CYS=Math.round(cy*S);
@@ -1583,8 +1586,20 @@ async function buildLabs2(filled,cx,cy,TT){
   // (1) SHADOWBOX — nested silhouette frames receding into the box = layered depth
   if(LABS2.shadow.on){
     try{
-      var N=LABS2.shadow.layers,step=3.0,frameW=1.7,gap=2.4,g=new THREE.Group(),made=0;
-      for(var k=0;k<N;k++){var outer=off(C.filC,-(0.4+k*step));if(!outer||!outer.length)break;var inner=off(C.filC,-(0.4+k*step+frameW));var ring=(inner&&inner.length)?diff(outer,inner):outer;var sh=diffToShapes(ring,null,0);if(!sh||!sh.length)break;var m=new THREE.Mesh(extr(sh,1.2),new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.5}));m.position.z=-k*gap;m.userData.labsGlow=COLORS.front;g.add(m);made++;}
+      var g=new THREE.Group(),made=0;
+      if(LABS2.shadow.px&&LABS2.shadow.px.cells){
+        // REAL shadowbox — split the PHOTO into depth layers by brightness: the darkest parts sit at the FRONT and
+        // each lighter band steps back, so backlighting reveals a genuine 3-D scene of stacked cut-out layers.
+        var px=LABS2.shadow.px,G=px.G,N=Math.max(3,Math.min(8,LABS2.shadow.layers)),cw=C.w/G,ch=C.h/G,gap=Math.max(1.8,C.h*0.022);
+        for(var k=0;k<N;k++){var thr=(k+1)/N,pos=[],z=-k*gap;
+          for(var gy=0;gy<G;gy++)for(var gx=0;gx<G;gx++){var cc2=px.cells[gy*G+gx];if(cc2.lum>=thr)continue;var xC=C.mnx+(gx+0.5)*cw,yC=C.mxy-(gy+0.5)*ch;if(!C.inShape(xC,yC))continue;var x0=C.mnx+gx*cw,y0=C.mxy-(gy+1)*ch;pos.push(x0,y0,z,x0+cw,y0,z,x0+cw,y0+ch,z, x0,y0,z,x0+cw,y0+ch,z,x0,y0+ch,z);}
+          if(pos.length<9)continue;var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));geo.computeVertexNormals();var m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.5,side:THREE.DoubleSide}));m.userData.labsGlow=COLORS.front;g.add(m);made++;}
+        var bp=new THREE.Mesh(extr(panelShapes(),1.0),new THREE.MeshStandardMaterial({color:"#101017",roughness:0.75}));bp.position.z=-N*gap;g.add(bp);   // dark back panel
+      }else{
+        // No photo yet — fall back to the concentric “infinity tunnel” of your shape (upload a photo for a real diorama).
+        var N2=LABS2.shadow.layers,step=3.0,frameW=1.7,gap2=2.4;
+        for(var kk=0;kk<N2;kk++){var outer=off(C.filC,-(0.4+kk*step));if(!outer||!outer.length)break;var inner=off(C.filC,-(0.4+kk*step+frameW));var ring=(inner&&inner.length)?diff(outer,inner):outer;var sh=diffToShapes(ring,null,0);if(!sh||!sh.length)break;var mm2=new THREE.Mesh(extr(sh,1.2),new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.5}));mm2.position.z=-kk*gap2;mm2.userData.labsGlow=COLORS.front;g.add(mm2);made++;}
+      }
       if(made){g.position.set(0,0,z0);parts.push({group:g,name:"Shadowbox",flip:false,labs:true,color:COLORS.front});}
     }catch(e){}
   }
@@ -1618,15 +1633,22 @@ async function buildLabs2(filled,cx,cy,TT){
       var words=(LABS2.wordfill.text||"").split(/[\n,]+/).map(function(s){return s.trim();}).filter(Boolean);
       if(!words.length)words=["Love"];
       var otf=await loadOT((typeof baseFontUrl==="function")?baseFontUrl():selNameFont.url);
-      var totChars=words.join(" ").length||6,size=Math.max(5,Math.min(22,Math.sqrt(C.w*C.h/(totChars*26)))),gap=size*0.4,lineH=size*1.28;
-      var all=[],penX=C.mnx,penY=C.mxy-size,i=0,guard=0;
-      while(penY>C.mny&&guard<4000){guard++;
-        var wrd=words[i%words.length];i++;var wp=nameSubjOT(otf,wrd,size);
-        var a=1e18,b=1e18,cc=-1e18,d=-1e18;wp.forEach(function(p){p.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<a)a=X;if(X>cc)cc=X;if(Y<b)b=Y;if(Y>d)d=Y;});});
-        var ww=cc-a;if(ww<=0){continue;}
-        if(penX+ww>C.mxx){penX=C.mnx;penY-=lineH;if(penY<C.mny)break;}
-        var dx=penX-a,dy=penY-d;wp.forEach(function(p){all.push(p.map(function(q){return {X:Math.round((q.X/S+dx)*S),Y:Math.round((q.Y/S+dy)*S)};}));});
-        penX+=ww+gap;
+      var totChars=words.join(" ").length||6,size=Math.max(5,Math.min(24,Math.sqrt(C.w*C.h/(totChars*22)))),gap=size*0.45,lineH=size*1.2;
+      var cache={};
+      function _meas(wd){if(cache[wd])return cache[wd];var p=nameSubjOT(otf,wd,size);var a=1e18,b=1e18,cc=-1e18,d=-1e18;p.forEach(function(pp){pp.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<a)a=X;if(X>cc)cc=X;if(Y<b)b=Y;if(Y>d)d=Y;});});return (cache[wd]={paths:p,minx:a,maxy:d,w:Math.max(0.1,cc-a)});}
+      // Fill row by row; each row is CENTRED to the shape's actual width at that height, so the words hug the
+      // silhouette (few words in the narrow parts, more in the wide parts) instead of a ragged, edge-clipped block.
+      var all=[],i=0,penY=C.mxy-size*0.7,guard=0,sstep=Math.max(0.8,C.w/180);
+      while(penY>C.mny+size*0.15&&guard<240){guard++;
+        var xL=1e18,xR=-1e18;for(var sx=C.mnx;sx<=C.mxx;sx+=sstep){if(C.inShape(sx,penY)){if(sx<xL)xL=sx;if(sx>xR)xR=sx;}}
+        var avail=xR-xL;
+        if(avail>size*1.4){
+          var row=[],rowW=0,tries=0;
+          while(tries<80){tries++;var m=_meas(words[i%words.length]);var add=(row.length?gap:0)+m.w;if(row.length&&rowW+add>avail)break;row.push(m);rowW+=add;i++;if(m.w>=avail)break;}
+          var px=xL+(avail-rowW)/2;
+          row.forEach(function(m){var dx=px-m.minx,dy=penY-m.maxy;m.paths.forEach(function(pp){all.push(pp.map(function(q){return {X:Math.round((q.X/S+dx)*S),Y:Math.round((q.Y/S+dy)*S)};}));});px+=m.w+gap;});
+        }
+        penY-=lineH;
       }
       var clipped=all;try{var _ci=intersect(all,C.contentPaths);if(_ci&&_ci.length)clipped=_ci;}catch(e){}
       var sh2=diffToShapes(clipped,null,0);
