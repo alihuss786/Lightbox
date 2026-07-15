@@ -1451,49 +1451,62 @@ function _labsSky(dateStr,lat,lon){
   });
   return {stars:out,pos:pos};
 }
-/* Build the active Labs panels. Returns partList entries. Sits on the box front (z≈TT), centred on the lid. */
+/* Build the active Labs panels — each effect is CLIPPED to the chosen silhouette (letter / name / logo) so it
+   fills that shape instead of a floating disc/rectangle, then sits flush on the box front. */
 async function buildLabs(filled,cx,cy,TT){
   var parts=[];if(typeof THREE==="undefined")return parts;
   if(!(LABS.hidden.on||LABS.clitho.on||LABS.star.on))return parts;
-  var mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;(filled||[]).forEach(function(p){p.forEach(function(q){var X=q.X/S-cx,Yy=q.Y/S-cy;if(X<mnx)mnx=X;if(X>mxx)mxx=X;if(Yy<mny)mny=Yy;if(Yy>mxy)mxy=Yy;});});
+  if(!filled||!filled.length)return parts;
+  var CXS=Math.round(cx*S),CYS=Math.round(cy*S);
+  var filC=filled.map(function(p){return p.map(function(q){return {X:q.X-CXS,Y:q.Y-CYS};});});   // silhouette in centred coords
+  var panelPaths=filC;try{var _o=off(filC,-0.4);if(_o&&_o.length)panelPaths=_o;}catch(e){}          // panel outline, just inside the lid edge
+  var contentPaths=panelPaths;try{var _c=off(filC,-3);if(_c&&_c.length)contentPaths=_c;}catch(e){}   // keep stars/photo/text off the very edge
+  var polys=contentPaths.map(function(p){return p.map(function(q){return [q.X/S,q.Y/S];});});
+  function inShape(x,y){var c=false;for(var pi=0;pi<polys.length;pi++){var poly=polys[pi];for(var i=0,j=poly.length-1;i<poly.length;j=i++){var xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/((yj-yi)||1e-9)+xi))c=!c;}}return c;}
+  var mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;panelPaths.forEach(function(p){p.forEach(function(q){var X=q.X/S,Yy=q.Y/S;if(X<mnx)mnx=X;if(X>mxx)mxx=X;if(Yy<mny)mny=Yy;if(Yy>mxy)mxy=Yy;});});
   if(!isFinite(mnx)){mnx=-45;mxx=45;mny=-55;mxy=55;}
-  var w=Math.max(30,mxx-mnx),h=Math.max(30,mxy-mny),midX=(mnx+mxx)/2,midY=(mny+mxy)/2,z0=(TT||1);
-  function place(grp){grp.position.set(midX,midY,z0);}
-  function rectPath(W,H){return [{X:Math.round(-W/2*S),Y:Math.round(-H/2*S)},{X:Math.round(W/2*S),Y:Math.round(-H/2*S)},{X:Math.round(W/2*S),Y:Math.round(H/2*S)},{X:Math.round(-W/2*S),Y:Math.round(H/2*S)}];}
-  // (1) HIDDEN MESSAGE — flush panel with the text sunk as a thin (backlight-transmitting) window
+  var w=Math.max(20,mxx-mnx),h=Math.max(20,mxy-mny),ccx=(mnx+mxx)/2,ccy=(mny+mxy)/2,z0=(TT||1)+0.05;
+  function panelShapes(){return diffToShapes(panelPaths,null,0);}
+  function extr(shapes,depth){return new THREE.ExtrudeGeometry(shapes,{depth:depth,bevelEnabled:false,curveSegments:5});}
+  // (1) HIDDEN MESSAGE — the shape stays flush; the text is a thin (backlight-transmitting) window inside it
   if(LABS.hidden.on&&(LABS.hidden.text||"").trim()){
     try{
       var otf=await loadOT((typeof baseFontUrl==="function")?baseFontUrl():selNameFont.url);
       var tp0=nameSubjOT(otf,LABS.hidden.text.trim(),100);
-      var tmnx=1e18,tmny=1e18,tmxx=-1e18,tmxy=-1e18;tp0.forEach(function(p){p.forEach(function(q){var X=q.X/S,Yy=q.Y/S;if(X<tmnx)tmnx=X;if(X>tmxx)tmxx=X;if(Yy<tmny)tmny=Yy;if(Yy>tmxy)tmxy=Yy;});});
-      var tw=tmxx-tmnx,th=tmxy-tmny,sc=Math.min(w*0.72/Math.max(1,tw),h*0.5/Math.max(1,th)),tcx=(tmnx+tmxx)/2,tcy=(tmny+tmxy)/2;
-      var tp=tp0.map(function(p){return p.map(function(q){return {X:Math.round(((q.X/S-tcx)*sc)*S),Y:Math.round(((q.Y/S-tcy)*sc)*S)};});});
-      var rect=rectPath(w*0.92,h*0.66),T=1.8,skin=0.6,g=new THREE.Group();
-      var back=diffToShapes([rect],tp,0);if(back&&back.length){var bg=new THREE.ExtrudeGeometry(back,{depth:T,bevelEnabled:false,curveSegments:5});g.add(new THREE.Mesh(bg,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.55})));}
-      var txt=diffToShapes(tp,null,0);if(txt&&txt.length){var tg=new THREE.ExtrudeGeometry(txt,{depth:skin,bevelEnabled:false,curveSegments:5});tg.translate(0,0,T-skin);var tm=new THREE.Mesh(tg,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.5}));tm.userData.labsHidden=true;g.add(tm);}
-      place(g);parts.push({group:g,name:"Hidden message",flip:false,color:COLORS.front});
+      var a=1e18,bb=1e18,c2=-1e18,d2=-1e18;tp0.forEach(function(p){p.forEach(function(q){var X=q.X/S,Yy=q.Y/S;if(X<a)a=X;if(X>c2)c2=X;if(Yy<bb)bb=Yy;if(Yy>d2)d2=Yy;});});
+      var tw=c2-a,th=d2-bb,sc=Math.min(w*0.7/Math.max(1,tw),h*0.42/Math.max(1,th)),tcx=(a+c2)/2,tcy=(bb+d2)/2;
+      var tp=tp0.map(function(p){return p.map(function(q){return {X:Math.round((ccx+(q.X/S-tcx)*sc)*S),Y:Math.round((ccy+(q.Y/S-tcy)*sc)*S)};});});
+      var tpClip=tp;try{var _ti=intersect(tp,panelPaths);if(_ti&&_ti.length)tpClip=_ti;}catch(e){}   // never spill past the shape
+      var T=1.8,skin=0.55,g=new THREE.Group();
+      var back=diffToShapes(panelPaths,tpClip,0);if(back&&back.length)g.add(new THREE.Mesh(extr(back,T),new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.55})));
+      var txt=diffToShapes(tpClip,null,0);if(txt&&txt.length){var tg=extr(txt,skin);tg.translate(0,0,T-skin);var tm=new THREE.Mesh(tg,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.5}));tm.userData.labsHidden=true;g.add(tm);}
+      g.position.set(0,0,z0);parts.push({group:g,name:"Hidden message",flip:false,labs:true,color:COLORS.front});
     }catch(e){}
   }
-  // (2) COLOUR PRINT — flat backlit picture built from the derived palette (each colour its own AMS mesh)
+  // (2) COLOUR PRINT — photo split into filament colours, mapped over the shape and clipped to it
   if(LABS.clitho.on&&LABS.clitho.px&&LABS.clitho.pal){
     try{
-      var px=LABS.clitho.px,pal=LABS.clitho.pal,G=px.G,pw=w*0.9,ph=h*0.9,cellW=pw/G,cellH=ph/G,byCol={};
-      for(var gy=0;gy<G;gy++)for(var gx=0;gx<G;gx++){var c=px.cells[gy*G+gx];if(c.lum>0.985)continue;var pi=c.pi||0;var x0=-pw/2+gx*cellW,y0=ph/2-(gy+1)*cellH,arr=byCol[pi]||(byCol[pi]=[]);arr.push(x0,y0,x0+cellW,y0,x0+cellW,y0+cellH, x0,y0,x0+cellW,y0+cellH,x0,y0+cellH);}
-      var cg=new THREE.Group(),zc=1.0;
-      Object.keys(byCol).forEach(function(pi){var flat=byCol[pi],pos=[];for(var i=0;i<flat.length;i+=2)pos.push(flat[i],flat[i+1],zc);var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));geo.computeVertexNormals();var mm=new THREE.MeshStandardMaterial({color:pal[pi]||"#cccccc",roughness:0.5,side:THREE.DoubleSide});var msh=new THREE.Mesh(geo,mm);msh.userData.labsGlow=(pal[pi]||"#cccccc");cg.add(msh);});
-      var bp=new THREE.ExtrudeGeometry(new THREE.Shape(rectPath(pw,ph).map(function(q){return new THREE.Vector2(q.X/S,q.Y/S);})),{depth:zc,bevelEnabled:false});cg.add(new THREE.Mesh(bp,new THREE.MeshStandardMaterial({color:"#101216",roughness:0.7})));
-      place(cg);parts.push({group:cg,name:"Colour print",flip:false,textPlate:false,color:pal[0]||"#cccccc"});
+      var px=LABS.clitho.px,pal=LABS.clitho.pal,G=px.G,cellW=w/G,cellH=h/G,byCol={};
+      for(var gy=0;gy<G;gy++)for(var gx=0;gx<G;gx++){var xC=mnx+(gx+0.5)*cellW,yC=mxy-(gy+0.5)*cellH;if(!inShape(xC,yC))continue;var cc=px.cells[gy*G+gx],pi=cc.pi||0;var x0=mnx+gx*cellW,y0=mxy-(gy+1)*cellH,arr=byCol[pi]||(byCol[pi]=[]);arr.push(x0,y0,x0+cellW,y0,x0+cellW,y0+cellH, x0,y0,x0+cellW,y0+cellH,x0,y0+cellH);}
+      var cg=new THREE.Group(),zc=1.2;
+      cg.add(new THREE.Mesh(extr(panelShapes(),zc),new THREE.MeshStandardMaterial({color:"#0d0f13",roughness:0.7})));
+      Object.keys(byCol).forEach(function(pi){var flat=byCol[pi],pos=[];for(var i=0;i<flat.length;i+=2)pos.push(flat[i],flat[i+1],zc+0.05);var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));geo.computeVertexNormals();var mm=new THREE.MeshStandardMaterial({color:pal[pi]||"#cccccc",roughness:0.5,side:THREE.DoubleSide});var msh=new THREE.Mesh(geo,mm);msh.userData.labsGlow=(pal[pi]||"#cccccc");cg.add(msh);});
+      cg.position.set(0,0,z0);parts.push({group:cg,name:"Colour print",flip:false,labs:true,color:pal[0]||"#cccccc"});
     }catch(e){}
   }
-  // (3) STAR MAP — dark disc with glowing bright stars projected for the date + place
+  // (3) STAR MAP — the shape becomes a night sky; bright stars + faint fill + constellations, all clipped to it
   if(LABS.star.on){
     try{
-      var sky=_labsSky(LABS.star.date,LABS.star.lat,LABS.star.lon),R=Math.min(w,h)*0.45,sg=new THREE.Group(),zs=1.2;
-      var disc=new THREE.CylinderGeometry(R,R,zs,64);disc.rotateX(Math.PI/2);disc.translate(0,0,zs/2);
-      sg.add(new THREE.Mesh(disc,new THREE.MeshStandardMaterial({color:"#0b1230",roughness:0.6})));
-      sky.stars.forEach(function(st){var sz=Math.max(0.7,1.9-st.mag*0.35),d=new THREE.SphereGeometry(sz*0.5,10,8);d.translate(st.x*R,st.y*R,zs);var dm=new THREE.MeshStandardMaterial({color:"#ffffff",roughness:0.3});var mp=new THREE.Mesh(d,dm);mp.userData.labsStar=Math.max(0.35,1.4-st.mag*0.3);sg.add(mp);});
-      LABS_LINES.forEach(function(ln){var a=sky.pos[ln[0]],b=sky.pos[ln[1]];if(!a||!b)return;var ax=a.x*R,ay=a.y*R,bx=b.x*R,by=b.y*R,dx=bx-ax,dy=by-ay,len=Math.sqrt(dx*dx+dy*dy);if(len<1)return;var lg=new THREE.BoxGeometry(len,0.5,0.5);lg.translate(len/2,0,0);var lm=new THREE.Mesh(lg,new THREE.MeshStandardMaterial({color:"#3b5a9a",roughness:0.5}));lm.position.set(ax,ay,zs);lm.rotation.z=Math.atan2(dy,dx);lm.userData.labsStar=0.25;sg.add(lm);});
-      place(sg);parts.push({group:sg,name:"Star map",flip:false,color:"#0b1230"});
+      var sky=_labsSky(LABS.star.date,LABS.star.lat,LABS.star.lon),R=Math.max(w,h)*0.55,sg=new THREE.Group(),zs=1.4;
+      sg.add(new THREE.Mesh(extr(panelShapes(),zs),new THREE.MeshStandardMaterial({color:"#0b1230",roughness:0.6})));
+      var seed=2166136261;("bg"+(LABS.star.date||"")).split("").forEach(function(ch){seed=(seed^ch.charCodeAt(0))>>>0;seed=(seed*16777619)>>>0;});
+      function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+      var placed=0,tries=0;
+      while(placed<48&&tries<800){tries++;var rx=mnx+rnd()*w,ry=mny+rnd()*h;if(!inShape(rx,ry))continue;var fs=0.35+rnd()*0.4,fd=new THREE.SphereGeometry(fs,6,5);fd.translate(rx,ry,zs);var fm=new THREE.Mesh(fd,new THREE.MeshStandardMaterial({color:"#cfe0ff",roughness:0.4}));fm.userData.labsStar=0.22+rnd()*0.28;sg.add(fm);placed++;}
+      var posById={};
+      sky.stars.forEach(function(st){var X=ccx+st.x*R,Y=ccy+st.y*R;if(!inShape(X,Y))return;var sz=Math.max(0.8,2.0-st.mag*0.36),d=new THREE.SphereGeometry(sz*0.5,12,9);d.translate(X,Y,zs);var mp=new THREE.Mesh(d,new THREE.MeshStandardMaterial({color:"#ffffff",roughness:0.3}));mp.userData.labsStar=Math.max(0.5,1.5-st.mag*0.3);sg.add(mp);posById[st.idx]={x:X,y:Y};});
+      LABS_LINES.forEach(function(ln){var A=posById[ln[0]],B=posById[ln[1]];if(!A||!B)return;var dx=B.x-A.x,dy=B.y-A.y,len=Math.sqrt(dx*dx+dy*dy);if(len<1)return;var lg=new THREE.BoxGeometry(len,0.45,0.45);lg.translate(len/2,0,0);var lm=new THREE.Mesh(lg,new THREE.MeshStandardMaterial({color:"#3b5a9a",roughness:0.5}));lm.position.set(A.x,A.y,zs);lm.rotation.z=Math.atan2(dy,dx);lm.userData.labsStar=0.22;sg.add(lm);});
+      sg.position.set(0,0,z0);parts.push({group:sg,name:"Star map",flip:false,labs:true,color:"#0b1230"});
     }catch(e){}
   }
   return parts;
@@ -3027,7 +3040,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     if(mode==="render"){
       // STL inlays can run to ~600k triangles each; casting their shadow would crush the shadow-map pass
       // and stutter dragging. Lid/body/name still cast; the dense models do not.
-      partList.forEach(p=>{const stl=!!p.modelId||!!p.isDense;p.group.traverse(o=>{if(o.isMesh&&o!==glowFace)o.castShadow=!stl;});pivot.add(p.group);});
+      partList.forEach(p=>{const stl=!!p.modelId||!!p.isDense||!!p.labs;p.group.traverse(o=>{if(o.isMesh&&o!==glowFace)o.castShadow=!stl;});pivot.add(p.group);});
       pivot.position.set(0,0,0);pivot.rotation.set(0,0,0);pivot.updateMatrixWorld(true);
       const box=new THREE.Box3().setFromObject(pivot);const ctr=box.getCenter(new THREE.Vector3());const sz=box.getSize(new THREE.Vector3());
       floorPlane=new THREE.Mesh(new THREE.PlaneGeometry(8000,8000),new THREE.MeshStandardMaterial({color:floorHex(),roughness:0.92,metalness:0}));floorPlane.name="arSkip";floorPlane.rotation.x=-Math.PI/2;floorPlane.position.y=box.min.y-0.5;floorPlane.receiveShadow=true;pivot.add(floorPlane);
