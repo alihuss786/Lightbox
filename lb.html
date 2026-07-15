@@ -1561,7 +1561,7 @@ function applyLabsLight(){if(typeof pivot==="undefined"||!pivot)return;var lit=(
   pivot.traverse(function(o){if(!o.isMesh)return;var u=o.userData||{};
   // Lithophane transmission preview: when lit, the front glows per-vertex by how much light passes through the
   // relief (thin = bright, thick = dark) so the photo reveals like a real backlit lithophane.
-  if(u.lithoUL){u.lithoUL.value=lit?1:0;if(u.lithoTint)u.lithoTint.value.set(COLORS.front);return;}
+  if(u.lithoUL){u.lithoUL.value=lit?1:0;if(u.lithoTint)u.lithoTint.value.set("#fff4e6");return;}   // white lithophane, warm backlight
   if(!o.material||!o.material.emissive)return;
   if(u.labsHidden){o.material.emissive.copy(lit?new THREE.Color(COLORS.front).multiplyScalar(1.1):new THREE.Color(0));o.material.color.set(COLORS.front);}
   else if(u.labsGlow){o.material.emissive.copy(lit?new THREE.Color(u.labsGlow).multiplyScalar(0.7):new THREE.Color(0));}
@@ -1835,8 +1835,9 @@ function buildLithophaneGeometry(img,opts){
 /* A lithophane material that also does the backlit-transmission preview: emissive per-vertex = how much light
    passes through the relief (thin = bright, thick = dark). uLit fades it in when the lamp is on. */
 function lithophaneMaterial(){
-  var mat=new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.62,metalness:0});
-  mat.userData.uLit={value:0};mat.userData.uTint={value:new THREE.Color(COLORS.front)};
+  // Lithophanes are ALWAYS white — the image reads through thickness, not colour, so colour is never an option.
+  var mat=new THREE.MeshStandardMaterial({color:"#ffffff",roughness:0.62,metalness:0});
+  mat.userData.uLit={value:0};mat.userData.uTint={value:new THREE.Color("#fff4e6")};   // warm-white backlight glow
   mat.onBeforeCompile=function(sh){sh.uniforms.uLit=mat.userData.uLit;sh.uniforms.uTint=mat.userData.uTint;
     sh.vertexShader="attribute float aLit;\nvarying float vLit;\n"+sh.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\n  vLit=aLit;");
     sh.fragmentShader="varying float vLit;\nuniform float uLit;\nuniform vec3 uTint;\n"+sh.fragmentShader.replace("#include <emissivemap_fragment>","#include <emissivemap_fragment>\n  totalEmissiveRadiance+=uTint*(vLit*uLit*1.35);");};
@@ -3480,7 +3481,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       var _lmat=lithophaneMaterial(),_lm=new THREE.Mesh(_lgeo,_lmat);
       _lm.userData.lithoUL=_lmat.userData.uLit;_lm.userData.lithoTint=_lmat.userData.uTint;   // driven by the lamp in applyLabsLight
       var _lgrp=new THREE.Group();_lgrp.add(_lm);_lgrp.position.set(0,0,(TT||1)+0.05);
-      partList.push({group:_lgrp,name:"Lithophane",flip:false,labs:true,litho:true,color:COLORS.front});
+      partList.push({group:_lgrp,name:"Lithophane",flip:false,labs:true,litho:true,color:"#FFFFFF"});
       window.__labsStandalone=true;
     }}catch(e){}
     // Standalone Labs 2 (preset word-cloud / scene shadowbox) IS the whole object — drop every other box so the
