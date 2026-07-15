@@ -778,7 +778,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="sub" style="margin-top:6px">🌀 Shadowbox (layered depth)</div>
       <div class="toggle-row"><span class="lbl">Nested layers receding inward</span><div class="tg" id="tg_labs2_shadow" onclick="labs2Toggle('shadow')"><div class="k"></div></div></div>
       <div id="labs2_shadow_ctl" style="display:none;flex-direction:column;gap:9px">
-        <div class="row"><span class="lbl">Scene</span><select id="labs2_shadow_scene" class="psel" style="width:auto" onchange="labs2ShadowScene(this.value)"><option value="">Photo / my shape</option><option value="family">👨‍👩‍👧 Family on the swing</option><option value="fox">🦊 Fox in the forest</option><option value="girl">📖 Girl reading</option></select></div>
+        <div class="row"><span class="lbl">Scene</span><select id="labs2_shadow_scene" class="psel" style="width:auto" onchange="labs2ShadowScene(this.value)"><option value="">Photo / my shape</option><option value="girl">🌳 Girl on a swing</option><option value="family">👨‍👩‍👧 Family swing</option><option value="fox">🦊 Fox in the forest</option><option value="deer">🦌 Deer in the forest</option></select></div>
         <label class="upfont" style="cursor:pointer">⬆ Upload a photo (for a real diorama)<input type="file" id="labs2_shadow_file" accept="image/*" hidden onchange="labs2ShadowUpload(this)"></label>
         <div class="hint" id="labs2_shadow_photo" style="color:var(--acc)"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth layers — <b id="labs2_shadow_lbl">6</b></span><input type="range" id="labs2_shadow_layers" min="2" max="12" step="1" value="6" oninput="labs2Layers(this.value)"></div>
@@ -1619,64 +1619,92 @@ function _labsWordCloud(maskPaths,mnx,mxx,mny,mxy,words){
    you look through receding leaves/branches to a moonlit sky with a subject silhouette. All original procedural
    art, no third-party assets. Returns {outline, layers:[{d,paths}]} (d=0 front … larger=further back). */
 function _labsScene(name,W,H){
-  var mn=Math.min(W,H),hw=W/2,hh=H/2,border=mn*0.055,gy=-H*0.08,iw=hw-border,ih=hh-border;
+  var mn=Math.min(W,H),hw=W/2,hh=H/2,border=mn*0.05,gy=-H*0.05,iw=hw-border,ih=hh-border;
   function P(pts){return pts.map(function(p){return {X:Math.round(p[0]*S),Y:Math.round(p[1]*S)};});}
-  function circ(cx,cy,r,n){n=n||18;var a=[];for(var i=0;i<n;i++){var t=Math.PI*2*i/n;a.push([cx+Math.cos(t)*r,cy+Math.sin(t)*r]);}return P(a);}
-  function ellip(cx,cy,rx,ry,n){n=n||44;var a=[];for(var i=0;i<n;i++){var t=Math.PI*2*i/n;a.push([cx+Math.cos(t)*rx,cy+Math.sin(t)*ry]);}return P(a);}
+  function circ(cx,cy,r,n){n=n||22;var a=[];for(var i=0;i<n;i++){var t=Math.PI*2*i/n;a.push([cx+Math.cos(t)*r,cy+Math.sin(t)*r]);}return P(a);}
+  function ellip(cx,cy,rx,ry,n){n=n||56;var a=[];for(var i=0;i<n;i++){var t=Math.PI*2*i/n;a.push([cx+Math.cos(t)*rx,cy+Math.sin(t)*ry]);}return P(a);}
   function rct(cx,cy,w,h){return P([[cx-w/2,cy-h/2],[cx+w/2,cy-h/2],[cx+w/2,cy+h/2],[cx-w/2,cy+h/2]]);}
-  function leaf(cx,cy,len,wid,ang){var pts=[],n=9,i,t,x,y,c=Math.cos(ang),s=Math.sin(ang);
-    for(i=0;i<=n;i++){t=i/n;x=(t-0.5)*len;y=Math.sin(t*Math.PI)*wid*0.5;pts.push([x,y]);}
-    for(i=n;i>=0;i--){t=i/n;x=(t-0.5)*len;y=-Math.sin(t*Math.PI)*wid*0.5;pts.push([x,y]);}
+  // a teardrop leaf: 0 width at the stem, swelling then tapering to a point at the tip
+  function leaf(cx,cy,len,wid,ang){var pts=[],n=10,i,t,w,c=Math.cos(ang),s=Math.sin(ang);
+    for(i=0;i<=n;i++){t=i/n;w=wid*0.5*Math.sin(Math.PI*Math.pow(t,0.72));pts.push([t*len,w]);}
+    for(i=n;i>=0;i--){t=i/n;w=wid*0.5*Math.sin(Math.PI*Math.pow(t,0.72));pts.push([t*len,-w]);}
     return P(pts.map(function(p){return [cx+p[0]*c-p[1]*s,cy+p[0]*s+p[1]*c];}));}
+  function qc(p0,p1,p2,n){var a=[];for(var i=0;i<=n;i++){var t=i/n,m=1-t;a.push([m*m*p0[0]+2*m*t*p1[0]+t*t*p2[0],m*m*p0[1]+2*m*t*p1[1]+t*t*p2[1]]);}return a;}
+  function ribbon(sp,w0,w1){var L=[],R=[],n=sp.length-1;
+    for(var i=0;i<=n;i++){var t=i/n,w=w0+(w1-w0)*t,dx,dy;if(i<n){dx=sp[i+1][0]-sp[i][0];dy=sp[i+1][1]-sp[i][1];}else{dx=sp[i][0]-sp[i-1][0];dy=sp[i][1]-sp[i-1][1];}
+      var ln=Math.sqrt(dx*dx+dy*dy)||1,nx=-dy/ln,ny=dx/ln;L.push([sp[i][0]+nx*w,sp[i][1]+ny*w]);R.push([sp[i][0]-nx*w,sp[i][1]-ny*w]);}
+    return P(L.concat(R.reverse()));}
   var seed=20240707;function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+  // a leafy branch: a tapered stem along a curve with teardrop leaves paired along it + a tip leaf
+  function branchF(p0,p1,p2,w0,lsz,step,flip){var n=12,sp=qc(p0,p1,p2,n),paths=[ribbon(sp,w0,w0*0.12)];
+    for(var i=2;i<=n;i+=step){var t=i/n,dx=sp[i][0]-sp[i-1][0],dy=sp[i][1]-sp[i-1][1],sa=Math.atan2(dy,dx),sz=lsz*(1-0.55*t);
+      paths.push(leaf(sp[i][0],sp[i][1],sz*2.1,sz,sa+0.95*flip));paths.push(leaf(sp[i][0],sp[i][1],sz*2.1,sz,sa-0.95*flip));}
+    var e=sp[n];paths.push(leaf(e[0],e[1],lsz*1.7,lsz*0.85,Math.atan2(e[1]-sp[n-1][1],e[0]-sp[n-1][0])));return paths;}
   var outer=rct(0,0,W,H),inner=rct(0,0,W-2*border,H-2*border),frame=diff([outer],[inner]);
   function clipIn(paths){try{var r=intersect(paths,[inner]);return (r&&r.length)?r:[];}catch(e){return paths;}}
-  function uni(a,b){try{var r=union2(a,b);return (r&&r.length)?r:a;}catch(e){return a;}}
-  // --- subject silhouettes, seated/standing on the ground line gy, ~0.3·W wide, centred ---
-  function seat(cx,h){var hr=h*0.15,hy=gy+h,paths=[circ(cx,hy,hr,16)];
-    paths.push(P([[cx-h*0.17,hy-hr*0.5],[cx+h*0.17,hy-hr*0.5],[cx+h*0.14,gy+h*0.30],[cx-h*0.14,gy+h*0.30]]));   // torso
-    paths.push(rct(cx-h*0.085,gy-h*0.10,h*0.065,h*0.30));paths.push(rct(cx+h*0.085,gy-h*0.10,h*0.065,h*0.30));   // dangling legs
+  // ---- subject silhouettes (centred, standing/seated on the ground line gy) ----
+  function subjGirl(){var paths=[],py=gy+H*0.15,ty=ih*0.9;   // girl on a swing
+    paths.push(ribbon([[-W*0.15,ty],[-W*0.14,(ty+py)/2],[-W*0.11,py]],mn*0.006,mn*0.005));   // left rope
+    paths.push(ribbon([[W*0.15,ty],[W*0.14,(ty+py)/2],[W*0.11,py]],mn*0.006,mn*0.005));       // right rope
+    paths.push(rct(0,py,W*0.30,H*0.02));   // plank
+    var hy=py+H*0.28;paths.push(circ(-W*0.02,hy,H*0.048,20));paths.push(P([[-W*0.02,hy+H*0.02],[-W*0.09,hy+H*0.01],[-W*0.10,hy-H*0.04],[-W*0.05,hy-H*0.055]]));   // head + hair
+    paths.push(P([[-W*0.07,hy-H*0.03],[W*0.05,hy-H*0.05],[W*0.16,py+H*0.02],[-W*0.14,py+H*0.02]]));   // torso + flared dress
+    paths.push(ribbon([[W*0.02,py+H*0.01],[W*0.09,py-H*0.06],[W*0.13,py-H*0.14]],mn*0.012,mn*0.008));   // legs
     return paths;}
-  function subjFamily(){var plankW=W*0.46,paths=[rct(0,gy-H*0.008,plankW,H*0.018)];   // swing plank
-    paths.push(rct(-plankW*0.5,(gy+hh*0.7)/1,mn*0.012,hh*0.7-gy));paths.push(rct(plankW*0.5,(gy+hh*0.7)/1,mn*0.012,hh*0.7-gy));   // ropes
-    return paths.concat(seat(-W*0.15,H*0.30)).concat(seat(-W*0.05,H*0.20)).concat(seat(W*0.05,H*0.185)).concat(seat(W*0.15,H*0.28));}
-  function subjFox(){var b=gy,paths=[];var bcx=0,bcy=b+H*0.10;
-    paths.push(ellip(bcx,bcy,W*0.15,H*0.075,26));   // body
-    paths.push(P([[bcx-W*0.15,bcy+H*0.02],[bcx-W*0.28,bcy+H*0.11],[bcx-W*0.24,bcy+H*0.03],[bcx-W*0.30,bcy+H*0.05],[bcx-W*0.17,bcy-H*0.03]]));   // tail
-    var hx=bcx+W*0.15,hy=bcy+H*0.05;paths.push(P([[hx,hy+H*0.07],[hx+W*0.10,hy+H*0.02],[hx+W*0.13,hy-H*0.03],[hx+W*0.05,hy-H*0.04],[hx-W*0.02,hy]]));   // head+snout
-    paths.push(P([[hx,hy+H*0.07],[hx-W*0.01,hy+H*0.13],[hx+W*0.03,hy+H*0.08]]));paths.push(P([[hx+W*0.06,hy+H*0.06],[hx+W*0.06,hy+H*0.12],[hx+W*0.10,hy+H*0.06]]));   // ears
-    [-0.09,-0.03,0.06,0.11].forEach(function(o){paths.push(rct(bcx+o*W,b+H*0.03,mn*0.02,H*0.10));});   // legs
+  function subjFox(){var paths=[],b=gy,cx=W*0.03,bcy=b+H*0.085;   // sitting fox, facing left, tail sweeping forward
+    paths.push(ellip(cx+W*0.02,bcy,W*0.10,H*0.075,26));   // haunch
+    paths.push(P([[cx-W*0.05,bcy-H*0.01],[cx-W*0.10,bcy+H*0.12],[cx-W*0.09,bcy+H*0.21],[cx-W*0.03,bcy+H*0.22],[cx,bcy+H*0.10],[cx+W*0.02,bcy]]));   // chest/neck
+    var hx=cx-W*0.075,hy=bcy+H*0.25;
+    paths.push(P([[hx+W*0.03,hy-H*0.03],[hx-W*0.02,hy-H*0.05],[hx-W*0.11,hy-H*0.02],[hx-W*0.12,hy+H*0.01],[hx-W*0.03,hy+H*0.03],[hx+W*0.03,hy+H*0.02]]));   // head + snout
+    paths.push(P([[hx+W*0.03,hy+H*0.015],[hx+W*0.055,hy+H*0.085],[hx-W*0.005,hy+H*0.03]]));   // ear R
+    paths.push(P([[hx-W*0.05,hy+H*0.025],[hx-W*0.055,hy+H*0.09],[hx-W*0.10,hy+H*0.025]]));   // ear L
+    paths.push(rct(cx-W*0.055,b+H*0.055,mn*0.02,H*0.11));   // front leg
+    paths.push(P([[cx+W*0.07,bcy+H*0.02],[cx+W*0.20,bcy-H*0.03],[cx+W*0.25,bcy+H*0.01],[cx+W*0.24,bcy+H*0.07],[cx+W*0.13,bcy+H*0.07]]));   // bushy tail
     return paths;}
-  function subjGirl(){var cx=0,paths=[];var hy=gy+H*0.24;paths.push(circ(cx-W*0.01,hy,H*0.05,16));   // head
-    paths.push(circ(cx-W*0.05,hy+H*0.01,H*0.035,12));   // hair bun
-    paths.push(P([[cx-W*0.06,hy-H*0.03],[cx+W*0.06,hy-H*0.05],[cx+W*0.12,gy+H*0.02],[cx-W*0.10,gy+H*0.02]]));   // body leaning + folded legs
-    paths.push(rct(cx+W*0.02,hy-H*0.06,W*0.10,H*0.012));   // book
+  function subjDeer(){var paths=[],b=gy,cx=0,bcy=b+H*0.17;   // standing deer facing left, antlers
+    paths.push(ellip(cx-W*0.01,bcy,W*0.15,H*0.072,28));   // body
+    paths.push(P([[cx-W*0.11,bcy+H*0.03],[cx-W*0.20,bcy+H*0.15],[cx-W*0.21,bcy+H*0.22],[cx-W*0.185,bcy+H*0.23],[cx-W*0.155,bcy+H*0.13],[cx-W*0.09,bcy+H*0.01]]));   // neck
+    paths.push(P([[cx-W*0.205,bcy+H*0.21],[cx-W*0.265,bcy+H*0.25],[cx-W*0.265,bcy+H*0.215],[cx-W*0.20,bcy+H*0.185]]));   // head/muzzle
+    paths.push(ribbon([[cx-W*0.20,bcy+H*0.24],[cx-W*0.215,bcy+H*0.31],[cx-W*0.265,bcy+H*0.35]],mn*0.006,mn*0.003));
+    paths.push(ribbon([[cx-W*0.195,bcy+H*0.24],[cx-W*0.16,bcy+H*0.32],[cx-W*0.125,bcy+H*0.35]],mn*0.006,mn*0.003));   // antlers
+    [-0.11,-0.04,0.05,0.12].forEach(function(o,ii){paths.push(rct(cx+o*W,b+H*0.055,mn*0.017,H*(0.13+(ii%2?0.0:0.0))));});   // legs
+    paths.push(P([[cx+W*0.14,bcy+H*0.02],[cx+W*0.185,bcy-H*0.03],[cx+W*0.16,bcy+H*0.04]]));   // tail
     return paths;}
-  var N=6,layers=[];
+  function subjFamily(){var paths=[],py=gy+H*0.14,ty=ih*0.86;   // family on a bench swing
+    paths.push(ribbon([[-W*0.24,ty],[-W*0.23,(ty+py)/2],[-W*0.22,py]],mn*0.006,mn*0.005));
+    paths.push(ribbon([[W*0.24,ty],[W*0.23,(ty+py)/2],[W*0.22,py]],mn*0.006,mn*0.005));
+    paths.push(rct(0,py,W*0.50,H*0.02));   // bench plank
+    function fig(x,h){var hy=py+h,ps=[circ(x,hy,h*0.16,16)];ps.push(P([[x-h*0.17,hy-h*0.5],[x+h*0.17,hy-h*0.5],[x+h*0.15,py+H*0.005],[x-h*0.15,py+H*0.005]]));ps.push(rct(x-h*0.09,py-h*0.16,h*0.06,h*0.34));ps.push(rct(x+h*0.09,py-h*0.16,h*0.06,h*0.34));return ps;}
+    return paths.concat(fig(-W*0.17,H*0.30)).concat(fig(-W*0.06,H*0.21)).concat(fig(W*0.05,H*0.195)).concat(fig(W*0.16,H*0.285));}
+  var subjFn=(name==="fox")?subjFox:(name==="deer")?subjDeer:(name==="girl")?subjGirl:subjFamily;
+  // leafy foliage FRAMING the top + sides of the opening (denser / bigger on the FRONT layers), centre kept clear
+  // for the subject + moon so the scene reads
+  function foliageFor(f){var fol=[],reach=1-f,bw=mn*(0.015+0.011*reach),ls=mn*(0.045+0.026*reach),yEnd=ih*(0.46+0.10*f);
+    fol=fol.concat(branchF([-iw*0.82,ih*0.99],[-iw*0.35,ih*0.82],[-iw*0.06,yEnd],bw,ls,1,1));            // top-left arch
+    fol=fol.concat(branchF([iw*0.82,ih*0.99],[iw*0.35,ih*0.82],[iw*0.06,yEnd],bw,ls,1,-1));              // top-right arch
+    fol=fol.concat(branchF([-iw*0.99,ih*0.78],[-iw*0.9,ih*0.42],[-iw*0.68,ih*0.05],bw*0.8,ls*0.8,2,1));  // left side hang
+    fol=fol.concat(branchF([iw*0.99,ih*0.78],[iw*0.9,ih*0.42],[iw*0.68,ih*0.05],bw*0.8,ls*0.8,2,-1));    // right side hang
+    if(reach>0.5){fol=fol.concat(branchF([-iw*0.55,ih*0.99],[-iw*0.48,ih*0.74],[-iw*0.34,ih*0.5],bw*0.75,ls*0.8,2,1));   // top-left clump
+      fol=fol.concat(branchF([iw*0.55,ih*0.99],[iw*0.48,ih*0.74],[iw*0.34,ih*0.5],bw*0.75,ls*0.8,2,-1));                 // top-right clump
+      fol=fol.concat(branchF([-iw*0.99,ih*0.2],[-iw*0.85,ih*0.02],[-iw*0.62,-ih*0.12],bw*0.75,ls*0.72,2,1));             // lower-left
+      fol=fol.concat(branchF([iw*0.99,ih*0.2],[iw*0.85,ih*0.02],[iw*0.62,-ih*0.12],bw*0.75,ls*0.72,2,-1));}              // lower-right
+    return fol;}
+  var N=6,layers=[],apCY=H*0.02;
   for(var k=0;k<N;k++){
-    var f=k/(N-1),paths=frame.slice(),apCY=H*0.03;
-    // FOLIAGE vignette: a big arched opening framed by a leafy border band. The opening GROWS toward the back so
-    // the border thins and you look through the receding layers to the moonlit sky (the tunnel). Bottom stays open
-    // for the scene + grass.
-    var apRx=iw*(0.64+0.18*f),apRy=ih*(0.66+0.16*f);
-    var ring=diff([inner],[ellip(0,apCY,apRx,apRy,64)]);   // foliage border (big arched opening)
-    var leaves=[],nL=Math.round(48-12*f);
-    for(var li=0;li<nL;li++){var aa=Math.PI*2*li/nL;if(Math.sin(aa)<-0.28)continue;   // leave the bottom of the opening clean
-      var top=Math.sin(aa)>0.35?1.6:1.0,ex=Math.cos(aa)*apRx,ey=apCY+Math.sin(aa)*apRy,lr=mn*(0.014+0.011*(1-f))*top*(0.7+rnd()*0.6);leaves.push(circ(ex,ey,lr,10));}
-    // short leaf strands dripping from the top of the arch on the nearer layers
-    if(f<0.6){for(var vi=0;vi<3;vi++){var vx=(vi-1)*W*0.16+(rnd()-0.5)*W*0.05,vy0=apCY+apRy*0.9,vy1=vy0-H*(0.05+0.06*(1-f)),vs=3;
-      for(var vg=0;vg<vs;vg++){var vt=vg/(vs-1),vyy=vy0+(vy1-vy0)*vt,vxx=vx+Math.sin(vt*3+vi)*W*0.015;leaves.push(circ(vxx,vyy,mn*(0.014+0.012*(1-f)),8));}}}
-    paths=paths.concat(clipIn(ring.concat(leaves)));   // NonZero fill merges border + leaf scallops, clipped inside
-    // slender tree trunks rising at the sides on the middle layers
-    if(k>=2&&k<N-1){var tw=mn*0.022;paths.push(rct(-(iw*0.86),(gy+hh)/2,tw,hh-gy));paths.push(rct((iw*0.86),(gy+hh)/2,tw,hh-gy));}
-    // a ground strip of grass at the figures' feet (a bladed band on the ground line, not a solid fill)
-    var grass=[],baseY=gy-H*0.05,topY=gy+H*0.03+(1-f)*H*0.02,nb=Math.round(22+(1-f)*20),gp=[[-iw,baseY],[iw,baseY]];
-    for(var gi=nb;gi>=0;gi--){var gx=-iw+2*iw*gi/nb;gp.push([gx,topY+((gi%2)?H*0.02*(0.6+(1-f)):0)]);}grass.push(P(gp));
-    if(f<0.55){var nf=Math.round(6*(1-f));for(var fr2=0;fr2<nf;fr2++){var fx=(rnd()-0.5)*W*0.7;grass.push(leaf(fx,topY+H*0.03,H*0.025,H*0.10*(0.6+rnd()*0.8),Math.PI/2+(rnd()-0.5)*0.5));}}
+    var f=k/(N-1),reach=1-f,paths=frame.slice();
+    // solid border framing a big arched opening that widens with depth (the tunnel)
+    var apRx=iw*(0.60+0.22*f),apRy=ih*(0.62+0.20*f);
+    var ring=diff([inner],[ellip(0,apCY,apRx,apRy,64)]);
+    paths=paths.concat(clipIn(ring.concat(foliageFor(f))));   // border + leafy branches, merged & clipped
+    // slender tree trunks at the sides on the middle layers
+    if(k>=2&&k<N-1){var tw=mn*0.02;paths.push(rct(-(iw*0.9),(gy+ih*0.7)/2,tw,ih*0.7-gy));paths.push(rct((iw*0.9),(gy+ih*0.7)/2,tw,ih*0.7-gy));}
+    // ground: a thin turf strip with short grass blades at the figures' feet
+    var grass=[rct(0,gy-H*0.035,W,H*0.03)],nb=Math.round(24+reach*12);
+    for(var gi=0;gi<nb;gi++){var gx=-iw+2*iw*(gi+0.5)/nb+(rnd()-0.5)*W*0.008,bh=H*(0.015+0.025*reach)*(0.5+rnd());grass.push(P([[gx-W*0.005,gy-H*0.02],[gx+W*0.005,gy-H*0.02],[gx+(rnd()-0.5)*W*0.014,gy+bh]]));}
     paths=paths.concat(clipIn(grass));
-    // subject on the near-back layer; moon + stars on the very back
-    if(k===N-2){var sp=(name==="fox")?subjFox():(name==="girl")?subjGirl():subjFamily();paths=paths.concat(clipIn(sp));}
-    if(k===N-1){paths.push(circ(0,apCY+ih*0.14,mn*0.13,40));for(var s2=0;s2<22;s2++){var stx=(rnd()-0.5)*iw*1.1,sty=apCY+(rnd()-0.1)*ih*0.7;paths.push(circ(stx,sty,mn*0.005+rnd()*mn*0.006,7));}}
+    // subject on a near-front layer so it reads as a DARK silhouette against the moon seen through the clear centre
+    if(k===1){var _sp=subjFn(),_sc=1.12;_sp=_sp.map(function(pp){return pp.map(function(q){var x=q.X/S,y=q.Y/S;return {X:Math.round(x*_sc*S),Y:Math.round((gy+(y-gy)*_sc)*S)};});});paths=paths.concat(clipIn(_sp));}
+    if(k===N-1){paths.push(circ(0,apCY+ih*0.32,mn*0.17,48));for(var s2=0;s2<26;s2++){var stx=(rnd()-0.5)*iw*1.2,sty=apCY+(rnd()-0.1)*ih*0.75;if(Math.abs(stx)<mn*0.24&&Math.abs(sty-(apCY+ih*0.32))<mn*0.24)continue;paths.push(circ(stx,sty,mn*0.004+rnd()*mn*0.006,7));}}
     layers.push({d:k,paths:paths});
   }
   return {outline:[outer],layers:layers};
@@ -1692,22 +1720,24 @@ async function buildLabs2(filled,cx,cy,TT){
     try{
       var g=new THREE.Group(),made=0;
       if(LABS2.shadow.scene){
-        // ORIGINAL layered scene template — procedural silhouette layers stacked at stepped depths inside a
-        // rectangular diorama frame (all original art). Darkest/front = d0, back = higher d. Backlit → real depth.
-        var scW=Math.max(C.w,C.h)*0.95,sc=_labsScene(LABS2.shadow.scene,scW,scW),gapSc=Math.max(2.5,scW*0.045),dMax=0;
+        // ORIGINAL layered scene — a real 3-D paper-cut light box. Each depth layer becomes its OWN plate
+        // ("Layer 1" = front … "Backboard" = glowing sky) so they can be printed and stacked individually.
+        // Layers are shaded front→back (dark silhouettes in front, warm/lit toward the glowing back) for depth.
+        var scW=Math.max(C.w,C.h)*0.95,_scK=LABS2.shadow.scene+"|"+Math.round(scW),_scC=LABS2.shadow._sceneCache;
+        var sc=(_scC&&_scC.key===_scK)?_scC.sc:_labsScene(LABS2.shadow.scene,scW,scW);
+        if(!(_scC&&_scC.key===_scK))LABS2.shadow._sceneCache={key:_scK,sc:sc};
+        var gapSc=Math.max(2.5,scW*0.05),dMax=0;
         if(sc&&sc.layers){
           sc.layers.forEach(function(L){if(L.d>dMax)dMax=L.d;});
-          var frame=diffToShapes(sc.outline,null,0);
-          // Shade layers front→back like a real shadowbox: the front layers are dark silhouettes, each layer
-          // behind is lighter/warmer toward the glowing sky at the back — that tonal step is what reads as depth.
           sc.layers.forEach(function(L){var lp=L.paths;try{var _ci=intersect(L.paths,sc.outline);if(_ci&&_ci.length)lp=_ci;}catch(e){}var sh=diffToShapes(lp,null,0);if(!sh||!sh.length)return;
-            var ff=dMax?L.d/dMax:0,br=0.42+0.58*ff,col=new THREE.Color(COLORS.front).multiplyScalar(br);
-            var geo=extr(sh,1.1);geo.translate(0,0,-L.d*gapSc);var mm=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:col,roughness:0.55,side:THREE.DoubleSide}));
-            if(L.d>=dMax-1)mm.userData.labsGlow=COLORS.front;   // only the back sky/moon layers emit — the light source
-            g.add(mm);made++;});
-          // glowing back sky panel = the light behind the scene
-          if(frame&&frame.length){var _skyG=diffToShapes([sc.outline[0]],null,0);if(_skyG&&_skyG.length){var bpS=new THREE.Mesh(extr(_skyG,1.0),new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.6}));bpS.position.z=-(dMax+1.2)*gapSc;bpS.userData.labsGlow=COLORS.front;g.add(bpS);}}
+            var ff=dMax?L.d/dMax:0,br=0.30+0.70*ff,col=new THREE.Color(COLORS.front).multiplyScalar(br);
+            var lg=new THREE.Group(),mm=new THREE.Mesh(extr(sh,1.2),new THREE.MeshStandardMaterial({color:col,roughness:0.55,side:THREE.DoubleSide}));
+            if(L.d>=dMax-1)mm.userData.labsGlow=COLORS.front;   // the back sky/moon layers are the light source
+            lg.add(mm);lg.position.set(0,0,z0-L.d*gapSc);parts.push({group:lg,name:"Layer "+(L.d+1),flip:false,labs:true,color:col});made++;});
+          // glowing back sky panel = the light behind the scene (its own plate)
+          var _skyG=diffToShapes([sc.outline[0]],null,0);if(_skyG&&_skyG.length){var _bg=new THREE.Group(),bpS=new THREE.Mesh(extr(_skyG,1.2),new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.6}));bpS.userData.labsGlow=COLORS.front;_bg.add(bpS);_bg.position.set(0,0,z0-(dMax+1.2)*gapSc);parts.push({group:_bg,name:"Backboard",flip:false,labs:true,color:COLORS.front});}
         }
+        made=0;   // scene already pushed its own per-layer parts; skip the combined push below
       }else if(LABS2.shadow.px&&LABS2.shadow.px.cells){
         // REAL shadowbox — split the PHOTO into depth layers by brightness: the darkest parts sit at the FRONT and
         // each lighter band steps back, so backlighting reveals a genuine 3-D scene of stacked cut-out layers.
@@ -3283,6 +3313,9 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // so the base letter/name/logo lightbox is hidden in the render preview (see applyLabsLight).
     window.__labsStandalone=(typeof LABS2!=="undefined"&&((LABS2.wordfill.on&&LABS2.wordfill.shape&&LABS2.wordfill.shape!=="mine")||(LABS2.shadow.on&&LABS2.shadow.scene)));
     try{var _l2Gate=(typeof featState!=="function")||featState("labs2")!=="hidden";if(_l2Gate&&typeof buildLabs2==="function"&&(LABS2.shadow.on||LABS2.wordfill.on)){var _lab2=await buildLabs2(filled,cx,cy,TT);if(_lab2&&_lab2.length)_lab2.forEach(function(p){partList.push(p);});}}catch(e){}
+    // Standalone Labs 2 (preset word-cloud / scene shadowbox) IS the whole object — drop every other box so the
+    // plates list + preview show only its parts (each scene layer is already its own "Layer N" plate).
+    if(window.__labsStandalone){for(var _pi=partList.length-1;_pi>=0;_pi--){if(!partList[_pi].labs)partList.splice(_pi,1);}}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
 
