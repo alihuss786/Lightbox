@@ -1720,35 +1720,42 @@ function _labsScene(name,W,H,customSubj){
   var subjFn=(customSubj&&customSubj.length)?subjImport:(name==="fox")?subjFox:(name==="deer")?subjDeer:(name==="girl")?subjGirl:subjFamily;
   // slender tree trunk (a tapered stroke rising from the ground at x)
   function trunk(out,x,topY,w){out.push(ribbon([[x,gy-H*0.02],[x+ (x<0?1:-1)*mn*0.02,(gy+topY)/2],[x+(x<0?1:-1)*mn*0.05,topY]],w,w*0.4));}
-  var layers=[],N=6;
+  var layers=[],N=6,fbY=gy-H*0.02;
   // rolling ground hills (a smooth mound), receding shade by layer
   function hill(yTop,amp){var pts=[[-iw,-ih],[iw,-ih]],n=40;for(var i=n;i>=0;i--){var x=-iw+2*iw*i/n;pts.push([x,yTop+Math.sin(i/n*Math.PI)*amp*0.3+Math.sin(i*0.7)*amp*0.15]);}return P(pts);}
+  // a fir / conifer silhouette with jagged drooping branch tips, rooted at baseY — the classic paper-cut forest tree
+  function fir(out,cx,baseY,h,w){var n=10,pts=[[cx,baseY+h]],i,t,tw;
+    for(i=1;i<=n;i++){t=i/n;tw=w*0.5*Math.pow(t,0.92);pts.push([cx+tw*0.38,baseY+h*(1-t)+h*0.028]);pts.push([cx+tw,baseY+h*(1-t)]);}
+    pts.push([cx+w*0.08,baseY]);pts.push([cx-w*0.08,baseY]);
+    for(i=n;i>=1;i--){t=i/n;tw=w*0.5*Math.pow(t,0.92);pts.push([cx-tw,baseY+h*(1-t)]);pts.push([cx-tw*0.38,baseY+h*(1-t)+h*0.028]);}
+    out.push(P(pts));out.push(rct(cx,baseY+h*0.045,Math.max(mn*0.005,w*0.05),h*0.1));}
+  // a bare deciduous tree (trunk + a few branch strokes) for variety
+  function bareTree(out,cx,baseY,h){var w=Math.max(mn*0.007,h*0.022);out.push(ribbon([[cx,baseY],[cx+(rnd()-0.5)*h*0.05,baseY+h*0.55],[cx+(rnd()-0.5)*h*0.09,baseY+h]],w,w*0.28));
+    for(i2=0;i2<5;i2++){var tt=0.5+0.11*i2,bx=cx+(rnd()-0.5)*h*0.09,by=baseY+h*tt,ln=h*0.24*(1-tt*0.5),ang=(i2%2?1:-1)*(0.55+rnd()*0.5)+Math.PI/2;out.push(ribbon([[bx,by],[bx+Math.cos(ang)*ln,by+Math.sin(ang)*ln]],w*0.5,w*0.18));}}
+  var i2;
   for(var k=0;k<N;k++){
     var paths=frame.slice(),fol=[];
-    if(k===5){   // BACK: bright moon only (its own big disc), on the open sky
-      paths.push(circ(cx0,cy0+R*0.18,R*0.40));
-    }else if(k===4){   // sky stars + distant hill + a faint far leafy wreath peeking behind the main one
-      for(var s2=0;s2<24;s2++){var a=rnd()*Math.PI*2,rr=R*(0.52+rnd()*0.5),sx=cx0+Math.cos(a)*rr,sy=cy0+Math.sin(a)*rr*0.9;if(Math.hypot(sx-cx0,sy-(cy0+R*0.18))<R*0.48)continue;paths.push(circ(sx,sy,mn*0.004+rnd()*mn*0.005));}
-      wreath(fol,206,-26,16,1.14,0.11);paths.push(hill(gy+H*0.06,H*0.05));
-    }else if(k===3){   // MAIN canopy: clean leafy vines arching over the top + upper sides (the hero foliage)
-      wreath(fol,156,-66,22,1.05,0.14);wreath(fol,150,-60,20,0.95,0.13);wreath(fol,162,-72,16,1.14,0.115);
-      paths.push(hill(gy+H*0.04,H*0.05));
-    }else if(k===2){   // leafy vines sweeping down both sides to the ground + tree trunks framing the sides
-      wreath(fol,150,232,12,1.04,0.14);wreath(fol,-48,-112,12,1.04,0.14);
-      wreath(fol,150,232,10,0.94,0.12);wreath(fol,-48,-112,10,0.94,0.12);
-      trunk(fol,-iw*0.95,cy0+R*0.85,mn*0.03);trunk(fol,iw*0.95,cy0+R*0.85,mn*0.03);
-      paths.push(hill(gy+H*0.025,H*0.05));
-    }else if(k===1){   // foreground plants: bushes, ferns, grass tufts, mushrooms along the bottom
-      paths.push(hill(gy+H*0.01,H*0.05));
-      bush(fol,-R*0.72,R*0.5,H*0.13);bush(fol,R*0.74,R*0.46,H*0.12);
-      fern(fol,-R*0.4,gy+H*0.01,R*0.3,1.15,1);fern(fol,R*0.38,gy,R*0.28,1.99,-1);
-      tuft(fol,-R*0.15,6,H*0.06);tuft(fol,R*0.16,6,H*0.055);tuft(fol,R*0.5,5,H*0.05);
-      mushroom(fol,-R*0.28,H*0.045);mushroom(fol,R*0.02,H*0.032);
-    }else{   // FRONT (k===0): the SUBJECT — big crisp dark silhouette standing on the front ground, up against the moon
+    if(k===5){   // BACK: big bright moon on the open sky
+      paths.push(circ(cx0,cy0+R*0.16,R*0.44));
+    }else if(k===4){   // distant firs across the back (tall, thin, palest) + stars
+      for(var s2=0;s2<20;s2++){var a=rnd()*Math.PI*2,rr=R*(0.55+rnd()*0.5),sx=cx0+Math.cos(a)*rr,sy=cy0+Math.sin(a)*rr*0.9;if(Math.hypot(sx-cx0,sy-(cy0+R*0.16))<R*0.52)continue;paths.push(circ(sx,sy,mn*0.004+rnd()*mn*0.004));}
+      [-0.9,-0.62,-0.34,0.32,0.6,0.9].forEach(function(x){fir(fol,x*iw,fbY+H*0.02,H*(0.46+0.12*rnd()),iw*(0.15+0.04*rnd()));});
+    }else if(k===3){   // mid firs framing the sides, leaving the centre open for moon + subject
+      [-0.98,-0.72,-0.5,0.52,0.74,0.98].forEach(function(x){fir(fol,x*iw,fbY+H*0.01,H*(0.42+0.12*rnd()),iw*(0.18+0.05*rnd()));});
+      bareTree(fol,-iw*0.36,fbY,H*0.52);
+    }else if(k===2){   // near firs (bigger, darker) on the outer thirds + a bare tree
+      [-0.95,-0.66,0.68,0.96].forEach(function(x){fir(fol,x*iw,fbY,H*(0.46+0.14*rnd()),iw*(0.23+0.05*rnd()));});
+      bareTree(fol,iw*0.42,fbY,H*0.58);
+    }else if(k===1){   // front firs at the very edges + a low mound the subject stands on
+      fir(fol,-iw*0.9,fbY-H*0.01,H*0.42,iw*0.22);fir(fol,iw*0.93,fbY-H*0.01,H*0.44,iw*0.22);
+      paths.push(hill(gy+H*0.02,H*0.05));
+    }else{   // FRONT (k===0): the SUBJECT — big crisp dark silhouette on the ground + grassy foreground
       var _sp=subjFn(),_sc=1.5,_gyS=gy*S;_sp=_sp.map(function(pp){return pp.map(function(q){return {X:Math.round(q.X*_sc),Y:Math.round(_gyS+(q.Y-_gyS)*_sc)};});});
       if(customSubj&&customSubj.length){try{paths=paths.concat(unionEO(_sp));}catch(e){paths=paths.concat(_sp);}}   // keep the artwork's holes
       else paths=paths.concat(clipIn(_sp));
-      paths.push(hill(gy-H*0.008,H*0.045));
+      paths.push(hill(gy-H*0.006,H*0.05));
+      var gt=[];for(var gi=0;gi<28;gi++){var gx=(-1+2*(gi+0.5)/28)*iw+(rnd()-0.5)*W*0.01,bh=H*(0.02+0.035*rnd());gt.push(P([[gx-W*0.004,gy-H*0.02],[gx+W*0.004,gy-H*0.02],[gx+(rnd()-0.5)*W*0.012,gy+bh]]));}
+      fol=fol.concat(gt);
     }
     if(fol.length)paths=paths.concat(clipIn(fol));
     layers.push({d:k,paths:paths});
