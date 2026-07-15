@@ -784,17 +784,6 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth layers — <b id="labs2_shadow_lbl">6</b></span><input type="range" id="labs2_shadow_layers" min="2" max="12" step="1" value="6" oninput="labs2Layers(this.value)"></div>
         <div class="hint">Pick a ready-made <b>Scene</b> for a layered diorama, or upload a photo and it’s split by brightness into stacked cut-out layers at different depths. With neither, it falls back to a concentric “infinity tunnel” of your shape.</div>
       </div>
-      <div class="sub" style="margin-top:14px">💡 Faux-neon</div>
-      <div class="toggle-row"><span class="lbl">Your shape as glowing neon tubes</span><div class="tg" id="tg_labs2_neon" onclick="labs2Toggle('neon')"><div class="k"></div></div></div>
-      <div id="labs2_neon_ctl" style="display:none;flex-direction:column;gap:9px">
-        <div class="hint">Traces the outline of your letter / name / logo as a rounded neon tube on a dark backboard. Uses your Name/letter colour and the RGB glow.</div>
-      </div>
-      <div class="sub" style="margin-top:14px">🌙 Moon phase</div>
-      <div class="toggle-row"><span class="lbl">The moon on a special date</span><div class="tg" id="tg_labs2_moon" onclick="labs2Toggle('moon')"><div class="k"></div></div></div>
-      <div id="labs2_moon_ctl" style="display:none;flex-direction:column;gap:9px">
-        <div class="row"><span class="lbl">Date</span><input type="date" id="labs2_moon_date" onchange="labs2Moon()" style="padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:14px system-ui"></div>
-        <div class="hint">Shows the exact moon phase for that night, inside your shape. “The moon the night you were born.”</div>
-      </div>
       <div class="sub" style="margin-top:14px">🔤 Word cloud</div>
       <div class="toggle-row"><span class="lbl">Fill a shape with your words</span><div class="tg" id="tg_labs2_wordfill" onclick="labs2Toggle('wordfill')"><div class="k"></div></div></div>
       <div id="labs2_wordfill_ctl" style="display:none;flex-direction:column;gap:9px">
@@ -1546,7 +1535,7 @@ async function buildLabs(filled,cx,cy,TT){
 }
 /* Backlit reveal / glow for the Labs panels — driven by the lamp, render mode only. */
 function applyLabsLight(){if(typeof pivot==="undefined"||!pivot)return;var lit=(lightOn&&mode==="render");
-  var labsOn=(LABS.hidden.on||LABS.clitho.on||LABS.star.on||(typeof LABS2!=="undefined"&&(LABS2.neon.on||LABS2.moon.on||LABS2.wordfill.on||LABS2.shadow.on)));   // a Labs panel IS the front — hide the competing name/text overlay so it reads clean
+  var labsOn=(LABS.hidden.on||LABS.clitho.on||LABS.star.on||(typeof LABS2!=="undefined"&&(LABS2.wordfill.on||LABS2.shadow.on)));   // a Labs panel IS the front — hide the competing name/text overlay so it reads clean
   var standalone=(typeof window!=="undefined"&&window.__labsStandalone);
   if(mode==="render")pivot.traverse(function(o){if(o.userData){if(o.userData.textId!=null)o.visible=!labsOn;if(o.userData.baseShell)o.visible=!standalone;}});
   pivot.traverse(function(o){if(!o.isMesh||!o.material||!o.material.emissive)return;var u=o.userData||{};
@@ -1558,7 +1547,7 @@ function applyLabsLight(){if(typeof pivot==="undefined"||!pivot)return;var lit=(
 /* ===================== LABS 2 — more experimental backlit features (prototypes) =====================
    Shadowbox (layered depth), Faux-neon (silhouette as glowing tubes), Moon phase (for a date), Word-fill
    (fill the shape with words). All clipped to / built from the CHOSEN shape and glow via the same tags. */
-var LABS2={shadow:{on:false,layers:6,px:null,scene:""},neon:{on:false},moon:{on:false,date:""},wordfill:{on:false,shape:"heart",text:"Love, Caring, Kind, Brave, Wise, Funny, Patient, Beautiful, Smart, Selfless, Amazing, Thoughtful, Happy, Inspiring, Gentle, Strong"}};
+var LABS2={shadow:{on:false,layers:6,px:null,scene:""},neon:{on:false},moon:{on:false,date:""},wordfill:{on:false,shape:"heart",text:"Love, Caring, Kind, Brave, Wise, Funny, Patient, Beautiful, Smart, Selfless, Amazing, Thoughtful, Happy, Inspiring, Gentle, Strong"}};   // neon/moon retired — kept as inert stubs so older configs don't error
 function labs2Toggle(k){if(!LABS2[k])return;LABS2[k].on=!LABS2[k].on;var t=document.getElementById("tg_labs2_"+k);if(t)t.classList.toggle("on",LABS2[k].on);var c=document.getElementById("labs2_"+k+"_ctl");if(c)c.style.display=LABS2[k].on?"flex":"none";if(typeof scheduleBuild==="function")scheduleBuild();}
 function labs2Moon(){LABS2.moon.date=(document.getElementById("labs2_moon_date")||{}).value||"";if(typeof scheduleBuild==="function")scheduleBuild();}
 function labs2Words(v){LABS2.wordfill.text=v||"";if(typeof scheduleBuild==="function")scheduleBuild();}
@@ -1592,33 +1581,36 @@ function _labsPresetShape(name,W,H){
   var sc=Math.min(W/(mxx-mnx),H/(mxy-mny))*0.98,cxp=(mnx+mxx)/2,cyp=(mny+mxy)/2;
   return [pts.map(function(p){return {X:Math.round((p[0]-cxp)*sc*S),Y:Math.round((p[1]-cyp)*sc*S)};})];
 }
-/* Word-cloud packer: place words largest-first via a spiral, collision-tested against a raster of the shape +
-   already-placed words (like d3-cloud). Returns [{text,sizeMm,rot,x,y}] centred on each word (mm coords). */
+/* Word-cloud packer (d3-cloud style): each word starts at the shape's centre and walks a golden-angle
+   sunflower spiral outward until it finds a spot clear of the shape edge AND every word already placed —
+   so words fill the WHOLE silhouette edge-to-edge (lobes, tip, corners), not just the middle. Words start
+   big and shrink whenever one no longer fits, giving a few large feature words + a dense tail of small ones.
+   Returns [{text,sizeMm,rot,x,y}] centred on each word (mm coords). */
 function _labsWordCloud(maskPaths,mnx,mxx,mny,mxy,words){
-  var W=Math.max(1,mxx-mnx),H=Math.max(1,mxy-mny),scale=Math.max(2.2,Math.min(6,300/Math.max(W,H)));
+  var W=Math.max(1,mxx-mnx),H=Math.max(1,mxy-mny),scale=Math.max(1.3,Math.min(4.5,210/Math.max(W,H)));
   var gw=Math.max(60,Math.round(W*scale)),gh=Math.max(60,Math.round(H*scale)),occ=new Uint8Array(gw*gh);
   var cv=document.createElement("canvas");cv.width=gw;cv.height=gh;var ctx=cv.getContext("2d");
   ctx.fillStyle="#000";ctx.fillRect(0,0,gw,gh);ctx.fillStyle="#fff";ctx.beginPath();
   maskPaths.forEach(function(p){p.forEach(function(q,i){var X=(q.X/S-mnx)*scale,Y=(mxy-q.Y/S)*scale;if(i===0)ctx.moveTo(X,Y);else ctx.lineTo(X,Y);});ctx.closePath();});
   ctx.fill("evenodd");var dd=ctx.getImageData(0,0,gw,gh).data;for(var ii=0;ii<gw*gh;ii++)occ[ii]=dd[ii*4]>128?0:1;
   var wc=document.createElement("canvas"),wctx=wc.getContext("2d"),maxMm=Math.max(W,H),placements=[];
+  var diag=Math.sqrt(gw*gw+gh*gh)*0.5+3,GA=2.3999632,step=1.1,sMax=Math.ceil(diag*diag/(step*step))+120;
   function place(text,sizePx,rot){
-    wctx.font="800 "+sizePx+"px system-ui,sans-serif";var m=wctx.measureText(text);var tw=Math.ceil(m.width)+4,th=Math.ceil(sizePx*1.15)+4,diag=Math.ceil(Math.sqrt(tw*tw+th*th))+2,hc=(diag/2)|0;
-    wc.width=diag;wc.height=diag;wctx.clearRect(0,0,diag,diag);wctx.save();wctx.translate(hc,hc);wctx.rotate(rot);wctx.font="800 "+sizePx+"px system-ui,sans-serif";wctx.textAlign="center";wctx.textBaseline="middle";wctx.fillStyle="#fff";wctx.fillText(text,0,0);wctx.restore();
-    var wd=wctx.getImageData(0,0,diag,diag).data,dx=[],dy=[];for(var yy=0;yy<diag;yy++)for(var xx=0;xx<diag;xx++){if(wd[(yy*diag+xx)*4+3]>70){dx.push(xx-hc);dy.push(yy-hc);}}
+    wctx.font="800 "+sizePx+"px system-ui,sans-serif";var m=wctx.measureText(text);var tw=Math.ceil(m.width)+3,th=Math.ceil(sizePx*1.14)+3,dg=Math.ceil(Math.sqrt(tw*tw+th*th))+2,hc=(dg/2)|0;
+    wc.width=dg;wc.height=dg;wctx.clearRect(0,0,dg,dg);wctx.save();wctx.translate(hc,hc);wctx.rotate(rot);wctx.font="800 "+sizePx+"px system-ui,sans-serif";wctx.textAlign="center";wctx.textBaseline="middle";wctx.fillStyle="#fff";wctx.fillText(text,0,0);wctx.restore();
+    var wd=wctx.getImageData(0,0,dg,dg).data,dx=[],dy=[];for(var yy=0;yy<dg;yy++)for(var xx=0;xx<dg;xx++){if(wd[(yy*dg+xx)*4+3]>70){dx.push(xx-hc);dy.push(yy-hc);}}
     if(!dx.length)return null;
-    for(var s=0;s<4200;s++){var ang=0.4*s,rad=0.7+1.35*Math.sqrt(s),gcx=Math.round(gw/2+rad*Math.cos(ang)),gcy=Math.round(gh/2+rad*Math.sin(ang)),ok=true;
+    for(var s=1;s<sMax;s++){var rad=step*Math.sqrt(s);if(rad>diag)break;var ang=GA*s,gcx=(gw*0.5+rad*Math.cos(ang))|0,gcy=(gh*0.5+rad*Math.sin(ang))|0,ok=true;
       for(var pi=0;pi<dx.length;pi++){var gx=gcx+dx[pi],gy=gcy+dy[pi];if(gx<1||gy<1||gx>=gw-1||gy>=gh-1||occ[gy*gw+gx]){ok=false;break;}}
-      if(ok){for(var pj=0;pj<dx.length;pj++)occ[(gcy+dy[pj])*gw+(gcx+dx[pj])]=1;return {x:mnx+gcx/scale,y:mxy-gcy/scale,sizeMm:sizePx/scale,rot:-rot};}
-      if(rad>Math.max(gw,gh)*1.1)break;}
+      if(ok){for(var pj=0;pj<dx.length;pj++)occ[(gcy+dy[pj])*gw+(gcx+dx[pj])]=1;return {x:mnx+gcx/scale,y:mxy-gcy/scale,sizeMm:sizePx/scale,rot:-rot};}}
     return null;
   }
-  var idx=0,placed=0,guard=0,fails=0;
-  while(placed<420&&guard<3000){guard++;var text=words[idx%words.length];idx++;
-    // a few big words, then a long tail of small ones so the shape packs densely like a real word-cloud
-    var sizeMm=Math.max(maxMm*0.025,maxMm*0.19*Math.pow(0.9,placed))*(0.85+Math.random()*0.3);var sizePx=Math.round(sizeMm*scale);if(sizePx<4)break;
-    var rr=Math.random(),rot=0;if(rr<0.16)rot=Math.PI/2;else if(rr<0.28)rot=-Math.PI/2;else if(rr<0.4)rot=(Math.random()-0.5)*0.55;
-    var pl=place(text,sizePx,rot);if(pl){pl.text=text;placements.push(pl);placed++;fails=0;}else{fails++;if(fails>150)break;}
+  var sizeMm=maxMm*0.34,minMm=maxMm*0.019,idx=0,placed=0,guard=0,misses=0;
+  while(sizeMm>minMm&&guard<2600){guard++;var text=words[idx%words.length];idx++;
+    var jit=0.72+Math.random()*0.5,sizePx=Math.max(4,Math.round(sizeMm*jit*scale));
+    var rr=Math.random(),rot=0;if(rr<0.12)rot=Math.PI/2;else if(rr<0.22)rot=-Math.PI/2;else if(rr<0.30)rot=(Math.random()-0.5)*0.45;
+    var pl=place(text,sizePx,rot);
+    if(pl){pl.text=text;placements.push(pl);placed++;sizeMm*=0.981;misses=0;}else{sizeMm*=0.9;misses++;if(misses>16)break;}
   }
   return placements;
 }
@@ -1656,7 +1648,7 @@ function _labsScene(name,W,H){
 }
 async function buildLabs2(filled,cx,cy,TT){
   var parts=[];if(typeof THREE==="undefined"||!filled||!filled.length)return parts;
-  if(!(LABS2.shadow.on||LABS2.neon.on||LABS2.moon.on||LABS2.wordfill.on))return parts;
+  if(!(LABS2.shadow.on||LABS2.wordfill.on))return parts;
   var C=_labsShapeCtx(filled,cx,cy),z0=(TT||1)+0.05;
   function panelShapes(paths){return diffToShapes(paths||C.panelPaths,null,0);}
   function extr(sh,d){return new THREE.ExtrudeGeometry(sh,{depth:d,bevelEnabled:false,curveSegments:5});}
@@ -1689,30 +1681,6 @@ async function buildLabs2(filled,cx,cy,TT){
       if(made){g.position.set(0,0,z0);parts.push({group:g,name:"Shadowbox",flip:false,labs:true,color:COLORS.front});}
     }catch(e){}
   }
-  // (2) FAUX-NEON — the chosen silhouette outline drawn as glowing neon tubes on a dark backboard
-  if(LABS2.neon.on){
-    try{
-      var ng=new THREE.Group();
-      ng.add(new THREE.Mesh(extr(panelShapes(),1.0),new THREE.MeshStandardMaterial({color:"#0a0a12",roughness:0.7})));
-      var rad=Math.max(0.9,Math.min(1.6,C.w*0.012));
-      C.filC.forEach(function(path){var pts=[];for(var i=0;i<path.length;i++){pts.push(new THREE.Vector3(path[i].X/S,path[i].Y/S,1.0+rad));}if(pts.length<4)return;try{var curve=new THREE.CatmullRomCurve3(pts,true,"catmullrom",0.2);var tube=new THREE.TubeGeometry(curve,Math.min(400,pts.length*2),rad,8,true);var tm=new THREE.Mesh(tube,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.35,emissive:new THREE.Color(COLORS.front),emissiveIntensity:0.0}));tm.userData.labsGlow=COLORS.front;ng.add(tm);}catch(e){}});
-      ng.position.set(0,0,z0);parts.push({group:ng,name:"Neon",flip:false,labs:true,color:COLORS.front});
-    }catch(e){}
-  }
-  // (3) MOON PHASE — the shape becomes a night sky with the moon at its phase for the chosen date
-  if(LABS2.moon.on){
-    try{
-      var mg=new THREE.Group();
-      mg.add(new THREE.Mesh(extr(panelShapes(),1.2),new THREE.MeshStandardMaterial({color:"#0b1024",roughness:0.6})));
-      var phase=_labsMoonPhase(LABS2.moon.date),R=Math.min(C.w,C.h)*0.4,zc=1.2;
-      var baseC=new THREE.CircleGeometry(R,64);baseC.translate(C.ccx,C.ccy,zc+0.02);mg.add(new THREE.Mesh(baseC,new THREE.MeshStandardMaterial({color:"#232a45",roughness:0.7})));
-      var pa=phase*2*Math.PI,lit=(1-Math.cos(pa))/2,NN=54,pcs=[];
-      for(var i=0;i<=NN;i++){var y=-R+2*R*i/NN,xw=Math.sqrt(Math.max(0,R*R-y*y));pcs.push([(phase<0.5?xw:-xw),y]);}
-      for(var i2=NN;i2>=0;i2--){var y2=-R+2*R*i2/NN,xw2=Math.sqrt(Math.max(0,R*R-y2*y2));var xt=(phase<0.5?(1-2*lit):(2*lit-1))*xw2;pcs.push([xt,y2]);}
-      if(lit>0.02){var msh=new THREE.Shape(pcs.map(function(p){return new THREE.Vector2(p[0],p[1]);}));var mgeo=new THREE.ShapeGeometry(msh);mgeo.translate(C.ccx,C.ccy,zc+0.06);var mm=new THREE.Mesh(mgeo,new THREE.MeshStandardMaterial({color:"#eef3ff",roughness:0.4,side:THREE.DoubleSide}));mm.userData.labsGlow="#eef3ff";mg.add(mm);}
-      mg.position.set(0,0,z0);parts.push({group:mg,name:"Moon phase",flip:false,labs:true,color:"#0b1024"});
-    }catch(e){}
-  }
   // (4) WORD CLOUD — pick a shape (heart / star / … or your design) and fill it with your words at varied sizes
   // and angles, packed tightly like a word-cloud, glowing when lit.
   if(LABS2.wordfill.on){
@@ -1728,23 +1696,28 @@ async function buildLabs2(filled,cx,cy,TT){
         maskPaths=_labsPresetShape(LABS2.wordfill.shape,_side,_side)||C.contentPaths;
         bx0=1e18;by0=1e18;bx1=-1e18;by1=-1e18;maskPaths.forEach(function(p){p.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<bx0)bx0=X;if(X>bx1)bx1=X;if(Y<by0)by0=Y;if(Y>by1)by1=Y;});});
       }else{maskPaths=C.contentPaths;bx0=C.mnx;bx1=C.mxx;by0=C.mny;by1=C.mxy;}
-      // The word-cloud packer is the slow part — memoise it so unrelated rebuilds (colour, depth, lamp, …)
-      // reuse the last packing instead of re-solving the spiral collision every time.
+      // Packing + building ~150 word glyphs is the slow part — memoise the whole built group keyed on the
+      // shape + words + size, and just CLONE it (sharing geometry) on unrelated rebuilds (depth, lamp, colour)
+      // so dragging stays smooth. Colour is refreshed on the clone since it's only a material tweak.
       var _wfHash=(maskPaths[0]&&maskPaths[0][0])?(maskPaths[0].length+":"+maskPaths[0][0].X):maskPaths.length;
       var _wfKey=LABS2.wordfill.shape+"|"+words.join(",")+"|"+Math.round(bx0)+","+Math.round(bx1)+","+Math.round(by0)+","+Math.round(by1)+"|"+_wfHash;
-      var pls,_wc=LABS2.wordfill._cache;
-      if(_wc&&_wc.key===_wfKey){pls=_wc.pls;}
-      else{pls=_labsWordCloud(maskPaths,bx0,bx1,by0,by1,words);LABS2.wordfill._cache={key:_wfKey,pls:pls};}
-      var all=[];
-      pls.forEach(function(pl){var wp=nameSubjOT(otf,pl.text,pl.sizeMm*1.28);
-        var a=1e18,b=1e18,cc=-1e18,d=-1e18;wp.forEach(function(pp){pp.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<a)a=X;if(X>cc)cc=X;if(Y<b)b=Y;if(Y>d)d=Y;});});
-        var wcx=(a+cc)/2,wcy=(b+d)/2,co=Math.cos(pl.rot),si=Math.sin(pl.rot);
-        wp.forEach(function(pp){all.push(pp.map(function(q){var lx=q.X/S-wcx,ly=q.Y/S-wcy,rx=lx*co-ly*si,ry=lx*si+ly*co;return {X:Math.round((pl.x+rx)*S),Y:Math.round((pl.y+ry)*S)};}));});
-      });
-      var clipped=all;try{var _ci=intersect(all,maskPaths);if(_ci&&_ci.length)clipped=_ci;}catch(e){}
-      var sh2=diffToShapes(clipped,null,0);
-      if(sh2&&sh2.length){var wg=new THREE.Group();var backSh=diffToShapes(maskPaths,null,0);if(backSh&&backSh.length)wg.add(new THREE.Mesh(extr(backSh,1.0),new THREE.MeshStandardMaterial({color:"#12131a",roughness:0.7})));
-        var tgeo=extr(sh2,0.7);tgeo.translate(0,0,0.4);var tm2=new THREE.Mesh(tgeo,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.45}));tm2.userData.labsGlow=COLORS.front;wg.add(tm2);wg.position.set(0,0,z0);parts.push({group:wg,name:"Word cloud",flip:false,labs:true,color:COLORS.front});}
+      var _gc=LABS2.wordfill._grpCache,wg=null;
+      if(_gc&&_gc.key===_wfKey&&_gc.group){wg=_gc.group.clone();}
+      else{
+        var pls=_labsWordCloud(maskPaths,bx0,bx1,by0,by1,words),all=[];
+        pls.forEach(function(pl){var wp=nameSubjOT(otf,pl.text,pl.sizeMm*1.02);
+          var a=1e18,b=1e18,cc=-1e18,d=-1e18;wp.forEach(function(pp){pp.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<a)a=X;if(X>cc)cc=X;if(Y<b)b=Y;if(Y>d)d=Y;});});
+          var wcx=(a+cc)/2,wcy=(b+d)/2,co=Math.cos(pl.rot),si=Math.sin(pl.rot);
+          wp.forEach(function(pp){all.push(pp.map(function(q){var lx=q.X/S-wcx,ly=q.Y/S-wcy,rx=lx*co-ly*si,ry=lx*si+ly*co;return {X:Math.round((pl.x+rx)*S),Y:Math.round((pl.y+ry)*S)};}));});
+        });
+        var clipped=all;try{var _ci=intersect(all,maskPaths);if(_ci&&_ci.length)clipped=_ci;}catch(e){}
+        var sh2=diffToShapes(clipped,null,0);
+        if(sh2&&sh2.length){wg=new THREE.Group();var backSh=diffToShapes(maskPaths,null,0);if(backSh&&backSh.length)wg.add(new THREE.Mesh(extr(backSh,1.0),new THREE.MeshStandardMaterial({color:"#12131a",roughness:0.7})));
+          var tgeo=extr(sh2,0.7);tgeo.translate(0,0,0.4);var tm2=new THREE.Mesh(tgeo,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.45}));tm2.userData.labsGlow=COLORS.front;wg.add(tm2);
+          LABS2.wordfill._grpCache={key:_wfKey,group:wg};wg=wg.clone();}
+      }
+      if(wg){wg.traverse(function(o){if(o.isMesh&&o.userData&&o.userData.labsGlow){o.material=o.material.clone();o.material.color.set(COLORS.front);o.userData.labsGlow=COLORS.front;}});
+        wg.position.set(0,0,z0);parts.push({group:wg,name:"Word cloud",flip:false,labs:true,color:COLORS.front});}
     }catch(e){}
   }
   return parts;
@@ -3266,7 +3239,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // Standalone preset: when a Labs 2 word-cloud uses a preset shape (heart/star/…) it is its OWN object,
     // so the base letter/name/logo lightbox is hidden in the render preview (see applyLabsLight).
     window.__labsStandalone=(typeof LABS2!=="undefined"&&((LABS2.wordfill.on&&LABS2.wordfill.shape&&LABS2.wordfill.shape!=="mine")||(LABS2.shadow.on&&LABS2.shadow.scene)));
-    try{var _l2Gate=(typeof featState!=="function")||featState("labs2")!=="hidden";if(_l2Gate&&typeof buildLabs2==="function"&&(LABS2.shadow.on||LABS2.neon.on||LABS2.moon.on||LABS2.wordfill.on)){var _lab2=await buildLabs2(filled,cx,cy,TT);if(_lab2&&_lab2.length)_lab2.forEach(function(p){partList.push(p);});}}catch(e){}
+    try{var _l2Gate=(typeof featState!=="function")||featState("labs2")!=="hidden";if(_l2Gate&&typeof buildLabs2==="function"&&(LABS2.shadow.on||LABS2.wordfill.on)){var _lab2=await buildLabs2(filled,cx,cy,TT);if(_lab2&&_lab2.length)_lab2.forEach(function(p){partList.push(p);});}}catch(e){}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
 
