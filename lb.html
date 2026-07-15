@@ -989,7 +989,7 @@ let UNIT="mm";
    "soon" shows a greyed Coming-soon tab whose real controls are removed. The config is frozen and read only
    through featState() from this closure, so it cannot be flipped from the console. Default everything to
    "on" -> no change until launch. ===== */
-const _FEATURES=Object.freeze({textures:"on",name:"on",logo:"on",templates:"on",ar:"on",lithophane:"hidden"});
+const _FEATURES=Object.freeze({textures:"on",name:"on",logo:"on",templates:"on",ar:"on",lithophane:"hidden",labs:"hidden"});
 try{window.__siteConfig=JSON.parse(localStorage.getItem("sl_cfg")||"null");}catch(e){window.__siteConfig=null;}
 try{window.__cachedTier=localStorage.getItem("sl_tier")||null;}catch(e){window.__cachedTier=null;}
 try{window.__viewAsTier=sessionStorage.getItem("sl_viewas")||null;}catch(e){window.__viewAsTier=null;}
@@ -3033,7 +3033,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       var _tb=_mnt.testbase;var _tbsink=Math.max(0,-(_tb.raise||0));var _tbres=buildCradleBase(_tsil,cx,cy,depth,_tb.w,_tb.d,_tb.t,_tb.shape,TT,_tb.tex,true,null,_tbsink);
       if(_tbres&&_tbres.geo){var _tgrp=new THREE.Group();_tgrp.add(new THREE.Mesh(_tbres.geo,MATS.body));_tgrp.rotation.x=-Math.PI/2;_tgrp.position.set(0,_tbres.yWallTop-(_tb.raise||0),-depth/2);partList.push({group:_tgrp,name:"TestBase",flip:false,isBase:true,color:COLORS.body});}}
     // LABS experimental front-panel effects (hidden message / colour print / star map) — additive, self-contained.
-    try{if(typeof buildLabs==="function"&&(LABS.hidden.on||LABS.clitho.on||LABS.star.on)){var _lab=await buildLabs(filled,cx,cy,TT);if(_lab&&_lab.length)_lab.forEach(function(p){partList.push(p);});}}catch(e){}
+    try{var _labsGate=(typeof featState!=="function")||featState("labs")!=="hidden";if(_labsGate&&typeof buildLabs==="function"&&(LABS.hidden.on||LABS.clitho.on||LABS.star.on)){var _lab=await buildLabs(filled,cx,cy,TT);if(_lab&&_lab.length)_lab.forEach(function(p){partList.push(p);});}}catch(e){}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
 
@@ -4909,7 +4909,7 @@ window.USDZExporter=USDZExporter;})();
       card.querySelector(".tDel").onclick=async function(){var ok=await dashConfirm("Delete template \u201c"+(t.name||"")+"\u201d? This removes it for everyone.");if(!ok)return;var dd=await sb.from("templates").delete().eq("id",t.id);if(dd&&dd.error){uiAlert("Delete failed: "+esc(dd.error.message));return;}renderTemplatesAdmin(host);try{if(window.__loadTemplates)window.__loadTemplates();}catch(e){}};
       var swap=async function(j){if(j<0||j>=rows.length)return;var a=rows[i],b=rows[j];await sb.from("templates").update({sort:b.sort}).eq("id",a.id);await sb.from("templates").update({sort:a.sort}).eq("id",b.id);renderTemplatesAdmin(host);try{if(window.__loadTemplates)window.__loadTemplates();}catch(e){}};
       card.querySelector(".tUp").onclick=function(){swap(i-1);};card.querySelector(".tDn").onclick=function(){swap(i+1);};list.appendChild(card);});}
-  function renderTabsAdmin(host){var sb=window.__sb;var FEATS=[["templates","Templates"],["textures","Textures"],["lithophane","Lithophane"],["letter","Letter"],["name","Name"],["logo","Logo"],["models","Images & 3D models"],["dimensions","Dimensions"],["ar","View in AR button"],["kiosk","Kiosk (mode · orders · stock · analytics)"]];if(!_dashCfg||typeof _dashCfg!=="object")_dashCfg={};if(!_dashCfg.features)_dashCfg.features={};if(!_dashCfg.tiers)_dashCfg.tiers={};
+  function renderTabsAdmin(host){var sb=window.__sb;var FEATS=[["templates","Templates"],["textures","Textures"],["lithophane","Lithophane"],["labs","Labs ✨ (experimental)"],["letter","Letter"],["name","Name"],["logo","Logo"],["models","Images & 3D models"],["dimensions","Dimensions"],["ar","View in AR button"],["kiosk","Kiosk (mode · orders · stock · analytics)"]];if(!_dashCfg||typeof _dashCfg!=="object")_dashCfg={};if(!_dashCfg.features)_dashCfg.features={};if(!_dashCfg.tiers)_dashCfg.tiers={};
     var TIERS=[["features","Everyone"],["spark","Spark"],["hobby","Hobby"],["studio","Studio"],["merchant","Merchant"]];var isTier=_tabTier!=="features";if(isTier&&!_dashCfg.tiers[_tabTier])_dashCfg.tiers[_tabTier]={};var store=isTier?_dashCfg.tiers[_tabTier]:_dashCfg.features;if(isTier)FEATS.forEach(function(f){if(!store[f[0]])store[f[0]]=(_dashCfg.features[f[0]]||"on");});var STATES=[["on","On"],["soon","Coming soon"],["hidden","Hidden"]];
     var selBar=TIERS.map(function(t){var on=t[0]===_tabTier;return '<button data-tier="'+t[0]+'" style="padding:7px 13px;border-radius:9px;border:1px solid '+(on?"#e0c08d":"#2a2d35")+';background:'+(on?"rgba(224,192,141,.14)":"transparent")+';color:'+(on?"#e0c08d":"#c7cbd2")+';font-size:12px;font-weight:600;cursor:pointer">'+t[1]+'</button>';}).join("");
     var _tnm=TIERS.filter(function(x){return x[0]===_tabTier;})[0][1];var hint=isTier?('Set every tab manually for <b style="color:#e0c08d">'+esc(_tnm)+'</b> accounts. Seeded from the Everyone settings \u2014 tweak to give this tier features first.'):'The baseline for every visitor. Each tier is set separately below.';
