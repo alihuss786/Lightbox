@@ -1546,7 +1546,8 @@ async function buildLabs(filled,cx,cy,TT){
 /* Backlit reveal / glow for the Labs panels — driven by the lamp, render mode only. */
 function applyLabsLight(){if(typeof pivot==="undefined"||!pivot)return;var lit=(lightOn&&mode==="render");
   var labsOn=(LABS.hidden.on||LABS.clitho.on||LABS.star.on||(typeof LABS2!=="undefined"&&(LABS2.neon.on||LABS2.moon.on||LABS2.wordfill.on||LABS2.shadow.on)));   // a Labs panel IS the front — hide the competing name/text overlay so it reads clean
-  if(mode==="render")pivot.traverse(function(o){if(o.userData&&o.userData.textId!=null)o.visible=!labsOn;});
+  var standalone=(typeof window!=="undefined"&&window.__labsStandalone);
+  if(mode==="render")pivot.traverse(function(o){if(o.userData){if(o.userData.textId!=null)o.visible=!labsOn;if(o.userData.baseShell)o.visible=!standalone;}});
   pivot.traverse(function(o){if(!o.isMesh||!o.material||!o.material.emissive)return;var u=o.userData||{};
   if(u.labsHidden){o.material.emissive.copy(lit?new THREE.Color(COLORS.front).multiplyScalar(1.1):new THREE.Color(0));o.material.color.set(COLORS.front);}
   else if(u.labsGlow){o.material.emissive.copy(lit?new THREE.Color(u.labsGlow).multiplyScalar(0.7):new THREE.Color(0));}
@@ -1580,7 +1581,7 @@ function _labsMoonPhase(dateStr){var dt=dateStr?new Date(dateStr+"T21:00:00Z"):n
 function _labsPresetShape(name,W,H){
   var pts=[],i,t;
   if(name==="heart"){for(i=0;i<=90;i++){t=Math.PI*2*i/90;pts.push([16*Math.pow(Math.sin(t),3),13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t)]);}}
-  else if(name==="star"){for(i=0;i<10;i++){var a=-Math.PI/2+Math.PI*i/5,r=(i%2===0)?1:0.4;pts.push([Math.cos(a)*r,Math.sin(a)*r]);}}
+  else if(name==="star"){for(i=0;i<10;i++){var a=Math.PI/2+Math.PI*i/5,r=(i%2===0)?1:0.4;pts.push([Math.cos(a)*r,Math.sin(a)*r]);}}
   else if(name==="hex"){for(i=0;i<6;i++){var a2=-Math.PI/2+Math.PI*2*i/6;pts.push([Math.cos(a2),Math.sin(a2)]);}}
   else if(name==="diamond"){pts=[[0,1],[0.78,0],[0,-1],[-0.78,0]];}
   else if(name==="circle"){for(i=0;i<72;i++){var a3=Math.PI*2*i/72;pts.push([Math.cos(a3),Math.sin(a3)]);}}
@@ -1604,20 +1605,52 @@ function _labsWordCloud(maskPaths,mnx,mxx,mny,mxy,words){
     wc.width=diag;wc.height=diag;wctx.clearRect(0,0,diag,diag);wctx.save();wctx.translate(hc,hc);wctx.rotate(rot);wctx.font="800 "+sizePx+"px system-ui,sans-serif";wctx.textAlign="center";wctx.textBaseline="middle";wctx.fillStyle="#fff";wctx.fillText(text,0,0);wctx.restore();
     var wd=wctx.getImageData(0,0,diag,diag).data,dx=[],dy=[];for(var yy=0;yy<diag;yy++)for(var xx=0;xx<diag;xx++){if(wd[(yy*diag+xx)*4+3]>70){dx.push(xx-hc);dy.push(yy-hc);}}
     if(!dx.length)return null;
-    for(var s=0;s<7000;s++){var ang=0.4*s,rad=0.7+1.35*Math.sqrt(s),gcx=Math.round(gw/2+rad*Math.cos(ang)),gcy=Math.round(gh/2+rad*Math.sin(ang)),ok=true;
+    for(var s=0;s<4200;s++){var ang=0.4*s,rad=0.7+1.35*Math.sqrt(s),gcx=Math.round(gw/2+rad*Math.cos(ang)),gcy=Math.round(gh/2+rad*Math.sin(ang)),ok=true;
       for(var pi=0;pi<dx.length;pi++){var gx=gcx+dx[pi],gy=gcy+dy[pi];if(gx<1||gy<1||gx>=gw-1||gy>=gh-1||occ[gy*gw+gx]){ok=false;break;}}
       if(ok){for(var pj=0;pj<dx.length;pj++)occ[(gcy+dy[pj])*gw+(gcx+dx[pj])]=1;return {x:mnx+gcx/scale,y:mxy-gcy/scale,sizeMm:sizePx/scale,rot:-rot};}
       if(rad>Math.max(gw,gh)*1.1)break;}
     return null;
   }
   var idx=0,placed=0,guard=0,fails=0;
-  while(placed<600&&guard<4000){guard++;var text=words[idx%words.length];idx++;
+  while(placed<420&&guard<3000){guard++;var text=words[idx%words.length];idx++;
     // a few big words, then a long tail of small ones so the shape packs densely like a real word-cloud
-    var sizeMm=Math.max(maxMm*0.02,maxMm*0.19*Math.pow(0.9,placed))*(0.85+Math.random()*0.3);var sizePx=Math.round(sizeMm*scale);if(sizePx<4)break;
+    var sizeMm=Math.max(maxMm*0.025,maxMm*0.19*Math.pow(0.9,placed))*(0.85+Math.random()*0.3);var sizePx=Math.round(sizeMm*scale);if(sizePx<4)break;
     var rr=Math.random(),rot=0;if(rr<0.16)rot=Math.PI/2;else if(rr<0.28)rot=-Math.PI/2;else if(rr<0.4)rot=(Math.random()-0.5)*0.55;
-    var pl=place(text,sizePx,rot);if(pl){pl.text=text;placements.push(pl);placed++;fails=0;}else{fails++;if(fails>220)break;}
+    var pl=place(text,sizePx,rot);if(pl){pl.text=text;placements.push(pl);placed++;fails=0;}else{fails++;if(fails>150)break;}
   }
   return placements;
+}
+/* Original layered-scene templates for the shadowbox — each returns {outline, layers:[{d,paths}]} of silhouette
+   layers (d=0 front … larger=further back) built procedurally. All original art, no third-party assets. */
+function _labsScene(name,W,H){
+  function P(pts){return pts.map(function(p){return {X:Math.round(p[0]*S),Y:Math.round(p[1]*S)};});}
+  function circ(cx,cy,r,n){n=n||26;var a=[];for(var i=0;i<n;i++){var t=Math.PI*2*i/n;a.push([cx+Math.cos(t)*r,cy+Math.sin(t)*r]);}return P(a);}
+  function rct(cx,cy,w,h){return P([[cx-w/2,cy-h/2],[cx+w/2,cy-h/2],[cx+w/2,cy+h/2],[cx-w/2,cy+h/2]]);}
+  var gy=-H*0.24,mn=Math.min(W,H);
+  var rectP=rct(0,0,W,H),outline=[rectP];try{var o1=off([rectP],-mn*0.05),o2=off(o1,mn*0.05);if(o2&&o2.length)outline=o2;}catch(e){}
+  function person(cx,base,h,kind){var hr=h*0.13,hy=base+h-hr,top=hy-hr*0.7,sw=h*0.24,paths=[circ(cx,hy,hr,20)];
+    if(kind==="dress")paths.push(P([[cx-sw*0.42,top],[cx+sw*0.42,top],[cx+h*0.2,base],[cx-h*0.2,base]]));
+    else if(kind==="child")paths.push(P([[cx-sw*0.4,top],[cx+sw*0.4,top],[cx+h*0.15,base],[cx-h*0.15,base]]));
+    else{var bw=h*0.15;paths.push(P([[cx-sw*0.42,top],[cx+sw*0.42,top],[cx+bw,base+h*0.03],[cx+bw*0.18,base],[cx+bw*0.05,base+h*0.36],[cx-bw*0.05,base+h*0.36],[cx-bw*0.18,base],[cx-bw,base+h*0.03]]));}
+    return paths;}
+  function tree(cx,side){var tw=W*0.022,paths=[rct(cx,gy+H*0.17,tw,H*0.36)],fcx=cx,fcy=gy+H*0.36,fr=H*0.12;
+    [[0,0,1.1],[side*0.7,0.4,0.9],[side*1.3,0.9,0.8],[side*0.4,1.05,0.85],[0,1.45,0.7],[side*1.85,1.3,0.6]].forEach(function(o){paths.push(circ(fcx+o[0]*fr,fcy+o[1]*fr,fr*o[2],18));});
+    return paths;}
+  var layers=[],hs=H*0.004;
+  var sky=[circ(-W*0.22,H*0.24,H*0.1,30)],seed=12345;function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+  for(var si=0;si<24;si++)sky.push(circ((rnd()-0.5)*W*0.86,H*0.05+rnd()*H*0.36,H*0.006+rnd()*H*0.008,8));
+  layers.push({d:5,paths:sky});
+  layers.push({d:4,paths:[circ(-W*0.2,gy-H*0.3,H*0.44,28),circ(W*0.3,gy-H*0.26,H*0.38,28)]});
+  layers.push({d:3,paths:tree(-W*0.4,-1).concat(tree(W*0.4,1))});
+  var fam=person(-W*0.12,gy,H*0.36,"dress").concat(person(0,gy,H*0.22,"child")).concat(person(W*0.12,gy,H*0.36,"pants"));
+  layers.push({d:2,paths:fam});
+  var grass=[],gp=[[-W/2,-H/2],[W/2,-H/2],[W/2,gy]],nb=Math.max(12,Math.round(W/(H*0.028)));
+  for(var gi=nb;gi>=0;gi--)gp.push([-W/2+W*gi/nb,gy+((gi%2)?H*0.022:0)]);grass.push(P(gp));
+  var hp=[];for(var hi=0;hi<=60;hi++){var t2=Math.PI*2*hi/60;hp.push([W*0.35+16*Math.pow(Math.sin(t2),3)*hs, gy+H*0.055+(13*Math.cos(t2)-5*Math.cos(2*t2)-2*Math.cos(3*t2)-Math.cos(4*t2))*hs]);}grass.push(P(hp));
+  layers.push({d:1,paths:grass});
+  var ring=[rectP];try{var _ri=diff([rectP],[rct(0,0,W-mn*0.1,H-mn*0.1)]);if(_ri&&_ri.length)ring=_ri;}catch(e){}
+  layers.push({d:0,paths:ring});
+  return {outline:outline,layers:layers};
 }
 async function buildLabs2(filled,cx,cy,TT){
   var parts=[];if(typeof THREE==="undefined"||!filled||!filled.length)return parts;
@@ -1676,12 +1709,22 @@ async function buildLabs2(filled,cx,cy,TT){
       var words=(LABS2.wordfill.text||"").split(/[\n,]+/).map(function(s){return s.trim();}).filter(Boolean);
       if(!words.length)words=["Love"];
       var otf=await loadOT((typeof baseFontUrl==="function")?baseFontUrl():selNameFont.url);
-      var maskPaths,bx0,bx1,by0,by1;
-      if(LABS2.wordfill.shape&&LABS2.wordfill.shape!=="mine"){
-        maskPaths=_labsPresetShape(LABS2.wordfill.shape,C.w*0.95,C.h*0.95)||C.contentPaths;
+      var maskPaths,bx0,bx1,by0,by1,preset=(LABS2.wordfill.shape&&LABS2.wordfill.shape!=="mine");
+      if(preset){
+        // Standalone preset shape (heart / star / …): built square + centred as its OWN object, not squeezed
+        // into the letter/name/logo footprint. The base lightbox is hidden in render (see __labsStandalone).
+        var _side=Math.max(C.w,C.h)*0.95;
+        maskPaths=_labsPresetShape(LABS2.wordfill.shape,_side,_side)||C.contentPaths;
         bx0=1e18;by0=1e18;bx1=-1e18;by1=-1e18;maskPaths.forEach(function(p){p.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<bx0)bx0=X;if(X>bx1)bx1=X;if(Y<by0)by0=Y;if(Y>by1)by1=Y;});});
       }else{maskPaths=C.contentPaths;bx0=C.mnx;bx1=C.mxx;by0=C.mny;by1=C.mxy;}
-      var pls=_labsWordCloud(maskPaths,bx0,bx1,by0,by1,words),all=[];
+      // The word-cloud packer is the slow part — memoise it so unrelated rebuilds (colour, depth, lamp, …)
+      // reuse the last packing instead of re-solving the spiral collision every time.
+      var _wfHash=(maskPaths[0]&&maskPaths[0][0])?(maskPaths[0].length+":"+maskPaths[0][0].X):maskPaths.length;
+      var _wfKey=LABS2.wordfill.shape+"|"+words.join(",")+"|"+Math.round(bx0)+","+Math.round(bx1)+","+Math.round(by0)+","+Math.round(by1)+"|"+_wfHash;
+      var pls,_wc=LABS2.wordfill._cache;
+      if(_wc&&_wc.key===_wfKey){pls=_wc.pls;}
+      else{pls=_labsWordCloud(maskPaths,bx0,bx1,by0,by1,words);LABS2.wordfill._cache={key:_wfKey,pls:pls};}
+      var all=[];
       pls.forEach(function(pl){var wp=nameSubjOT(otf,pl.text,pl.sizeMm*1.28);
         var a=1e18,b=1e18,cc=-1e18,d=-1e18;wp.forEach(function(pp){pp.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<a)a=X;if(X>cc)cc=X;if(Y<b)b=Y;if(Y>d)d=Y;});});
         var wcx=(a+cc)/2,wcy=(b+d)/2,co=Math.cos(pl.rot),si=Math.sin(pl.rot);
@@ -3209,6 +3252,9 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       if(_tbres&&_tbres.geo){var _tgrp=new THREE.Group();_tgrp.add(new THREE.Mesh(_tbres.geo,MATS.body));_tgrp.rotation.x=-Math.PI/2;_tgrp.position.set(0,_tbres.yWallTop-(_tb.raise||0),-depth/2);partList.push({group:_tgrp,name:"TestBase",flip:false,isBase:true,color:COLORS.body});}}
     // LABS experimental front-panel effects (hidden message / colour print / star map) — additive, self-contained.
     try{var _labsGate=(typeof featState!=="function")||featState("labs")!=="hidden";if(_labsGate&&typeof buildLabs==="function"&&(LABS.hidden.on||LABS.clitho.on||LABS.star.on)){var _lab=await buildLabs(filled,cx,cy,TT);if(_lab&&_lab.length)_lab.forEach(function(p){partList.push(p);});}}catch(e){}
+    // Standalone preset: when a Labs 2 word-cloud uses a preset shape (heart/star/…) it is its OWN object,
+    // so the base letter/name/logo lightbox is hidden in the render preview (see applyLabsLight).
+    window.__labsStandalone=(typeof LABS2!=="undefined"&&LABS2.wordfill.on&&LABS2.wordfill.shape&&LABS2.wordfill.shape!=="mine");
     try{var _l2Gate=(typeof featState!=="function")||featState("labs2")!=="hidden";if(_l2Gate&&typeof buildLabs2==="function"&&(LABS2.shadow.on||LABS2.neon.on||LABS2.moon.on||LABS2.wordfill.on)){var _lab2=await buildLabs2(filled,cx,cy,TT);if(_lab2&&_lab2.length)_lab2.forEach(function(p){partList.push(p);});}}catch(e){}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
@@ -3216,7 +3262,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     if(mode==="render"){
       // STL inlays can run to ~600k triangles each; casting their shadow would crush the shadow-map pass
       // and stutter dragging. Lid/body/name still cast; the dense models do not.
-      partList.forEach(p=>{const stl=!!p.modelId||!!p.isDense||!!p.labs;p.group.traverse(o=>{if(o.isMesh&&o!==glowFace)o.castShadow=!stl;});pivot.add(p.group);});
+      partList.forEach(p=>{const stl=!!p.modelId||!!p.isDense||!!p.labs;const shell=(p.isLid||p.isBase||p.name==="Body");p.group.traverse(o=>{if(o.isMesh&&o!==glowFace)o.castShadow=!stl;if(shell&&o.userData)o.userData.baseShell=true;});pivot.add(p.group);});
       pivot.position.set(0,0,0);pivot.rotation.set(0,0,0);pivot.updateMatrixWorld(true);
       const box=new THREE.Box3().setFromObject(pivot);const ctr=box.getCenter(new THREE.Vector3());const sz=box.getSize(new THREE.Vector3());
       floorPlane=new THREE.Mesh(new THREE.PlaneGeometry(8000,8000),new THREE.MeshStandardMaterial({color:floorHex(),roughness:0.92,metalness:0}));floorPlane.name="arSkip";floorPlane.rotation.x=-Math.PI/2;floorPlane.position.y=box.min.y-0.5;floorPlane.receiveShadow=true;pivot.add(floorPlane);
