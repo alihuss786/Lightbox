@@ -1843,18 +1843,20 @@ function lithophaneMaterial(){
     sh.fragmentShader="varying float vLit;\nuniform float uLit;\nuniform vec3 uTint;\n"+sh.fragmentShader.replace("#include <emissivemap_fragment>","#include <emissivemap_fragment>\n  totalEmissiveRadiance+=uTint*(vLit*uLit*1.35);");};
   return mat;
 }
-/* A 40mm-deep housing box the lithophane seats into: four side walls (hollow) + a front bezel whose opening is
-   a touch smaller than the panel so it holds the lithophane at the front; the back is left open for the LED. */
-function buildLithophaneBox(W,H,depth){
-  depth=depth||40;var wall=3,ledge=2.5,bez=3,clr=0.5,g=new THREE.Group();
-  var mat=new THREE.MeshStandardMaterial({color:"#d8d4cc",roughness:0.72,metalness:0});
-  function hole(w,h){var p=new THREE.Path();p.moveTo(-w/2,-h/2);p.lineTo(w/2,-h/2);p.lineTo(w/2,h/2);p.lineTo(-w/2,h/2);p.closePath();return p;}
-  function frame(ow,oh,iw,ih,d,zback){var s=new THREE.Shape();s.moveTo(-ow/2,-oh/2);s.lineTo(ow/2,-oh/2);s.lineTo(ow/2,oh/2);s.lineTo(-ow/2,oh/2);s.closePath();s.holes.push(hole(iw,ih));
-    var geo=new THREE.ExtrudeGeometry(s,{depth:d,bevelEnabled:false,steps:1});geo.translate(0,0,zback);geo.computeVertexNormals();return new THREE.Mesh(geo,mat);}
-  var ow=W+2*wall,oh=H+2*wall;
-  g.add(frame(ow,oh,W+clr,H+clr,depth-bez,-depth));                 // side walls (litho-slot hole), back → front
-  g.add(frame(ow,oh,Math.max(4,W-2*ledge),Math.max(4,H-2*ledge),bez,-bez));   // front bezel that retains the panel
-  return g;
+/* The lithophane housing / lightbox shell, built to fit THIS panel exactly. Local z has the lithophane's flat
+   back at z=0 (so the box shares the lithophane's frame): a front recess (litho drops in flush), a retaining
+   shoulder its border rests on, a 40mm LED cavity behind it, and a SOLID 2mm back panel to stick LEDs to.
+   Front opening = the panel's W×H, so it always matches the lithophane's aspect + size. */
+function buildLithophaneBox(W,H,maxT){
+  var wall=3,ledge=2.5,clr=0.4,cavity=40,back=2,frontLip=Math.max(2.5,(+maxT||3.5)),g=new THREE.Group();
+  var mat=new THREE.MeshStandardMaterial({color:"#d8d4cc",roughness:0.72,metalness:0}),ow=W+2*wall,oh=H+2*wall;
+  function rect(w,h){var s=new THREE.Shape();s.moveTo(-w/2,-h/2);s.lineTo(w/2,-h/2);s.lineTo(w/2,h/2);s.lineTo(-w/2,h/2);s.closePath();return s;}
+  function hole(s,w,h){var p=new THREE.Path();p.moveTo(-w/2,-h/2);p.lineTo(w/2,-h/2);p.lineTo(w/2,h/2);p.lineTo(-w/2,h/2);p.closePath();s.holes.push(p);return s;}
+  function extr(shape,d,zt){var geo=new THREE.ExtrudeGeometry(shape,{depth:d,bevelEnabled:false,steps:1});geo.translate(0,0,zt);geo.computeVertexNormals();return new THREE.Mesh(geo,mat);}
+  g.add(extr(rect(ow,oh),back,-(cavity+back)));                                    // SOLID back panel (2mm) for LEDs, at z∈[-42,-40]
+  g.add(extr(hole(rect(ow,oh),Math.max(4,W-2*ledge),Math.max(4,H-2*ledge)),cavity,-cavity));  // 40mm LED cavity walls + retaining shoulder, z∈[-40,0]
+  g.add(extr(hole(rect(ow,oh),W+clr,H+clr),frontLip,0));                            // front recess — the litho seats flush here, z∈[0,frontLip]
+  g.userData.cavity=cavity;return g;
 }
 function litho1Upload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();
   img.onload=function(){LITHO1.img=img;LITHO1.src=img.src;LITHO1.on=true;var c=document.getElementById("litho1_ctl");if(c)c.style.display="flex";var th=document.getElementById("litho1_thumb");if(th)th.style.backgroundImage="url("+img.src+")";try{litho1Auto();}catch(e){if(typeof scheduleBuild==="function")scheduleBuild();}};   // auto-balance for a good one-click default
@@ -3499,7 +3501,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       var _lgrp=new THREE.Group();_lgrp.add(_lm);_lgrp.position.set(0,0,(TT||1)+0.05);
       partList.push({group:_lgrp,name:"Lithophane",flip:false,labs:true,litho:true,color:"#FFFFFF"});
       // 40 mm-deep housing box the lithophane seats into (front bezel holds it, hollow + open back for the light).
-      if(typeof buildLithophaneBox==="function"){var _box=buildLithophaneBox(_lW,_lH,40);_box.position.set(0,0,(TT||1)+0.05);partList.push({group:_box,name:"Lithophane box (40mm)",flip:false,labs:true,litho:true,color:"#D8D4CC"});}
+      if(typeof buildLithophaneBox==="function"){var _box=buildLithophaneBox(_lW,_lH,LITHO1.maxT);_box.position.set(0,0,(TT||1)+0.05);partList.push({group:_box,name:"Lithophane box (40mm)",flip:false,labs:true,litho:true,color:"#D8D4CC"});}
       window.__labsStandalone=true;
     }}catch(e){}
     // Standalone Labs 2 (preset word-cloud / scene shadowbox) IS the whole object — drop every other box so the
