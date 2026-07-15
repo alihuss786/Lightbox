@@ -778,7 +778,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="sub" style="margin-top:6px">🌀 Shadowbox (layered depth)</div>
       <div class="toggle-row"><span class="lbl">Nested layers receding inward</span><div class="tg" id="tg_labs2_shadow" onclick="labs2Toggle('shadow')"><div class="k"></div></div></div>
       <div id="labs2_shadow_ctl" style="display:none;flex-direction:column;gap:9px">
-        <div class="row"><span class="lbl">Scene</span><select id="labs2_shadow_scene" class="psel" style="width:auto" onchange="labs2ShadowScene(this.value)"><option value="">Photo / my shape</option><option value="family">👨‍👩‍👧 Family under the stars</option></select></div>
+        <div class="row"><span class="lbl">Scene</span><select id="labs2_shadow_scene" class="psel" style="width:auto" onchange="labs2ShadowScene(this.value)"><option value="">Photo / my shape</option><option value="family">👨‍👩‍👧 Family on the swing</option><option value="fox">🦊 Fox in the forest</option><option value="girl">📖 Girl reading</option></select></div>
         <label class="upfont" style="cursor:pointer">⬆ Upload a photo (for a real diorama)<input type="file" id="labs2_shadow_file" accept="image/*" hidden onchange="labs2ShadowUpload(this)"></label>
         <div class="hint" id="labs2_shadow_photo" style="color:var(--acc)"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth layers — <b id="labs2_shadow_lbl">6</b></span><input type="range" id="labs2_shadow_layers" min="2" max="12" step="1" value="6" oninput="labs2Layers(this.value)"></div>
@@ -1614,37 +1614,72 @@ function _labsWordCloud(maskPaths,mnx,mxx,mny,mxy,words){
   }
   return placements;
 }
-/* Original layered-scene templates for the shadowbox — each returns {outline, layers:[{d,paths}]} of silhouette
-   layers (d=0 front … larger=further back) built procedurally. All original art, no third-party assets. */
+/* Original layered-scene templates for the shadowbox — a real 3-D paper-cut light-box: N individual silhouette
+   layers stacked front→back. Each layer is a frame + a foliage vignette whose opening GROWS toward the back, so
+   you look through receding leaves/branches to a moonlit sky with a subject silhouette. All original procedural
+   art, no third-party assets. Returns {outline, layers:[{d,paths}]} (d=0 front … larger=further back). */
 function _labsScene(name,W,H){
+  var mn=Math.min(W,H),hw=W/2,hh=H/2,border=mn*0.055,gy=-H*0.08,iw=hw-border,ih=hh-border;
   function P(pts){return pts.map(function(p){return {X:Math.round(p[0]*S),Y:Math.round(p[1]*S)};});}
-  function circ(cx,cy,r,n){n=n||26;var a=[];for(var i=0;i<n;i++){var t=Math.PI*2*i/n;a.push([cx+Math.cos(t)*r,cy+Math.sin(t)*r]);}return P(a);}
+  function circ(cx,cy,r,n){n=n||18;var a=[];for(var i=0;i<n;i++){var t=Math.PI*2*i/n;a.push([cx+Math.cos(t)*r,cy+Math.sin(t)*r]);}return P(a);}
+  function ellip(cx,cy,rx,ry,n){n=n||44;var a=[];for(var i=0;i<n;i++){var t=Math.PI*2*i/n;a.push([cx+Math.cos(t)*rx,cy+Math.sin(t)*ry]);}return P(a);}
   function rct(cx,cy,w,h){return P([[cx-w/2,cy-h/2],[cx+w/2,cy-h/2],[cx+w/2,cy+h/2],[cx-w/2,cy+h/2]]);}
-  var gy=-H*0.24,mn=Math.min(W,H);
-  var rectP=rct(0,0,W,H),outline=[rectP];try{var o1=off([rectP],-mn*0.05),o2=off(o1,mn*0.05);if(o2&&o2.length)outline=o2;}catch(e){}
-  function person(cx,base,h,kind){var hr=h*0.13,hy=base+h-hr,top=hy-hr*0.7,sw=h*0.24,paths=[circ(cx,hy,hr,20)];
-    if(kind==="dress")paths.push(P([[cx-sw*0.42,top],[cx+sw*0.42,top],[cx+h*0.2,base],[cx-h*0.2,base]]));
-    else if(kind==="child")paths.push(P([[cx-sw*0.4,top],[cx+sw*0.4,top],[cx+h*0.15,base],[cx-h*0.15,base]]));
-    else{var bw=h*0.15;paths.push(P([[cx-sw*0.42,top],[cx+sw*0.42,top],[cx+bw,base+h*0.03],[cx+bw*0.18,base],[cx+bw*0.05,base+h*0.36],[cx-bw*0.05,base+h*0.36],[cx-bw*0.18,base],[cx-bw,base+h*0.03]]));}
+  function leaf(cx,cy,len,wid,ang){var pts=[],n=9,i,t,x,y,c=Math.cos(ang),s=Math.sin(ang);
+    for(i=0;i<=n;i++){t=i/n;x=(t-0.5)*len;y=Math.sin(t*Math.PI)*wid*0.5;pts.push([x,y]);}
+    for(i=n;i>=0;i--){t=i/n;x=(t-0.5)*len;y=-Math.sin(t*Math.PI)*wid*0.5;pts.push([x,y]);}
+    return P(pts.map(function(p){return [cx+p[0]*c-p[1]*s,cy+p[0]*s+p[1]*c];}));}
+  var seed=20240707;function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+  var outer=rct(0,0,W,H),inner=rct(0,0,W-2*border,H-2*border),frame=diff([outer],[inner]);
+  function clipIn(paths){try{var r=intersect(paths,[inner]);return (r&&r.length)?r:[];}catch(e){return paths;}}
+  function uni(a,b){try{var r=union2(a,b);return (r&&r.length)?r:a;}catch(e){return a;}}
+  // --- subject silhouettes, seated/standing on the ground line gy, ~0.3·W wide, centred ---
+  function seat(cx,h){var hr=h*0.15,hy=gy+h,paths=[circ(cx,hy,hr,16)];
+    paths.push(P([[cx-h*0.17,hy-hr*0.5],[cx+h*0.17,hy-hr*0.5],[cx+h*0.14,gy+h*0.30],[cx-h*0.14,gy+h*0.30]]));   // torso
+    paths.push(rct(cx-h*0.085,gy-h*0.10,h*0.065,h*0.30));paths.push(rct(cx+h*0.085,gy-h*0.10,h*0.065,h*0.30));   // dangling legs
     return paths;}
-  function tree(cx,side){var tw=W*0.022,paths=[rct(cx,gy+H*0.17,tw,H*0.36)],fcx=cx,fcy=gy+H*0.36,fr=H*0.12;
-    [[0,0,1.1],[side*0.7,0.4,0.9],[side*1.3,0.9,0.8],[side*0.4,1.05,0.85],[0,1.45,0.7],[side*1.85,1.3,0.6]].forEach(function(o){paths.push(circ(fcx+o[0]*fr,fcy+o[1]*fr,fr*o[2],18));});
+  function subjFamily(){var plankW=W*0.46,paths=[rct(0,gy-H*0.008,plankW,H*0.018)];   // swing plank
+    paths.push(rct(-plankW*0.5,(gy+hh*0.7)/1,mn*0.012,hh*0.7-gy));paths.push(rct(plankW*0.5,(gy+hh*0.7)/1,mn*0.012,hh*0.7-gy));   // ropes
+    return paths.concat(seat(-W*0.15,H*0.30)).concat(seat(-W*0.05,H*0.20)).concat(seat(W*0.05,H*0.185)).concat(seat(W*0.15,H*0.28));}
+  function subjFox(){var b=gy,paths=[];var bcx=0,bcy=b+H*0.10;
+    paths.push(ellip(bcx,bcy,W*0.15,H*0.075,26));   // body
+    paths.push(P([[bcx-W*0.15,bcy+H*0.02],[bcx-W*0.28,bcy+H*0.11],[bcx-W*0.24,bcy+H*0.03],[bcx-W*0.30,bcy+H*0.05],[bcx-W*0.17,bcy-H*0.03]]));   // tail
+    var hx=bcx+W*0.15,hy=bcy+H*0.05;paths.push(P([[hx,hy+H*0.07],[hx+W*0.10,hy+H*0.02],[hx+W*0.13,hy-H*0.03],[hx+W*0.05,hy-H*0.04],[hx-W*0.02,hy]]));   // head+snout
+    paths.push(P([[hx,hy+H*0.07],[hx-W*0.01,hy+H*0.13],[hx+W*0.03,hy+H*0.08]]));paths.push(P([[hx+W*0.06,hy+H*0.06],[hx+W*0.06,hy+H*0.12],[hx+W*0.10,hy+H*0.06]]));   // ears
+    [-0.09,-0.03,0.06,0.11].forEach(function(o){paths.push(rct(bcx+o*W,b+H*0.03,mn*0.02,H*0.10));});   // legs
     return paths;}
-  var layers=[],hs=H*0.004;
-  var sky=[circ(-W*0.22,H*0.24,H*0.1,30)],seed=12345;function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
-  for(var si=0;si<24;si++)sky.push(circ((rnd()-0.5)*W*0.86,H*0.05+rnd()*H*0.36,H*0.006+rnd()*H*0.008,8));
-  layers.push({d:5,paths:sky});
-  layers.push({d:4,paths:[circ(-W*0.2,gy-H*0.3,H*0.44,28),circ(W*0.3,gy-H*0.26,H*0.38,28)]});
-  layers.push({d:3,paths:tree(-W*0.4,-1).concat(tree(W*0.4,1))});
-  var fam=person(-W*0.12,gy,H*0.36,"dress").concat(person(0,gy,H*0.22,"child")).concat(person(W*0.12,gy,H*0.36,"pants"));
-  layers.push({d:2,paths:fam});
-  var grass=[],gp=[[-W/2,-H/2],[W/2,-H/2],[W/2,gy]],nb=Math.max(12,Math.round(W/(H*0.028)));
-  for(var gi=nb;gi>=0;gi--)gp.push([-W/2+W*gi/nb,gy+((gi%2)?H*0.022:0)]);grass.push(P(gp));
-  var hp=[];for(var hi=0;hi<=60;hi++){var t2=Math.PI*2*hi/60;hp.push([W*0.35+16*Math.pow(Math.sin(t2),3)*hs, gy+H*0.055+(13*Math.cos(t2)-5*Math.cos(2*t2)-2*Math.cos(3*t2)-Math.cos(4*t2))*hs]);}grass.push(P(hp));
-  layers.push({d:1,paths:grass});
-  var ring=[rectP];try{var _ri=diff([rectP],[rct(0,0,W-mn*0.1,H-mn*0.1)]);if(_ri&&_ri.length)ring=_ri;}catch(e){}
-  layers.push({d:0,paths:ring});
-  return {outline:outline,layers:layers};
+  function subjGirl(){var cx=0,paths=[];var hy=gy+H*0.24;paths.push(circ(cx-W*0.01,hy,H*0.05,16));   // head
+    paths.push(circ(cx-W*0.05,hy+H*0.01,H*0.035,12));   // hair bun
+    paths.push(P([[cx-W*0.06,hy-H*0.03],[cx+W*0.06,hy-H*0.05],[cx+W*0.12,gy+H*0.02],[cx-W*0.10,gy+H*0.02]]));   // body leaning + folded legs
+    paths.push(rct(cx+W*0.02,hy-H*0.06,W*0.10,H*0.012));   // book
+    return paths;}
+  var N=6,layers=[];
+  for(var k=0;k<N;k++){
+    var f=k/(N-1),paths=frame.slice(),apCY=H*0.03;
+    // FOLIAGE vignette: a big arched opening framed by a leafy border band. The opening GROWS toward the back so
+    // the border thins and you look through the receding layers to the moonlit sky (the tunnel). Bottom stays open
+    // for the scene + grass.
+    var apRx=iw*(0.64+0.18*f),apRy=ih*(0.66+0.16*f);
+    var ring=diff([inner],[ellip(0,apCY,apRx,apRy,64)]);   // foliage border (big arched opening)
+    var leaves=[],nL=Math.round(48-12*f);
+    for(var li=0;li<nL;li++){var aa=Math.PI*2*li/nL;if(Math.sin(aa)<-0.28)continue;   // leave the bottom of the opening clean
+      var top=Math.sin(aa)>0.35?1.6:1.0,ex=Math.cos(aa)*apRx,ey=apCY+Math.sin(aa)*apRy,lr=mn*(0.014+0.011*(1-f))*top*(0.7+rnd()*0.6);leaves.push(circ(ex,ey,lr,10));}
+    // short leaf strands dripping from the top of the arch on the nearer layers
+    if(f<0.6){for(var vi=0;vi<3;vi++){var vx=(vi-1)*W*0.16+(rnd()-0.5)*W*0.05,vy0=apCY+apRy*0.9,vy1=vy0-H*(0.05+0.06*(1-f)),vs=3;
+      for(var vg=0;vg<vs;vg++){var vt=vg/(vs-1),vyy=vy0+(vy1-vy0)*vt,vxx=vx+Math.sin(vt*3+vi)*W*0.015;leaves.push(circ(vxx,vyy,mn*(0.014+0.012*(1-f)),8));}}}
+    paths=paths.concat(clipIn(ring.concat(leaves)));   // NonZero fill merges border + leaf scallops, clipped inside
+    // slender tree trunks rising at the sides on the middle layers
+    if(k>=2&&k<N-1){var tw=mn*0.022;paths.push(rct(-(iw*0.86),(gy+hh)/2,tw,hh-gy));paths.push(rct((iw*0.86),(gy+hh)/2,tw,hh-gy));}
+    // a ground strip of grass at the figures' feet (a bladed band on the ground line, not a solid fill)
+    var grass=[],baseY=gy-H*0.05,topY=gy+H*0.03+(1-f)*H*0.02,nb=Math.round(22+(1-f)*20),gp=[[-iw,baseY],[iw,baseY]];
+    for(var gi=nb;gi>=0;gi--){var gx=-iw+2*iw*gi/nb;gp.push([gx,topY+((gi%2)?H*0.02*(0.6+(1-f)):0)]);}grass.push(P(gp));
+    if(f<0.55){var nf=Math.round(6*(1-f));for(var fr2=0;fr2<nf;fr2++){var fx=(rnd()-0.5)*W*0.7;grass.push(leaf(fx,topY+H*0.03,H*0.025,H*0.10*(0.6+rnd()*0.8),Math.PI/2+(rnd()-0.5)*0.5));}}
+    paths=paths.concat(clipIn(grass));
+    // subject on the near-back layer; moon + stars on the very back
+    if(k===N-2){var sp=(name==="fox")?subjFox():(name==="girl")?subjGirl():subjFamily();paths=paths.concat(clipIn(sp));}
+    if(k===N-1){paths.push(circ(0,apCY+ih*0.14,mn*0.13,40));for(var s2=0;s2<22;s2++){var stx=(rnd()-0.5)*iw*1.1,sty=apCY+(rnd()-0.1)*ih*0.7;paths.push(circ(stx,sty,mn*0.005+rnd()*mn*0.006,7));}}
+    layers.push({d:k,paths:paths});
+  }
+  return {outline:[outer],layers:layers};
 }
 async function buildLabs2(filled,cx,cy,TT){
   var parts=[];if(typeof THREE==="undefined"||!filled||!filled.length)return parts;
@@ -1659,11 +1694,19 @@ async function buildLabs2(filled,cx,cy,TT){
       if(LABS2.shadow.scene){
         // ORIGINAL layered scene template — procedural silhouette layers stacked at stepped depths inside a
         // rectangular diorama frame (all original art). Darkest/front = d0, back = higher d. Backlit → real depth.
-        var scW=Math.max(C.w,C.h)*0.95,sc=_labsScene(LABS2.shadow.scene,scW,scW*0.82),gapSc=Math.max(2.0,scW*0.03),dMax=0;
+        var scW=Math.max(C.w,C.h)*0.95,sc=_labsScene(LABS2.shadow.scene,scW,scW),gapSc=Math.max(2.5,scW*0.045),dMax=0;
         if(sc&&sc.layers){
+          sc.layers.forEach(function(L){if(L.d>dMax)dMax=L.d;});
           var frame=diffToShapes(sc.outline,null,0);
-          sc.layers.forEach(function(L){if(L.d>dMax)dMax=L.d;var lp=L.paths;try{var _ci=intersect(L.paths,sc.outline);if(_ci&&_ci.length)lp=_ci;}catch(e){}var sh=diffToShapes(lp,null,0);if(!sh||!sh.length)return;var geo=extr(sh,1.1);geo.translate(0,0,-L.d*gapSc);var mm=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.5,side:THREE.DoubleSide}));mm.userData.labsGlow=COLORS.front;g.add(mm);made++;});
-          if(frame&&frame.length){var bpS=new THREE.Mesh(extr(frame,1.0),new THREE.MeshStandardMaterial({color:"#0d0d14",roughness:0.8}));bpS.position.z=-(dMax+1)*gapSc;g.add(bpS);}
+          // Shade layers front→back like a real shadowbox: the front layers are dark silhouettes, each layer
+          // behind is lighter/warmer toward the glowing sky at the back — that tonal step is what reads as depth.
+          sc.layers.forEach(function(L){var lp=L.paths;try{var _ci=intersect(L.paths,sc.outline);if(_ci&&_ci.length)lp=_ci;}catch(e){}var sh=diffToShapes(lp,null,0);if(!sh||!sh.length)return;
+            var ff=dMax?L.d/dMax:0,br=0.42+0.58*ff,col=new THREE.Color(COLORS.front).multiplyScalar(br);
+            var geo=extr(sh,1.1);geo.translate(0,0,-L.d*gapSc);var mm=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:col,roughness:0.55,side:THREE.DoubleSide}));
+            if(L.d>=dMax-1)mm.userData.labsGlow=COLORS.front;   // only the back sky/moon layers emit — the light source
+            g.add(mm);made++;});
+          // glowing back sky panel = the light behind the scene
+          if(frame&&frame.length){var _skyG=diffToShapes([sc.outline[0]],null,0);if(_skyG&&_skyG.length){var bpS=new THREE.Mesh(extr(_skyG,1.0),new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.6}));bpS.position.z=-(dMax+1.2)*gapSc;bpS.userData.labsGlow=COLORS.front;g.add(bpS);}}
         }
       }else if(LABS2.shadow.px&&LABS2.shadow.px.cells){
         // REAL shadowbox — split the PHOTO into depth layers by brightness: the darkest parts sit at the FRONT and
