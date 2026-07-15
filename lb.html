@@ -794,14 +794,12 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="row"><span class="lbl">Date</span><input type="date" id="labs2_moon_date" onchange="labs2Moon()" style="padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:14px system-ui"></div>
         <div class="hint">Shows the exact moon phase for that night, inside your shape. “The moon the night you were born.”</div>
       </div>
-      <div class="sub" style="margin-top:14px">🔤 Word-fill</div>
-      <div class="toggle-row"><span class="lbl">Fill the shape with words</span><div class="tg" id="tg_labs2_wordfill" onclick="labs2Toggle('wordfill')"><div class="k"></div></div></div>
+      <div class="sub" style="margin-top:14px">🔤 Word cloud</div>
+      <div class="toggle-row"><span class="lbl">Fill a shape with your words</span><div class="tg" id="tg_labs2_wordfill" onclick="labs2Toggle('wordfill')"><div class="k"></div></div></div>
       <div id="labs2_wordfill_ctl" style="display:none;flex-direction:column;gap:9px">
-        <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Words (one per line)</span><textarea id="labs2_wordfill_txt" rows="4" placeholder="Love&#10;Family&#10;Always" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:14px system-ui,sans-serif;box-sizing:border-box;resize:vertical" oninput="labs2Words(this.value)">Love
-Family
-Always
-Forever</textarea></div>
-        <div class="hint">Packs your words to fill the shape — family names, a memorial, a team roster.</div>
+        <div class="row"><span class="lbl">Shape</span><select id="labs2_wordfill_shape" class="psel" style="width:auto" onchange="labs2WordShape(this.value)"><option value="heart">❤️ Heart</option><option value="star">⭐ Star</option><option value="circle">⬤ Circle</option><option value="hex">⬡ Hexagon</option><option value="diamond">◆ Diamond</option><option value="mine">My design (letter/name/logo)</option></select></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Words (commas or new lines)</span><textarea id="labs2_wordfill_txt" rows="4" placeholder="Love, Family, Always, Kind, Brave, Wise…" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:14px system-ui,sans-serif;box-sizing:border-box;resize:vertical" oninput="labs2Words(this.value)">Love, Caring, Kind, Brave, Wise, Funny, Patient, Beautiful, Smart, Selfless, Amazing, Thoughtful, Happy, Inspiring, Gentle, Strong</textarea></div>
+        <div class="hint">Pick a preset shape and it packs your words into it at varied sizes &amp; angles — a word-cloud (family names, adjectives, a memorial).</div>
       </div>
     </div>
   </div>
@@ -1558,10 +1556,11 @@ function applyLabsLight(){if(typeof pivot==="undefined"||!pivot)return;var lit=(
 /* ===================== LABS 2 — more experimental backlit features (prototypes) =====================
    Shadowbox (layered depth), Faux-neon (silhouette as glowing tubes), Moon phase (for a date), Word-fill
    (fill the shape with words). All clipped to / built from the CHOSEN shape and glow via the same tags. */
-var LABS2={shadow:{on:false,layers:6,px:null},neon:{on:false},moon:{on:false,date:""},wordfill:{on:false,text:"Love\nFamily\nAlways\nForever"}};
+var LABS2={shadow:{on:false,layers:6,px:null},neon:{on:false},moon:{on:false,date:""},wordfill:{on:false,shape:"heart",text:"Love, Caring, Kind, Brave, Wise, Funny, Patient, Beautiful, Smart, Selfless, Amazing, Thoughtful, Happy, Inspiring, Gentle, Strong"}};
 function labs2Toggle(k){if(!LABS2[k])return;LABS2[k].on=!LABS2[k].on;var t=document.getElementById("tg_labs2_"+k);if(t)t.classList.toggle("on",LABS2[k].on);var c=document.getElementById("labs2_"+k+"_ctl");if(c)c.style.display=LABS2[k].on?"flex":"none";if(typeof scheduleBuild==="function")scheduleBuild();}
 function labs2Moon(){LABS2.moon.date=(document.getElementById("labs2_moon_date")||{}).value||"";if(typeof scheduleBuild==="function")scheduleBuild();}
 function labs2Words(v){LABS2.wordfill.text=v||"";if(typeof scheduleBuild==="function")scheduleBuild();}
+function labs2WordShape(v){LABS2.wordfill.shape=v||"heart";if(typeof scheduleBuild==="function")scheduleBuild();}
 function labs2Layers(v){LABS2.shadow.layers=Math.max(2,Math.min(12,+v||6));var lb=document.getElementById("labs2_shadow_lbl");if(lb)lb.textContent=LABS2.shadow.layers;if(typeof scheduleBuild==="function")scheduleBuild();}
 function labs2ShadowUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();img.onload=function(){try{LABS2.shadow.px=(typeof _labsSample==="function")?_labsSample(img,96):null;var h=document.getElementById("labs2_shadow_photo");if(h)h.textContent="✓ Photo loaded — split into depth layers.";if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}};var rd=new FileReader();rd.onload=function(e){img.src=e.target.result;};rd.readAsDataURL(f);input.value="";}
 /* shared shape context (centred silhouette + point-in-shape test), same convention as buildLabs */
@@ -1577,6 +1576,49 @@ function _labsShapeCtx(filled,cx,cy){
   return {filC:filC,panelPaths:panelPaths,contentPaths:contentPaths,inShape:inShape,mnx:mnx,mxx:mxx,mny:mny,mxy:mxy,w:Math.max(20,mxx-mnx),h:Math.max(20,mxy-mny),ccx:(mnx+mxx)/2,ccy:(mny+mxy)/2};
 }
 function _labsMoonPhase(dateStr){var dt=dateStr?new Date(dateStr+"T21:00:00Z"):new Date();if(isNaN(dt.getTime()))dt=new Date();var Y=dt.getUTCFullYear(),M=dt.getUTCMonth()+1,D=dt.getUTCDate(),UT=dt.getUTCHours()+dt.getUTCMinutes()/60;var JD=367*Y-Math.floor(7*(Y+Math.floor((M+9)/12))/4)+Math.floor(275*M/9)+D+1721013.5+UT/24;var p=((JD-2451550.1)/29.530588853)%1;if(p<0)p+=1;return p;}
+/* preset word-cloud shapes as centred clipper paths fitting a W×H box */
+function _labsPresetShape(name,W,H){
+  var pts=[],i,t;
+  if(name==="heart"){for(i=0;i<=90;i++){t=Math.PI*2*i/90;pts.push([16*Math.pow(Math.sin(t),3),13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t)]);}}
+  else if(name==="star"){for(i=0;i<10;i++){var a=-Math.PI/2+Math.PI*i/5,r=(i%2===0)?1:0.4;pts.push([Math.cos(a)*r,Math.sin(a)*r]);}}
+  else if(name==="hex"){for(i=0;i<6;i++){var a2=-Math.PI/2+Math.PI*2*i/6;pts.push([Math.cos(a2),Math.sin(a2)]);}}
+  else if(name==="diamond"){pts=[[0,1],[0.78,0],[0,-1],[-0.78,0]];}
+  else if(name==="circle"){for(i=0;i<72;i++){var a3=Math.PI*2*i/72;pts.push([Math.cos(a3),Math.sin(a3)]);}}
+  else return null;   // "mine" → caller uses the design silhouette
+  var mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;pts.forEach(function(p){if(p[0]<mnx)mnx=p[0];if(p[0]>mxx)mxx=p[0];if(p[1]<mny)mny=p[1];if(p[1]>mxy)mxy=p[1];});
+  var sc=Math.min(W/(mxx-mnx),H/(mxy-mny))*0.98,cxp=(mnx+mxx)/2,cyp=(mny+mxy)/2;
+  return [pts.map(function(p){return {X:Math.round((p[0]-cxp)*sc*S),Y:Math.round((p[1]-cyp)*sc*S)};})];
+}
+/* Word-cloud packer: place words largest-first via a spiral, collision-tested against a raster of the shape +
+   already-placed words (like d3-cloud). Returns [{text,sizeMm,rot,x,y}] centred on each word (mm coords). */
+function _labsWordCloud(maskPaths,mnx,mxx,mny,mxy,words){
+  var W=Math.max(1,mxx-mnx),H=Math.max(1,mxy-mny),scale=Math.max(2.2,Math.min(6,300/Math.max(W,H)));
+  var gw=Math.max(60,Math.round(W*scale)),gh=Math.max(60,Math.round(H*scale)),occ=new Uint8Array(gw*gh);
+  var cv=document.createElement("canvas");cv.width=gw;cv.height=gh;var ctx=cv.getContext("2d");
+  ctx.fillStyle="#000";ctx.fillRect(0,0,gw,gh);ctx.fillStyle="#fff";ctx.beginPath();
+  maskPaths.forEach(function(p){p.forEach(function(q,i){var X=(q.X/S-mnx)*scale,Y=(mxy-q.Y/S)*scale;if(i===0)ctx.moveTo(X,Y);else ctx.lineTo(X,Y);});ctx.closePath();});
+  ctx.fill("evenodd");var dd=ctx.getImageData(0,0,gw,gh).data;for(var ii=0;ii<gw*gh;ii++)occ[ii]=dd[ii*4]>128?0:1;
+  var wc=document.createElement("canvas"),wctx=wc.getContext("2d"),maxMm=Math.max(W,H),placements=[];
+  function place(text,sizePx,rot){
+    wctx.font="800 "+sizePx+"px system-ui,sans-serif";var m=wctx.measureText(text);var tw=Math.ceil(m.width)+4,th=Math.ceil(sizePx*1.15)+4,diag=Math.ceil(Math.sqrt(tw*tw+th*th))+2,hc=(diag/2)|0;
+    wc.width=diag;wc.height=diag;wctx.clearRect(0,0,diag,diag);wctx.save();wctx.translate(hc,hc);wctx.rotate(rot);wctx.font="800 "+sizePx+"px system-ui,sans-serif";wctx.textAlign="center";wctx.textBaseline="middle";wctx.fillStyle="#fff";wctx.fillText(text,0,0);wctx.restore();
+    var wd=wctx.getImageData(0,0,diag,diag).data,dx=[],dy=[];for(var yy=0;yy<diag;yy++)for(var xx=0;xx<diag;xx++){if(wd[(yy*diag+xx)*4+3]>70){dx.push(xx-hc);dy.push(yy-hc);}}
+    if(!dx.length)return null;
+    for(var s=0;s<7000;s++){var ang=0.4*s,rad=0.7+1.35*Math.sqrt(s),gcx=Math.round(gw/2+rad*Math.cos(ang)),gcy=Math.round(gh/2+rad*Math.sin(ang)),ok=true;
+      for(var pi=0;pi<dx.length;pi++){var gx=gcx+dx[pi],gy=gcy+dy[pi];if(gx<1||gy<1||gx>=gw-1||gy>=gh-1||occ[gy*gw+gx]){ok=false;break;}}
+      if(ok){for(var pj=0;pj<dx.length;pj++)occ[(gcy+dy[pj])*gw+(gcx+dx[pj])]=1;return {x:mnx+gcx/scale,y:mxy-gcy/scale,sizeMm:sizePx/scale,rot:-rot};}
+      if(rad>Math.max(gw,gh)*1.1)break;}
+    return null;
+  }
+  var idx=0,placed=0,guard=0,fails=0;
+  while(placed<600&&guard<4000){guard++;var text=words[idx%words.length];idx++;
+    // a few big words, then a long tail of small ones so the shape packs densely like a real word-cloud
+    var sizeMm=Math.max(maxMm*0.02,maxMm*0.19*Math.pow(0.9,placed))*(0.85+Math.random()*0.3);var sizePx=Math.round(sizeMm*scale);if(sizePx<4)break;
+    var rr=Math.random(),rot=0;if(rr<0.16)rot=Math.PI/2;else if(rr<0.28)rot=-Math.PI/2;else if(rr<0.4)rot=(Math.random()-0.5)*0.55;
+    var pl=place(text,sizePx,rot);if(pl){pl.text=text;placements.push(pl);placed++;fails=0;}else{fails++;if(fails>220)break;}
+  }
+  return placements;
+}
 async function buildLabs2(filled,cx,cy,TT){
   var parts=[];if(typeof THREE==="undefined"||!filled||!filled.length)return parts;
   if(!(LABS2.shadow.on||LABS2.neon.on||LABS2.moon.on||LABS2.wordfill.on))return parts;
@@ -1627,32 +1669,28 @@ async function buildLabs2(filled,cx,cy,TT){
       mg.position.set(0,0,z0);parts.push({group:mg,name:"Moon phase",flip:false,labs:true,color:"#0b1024"});
     }catch(e){}
   }
-  // (4) WORD-FILL — fill the shape with words (flow-laid, clipped to the silhouette), glowing when lit
+  // (4) WORD CLOUD — pick a shape (heart / star / … or your design) and fill it with your words at varied sizes
+  // and angles, packed tightly like a word-cloud, glowing when lit.
   if(LABS2.wordfill.on){
     try{
       var words=(LABS2.wordfill.text||"").split(/[\n,]+/).map(function(s){return s.trim();}).filter(Boolean);
       if(!words.length)words=["Love"];
       var otf=await loadOT((typeof baseFontUrl==="function")?baseFontUrl():selNameFont.url);
-      var totChars=words.join(" ").length||6,size=Math.max(5,Math.min(24,Math.sqrt(C.w*C.h/(totChars*22)))),gap=size*0.45,lineH=size*1.2;
-      var cache={};
-      function _meas(wd){if(cache[wd])return cache[wd];var p=nameSubjOT(otf,wd,size);var a=1e18,b=1e18,cc=-1e18,d=-1e18;p.forEach(function(pp){pp.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<a)a=X;if(X>cc)cc=X;if(Y<b)b=Y;if(Y>d)d=Y;});});return (cache[wd]={paths:p,minx:a,maxy:d,w:Math.max(0.1,cc-a)});}
-      // Fill row by row; each row is CENTRED to the shape's actual width at that height, so the words hug the
-      // silhouette (few words in the narrow parts, more in the wide parts) instead of a ragged, edge-clipped block.
-      var all=[],i=0,penY=C.mxy-size*0.7,guard=0,sstep=Math.max(0.8,C.w/180);
-      while(penY>C.mny+size*0.15&&guard<240){guard++;
-        var xL=1e18,xR=-1e18;for(var sx=C.mnx;sx<=C.mxx;sx+=sstep){if(C.inShape(sx,penY)){if(sx<xL)xL=sx;if(sx>xR)xR=sx;}}
-        var avail=xR-xL;
-        if(avail>size*1.4){
-          var row=[],rowW=0,tries=0;
-          while(tries<80){tries++;var m=_meas(words[i%words.length]);var add=(row.length?gap:0)+m.w;if(row.length&&rowW+add>avail)break;row.push(m);rowW+=add;i++;if(m.w>=avail)break;}
-          var px=xL+(avail-rowW)/2;
-          row.forEach(function(m){var dx=px-m.minx,dy=penY-m.maxy;m.paths.forEach(function(pp){all.push(pp.map(function(q){return {X:Math.round((q.X/S+dx)*S),Y:Math.round((q.Y/S+dy)*S)};}));});px+=m.w+gap;});
-        }
-        penY-=lineH;
-      }
-      var clipped=all;try{var _ci=intersect(all,C.contentPaths);if(_ci&&_ci.length)clipped=_ci;}catch(e){}
+      var maskPaths,bx0,bx1,by0,by1;
+      if(LABS2.wordfill.shape&&LABS2.wordfill.shape!=="mine"){
+        maskPaths=_labsPresetShape(LABS2.wordfill.shape,C.w*0.95,C.h*0.95)||C.contentPaths;
+        bx0=1e18;by0=1e18;bx1=-1e18;by1=-1e18;maskPaths.forEach(function(p){p.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<bx0)bx0=X;if(X>bx1)bx1=X;if(Y<by0)by0=Y;if(Y>by1)by1=Y;});});
+      }else{maskPaths=C.contentPaths;bx0=C.mnx;bx1=C.mxx;by0=C.mny;by1=C.mxy;}
+      var pls=_labsWordCloud(maskPaths,bx0,bx1,by0,by1,words),all=[];
+      pls.forEach(function(pl){var wp=nameSubjOT(otf,pl.text,pl.sizeMm*1.28);
+        var a=1e18,b=1e18,cc=-1e18,d=-1e18;wp.forEach(function(pp){pp.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<a)a=X;if(X>cc)cc=X;if(Y<b)b=Y;if(Y>d)d=Y;});});
+        var wcx=(a+cc)/2,wcy=(b+d)/2,co=Math.cos(pl.rot),si=Math.sin(pl.rot);
+        wp.forEach(function(pp){all.push(pp.map(function(q){var lx=q.X/S-wcx,ly=q.Y/S-wcy,rx=lx*co-ly*si,ry=lx*si+ly*co;return {X:Math.round((pl.x+rx)*S),Y:Math.round((pl.y+ry)*S)};}));});
+      });
+      var clipped=all;try{var _ci=intersect(all,maskPaths);if(_ci&&_ci.length)clipped=_ci;}catch(e){}
       var sh2=diffToShapes(clipped,null,0);
-      if(sh2&&sh2.length){var wg=new THREE.Group();wg.add(new THREE.Mesh(extr(panelShapes(),1.0),new THREE.MeshStandardMaterial({color:"#12131a",roughness:0.7})));var tgeo=extr(sh2,0.7);tgeo.translate(0,0,0.4);var tm2=new THREE.Mesh(tgeo,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.45}));tm2.userData.labsGlow=COLORS.front;wg.add(tm2);wg.position.set(0,0,z0);parts.push({group:wg,name:"Word-fill",flip:false,labs:true,color:COLORS.front});}
+      if(sh2&&sh2.length){var wg=new THREE.Group();var backSh=diffToShapes(maskPaths,null,0);if(backSh&&backSh.length)wg.add(new THREE.Mesh(extr(backSh,1.0),new THREE.MeshStandardMaterial({color:"#12131a",roughness:0.7})));
+        var tgeo=extr(sh2,0.7);tgeo.translate(0,0,0.4);var tm2=new THREE.Mesh(tgeo,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.45}));tm2.userData.labsGlow=COLORS.front;wg.add(tm2);wg.position.set(0,0,z0);parts.push({group:wg,name:"Word cloud",flip:false,labs:true,color:COLORS.front});}
     }catch(e){}
   }
   return parts;
