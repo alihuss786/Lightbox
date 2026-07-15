@@ -750,6 +750,8 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="row"><span class="lbl">Preview</span><div id="litho1_thumb" style="width:96px;height:96px;border-radius:10px;border:1px solid var(--line);background:#0a0b0e center/cover no-repeat;align-self:flex-start"></div></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thinnest (white) — <b id="litho1_minl">0.8</b> mm</span><input type="range" id="litho1_min" min="0.4" max="2" step="0.1" value="0.8" oninput="litho1Thick('min',this.value)"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickest (black) — <b id="litho1_maxl">3.5</b> mm</span><input type="range" id="litho1_max" min="1.5" max="6" step="0.1" value="3.5" oninput="litho1Thick('max',this.value)"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Contrast / gamma — <b id="litho1_conl">1.0</b>×</span><input type="range" id="litho1_con" min="0.5" max="2.5" step="0.05" value="1" oninput="litho1Contrast(this.value)"></div>
+        <div class="hint">Boost contrast for flat phone photos so the light reads punchier. Turn the lamp on to preview it live — this reshapes the real print too, no extra software needed.</div>
         <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_litho1_inv" onclick="litho1Invert()"><div class="k"></div></div></div>
         <button class="addtext" onclick="litho1Clear()">Remove photo</button>
       </div>
@@ -1785,12 +1787,13 @@ function _labsScene(name,W,H,customSubj){
    multi-colour export stay intact): uploaded image → hidden ≤400px canvas → per-pixel grayscale →
    a displaced grid whose Z is the print thickness (black = maxThickness, white = minThickness) →
    sealed into a WATERTIGHT, MANIFOLD solid with a flat base + closed sides so it slices in Bambu. */
-var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false};
+var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
   var minT=(opts.minThickness!=null?+opts.minThickness:0.8),maxT=(opts.maxThickness!=null?+opts.maxThickness:3.0);
-  var maxRes=+opts.maxRes||400,invert=!!opts.invert;
+  var maxRes=+opts.maxRes||400,invert=!!opts.invert,contrast=(opts.contrast!=null?+opts.contrast:1);
+  var gamma=(opts.gamma!=null?+opts.gamma:1);   // <1 lifts midtones (brighter/thinner), >1 deepens them
   // 1) hidden canvas — scale so the longest side ≤ maxRes (keeps aspect, protects the browser)
   var iw=img.naturalWidth||img.width||1,ih=img.naturalHeight||img.height||1,s=Math.min(1,maxRes/Math.max(iw,ih));
   var cw=Math.max(2,Math.round(iw*s)),ch=Math.max(2,Math.round(ih*s));
@@ -1801,6 +1804,10 @@ function buildLithophaneGeometry(img,opts){
   var nx=cw,ny=ch,NV=nx*ny,off=NV,pos=new Float32Array(NV*2*3),lit=new Float32Array(NV*2),hx=W/2,hy=Ht/2,range=Math.max(0.001,maxT-minT);
   for(var j=0;j<ny;j++){var imgRow=(ny-1-j);   // flip Y so the photo prints upright
     for(var i=0;i<nx;i++){var p=(imgRow*nx+i)*4,lum=(0.299*data[p]+0.587*data[p+1]+0.114*data[p+2])/255;if(invert)lum=1-lum;
+      // Contrast/gamma tuning (pure math, no libraries) — applied to luminance so it drives the ACTUAL mesh
+      // thickness AND the transmission preview identically. Contrast pivots around mid-grey; gamma bends midtones.
+      if(gamma!==1)lum=Math.pow(lum,gamma);
+      lum=Math.min(1,Math.max(0,(lum-0.5)*contrast+0.5));
       // 4) displacement: pure black (lum 0) = maxThickness, pure white (lum 1) = minThickness
       var z=minT+(1-lum)*range,x=-hx+W*(i/(nx-1)),y=-hy+Ht*(j/(ny-1)),fv=j*nx+i,v=fv*3;
       pos[v]=x;pos[v+1]=y;pos[v+2]=z;                      // front relief
@@ -1840,6 +1847,7 @@ function litho1Upload(input){var f=input&&input.files&&input.files[0];if(!f)retu
   var rd=new FileReader();rd.onload=function(e){img.src=e.target.result;};rd.readAsDataURL(f);input.value="";}
 function litho1Thick(which,val){val=+val;if(which==="min")LITHO1.minT=Math.max(0.4,Math.min(2,val||0.8));else LITHO1.maxT=Math.max(1.5,Math.min(6,val||3));if(LITHO1.maxT<LITHO1.minT+0.3)LITHO1.maxT=LITHO1.minT+0.3;var a=document.getElementById("litho1_minl"),b=document.getElementById("litho1_maxl");if(a)a.textContent=LITHO1.minT.toFixed(1);if(b)b.textContent=LITHO1.maxT.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Invert(){LITHO1.invert=!LITHO1.invert;var t=document.getElementById("tg_litho1_inv");if(t)t.classList.toggle("on",LITHO1.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
+function litho1Contrast(val){LITHO1.contrast=Math.max(0.5,Math.min(2.5,+val||1));var l=document.getElementById("litho1_conl");if(l)l.textContent=LITHO1.contrast.toFixed(2)+(LITHO1.contrast===1?"":"");if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Clear(){LITHO1.on=false;LITHO1.img=null;LITHO1.src=null;var c=document.getElementById("litho1_ctl");if(c)c.style.display="none";var th=document.getElementById("litho1_thumb");if(th)th.style.backgroundImage="";if(typeof scheduleBuild==="function")scheduleBuild();}
 async function buildLabs2(filled,cx,cy,TT){
   var parts=[];if(typeof THREE==="undefined"||!filled||!filled.length)return parts;
@@ -3448,7 +3456,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // Lithophane 1 — a native, watertight lithophane solid sized to the lid cutout. It IS the whole front piece,
     // so (like a standalone Labs scene) it prints on its own plate and hides the base box in the preview.
     try{var _l1Gate=(typeof featState!=="function")||featState("litho1")!=="hidden";if(_l1Gate&&LITHO1.on&&LITHO1.img&&typeof buildLithophaneGeometry==="function"){
-      var _lgeo=buildLithophaneGeometry(LITHO1.img,{widthMm:Math.max(20,LW),heightMm:Math.max(20,LH),minThickness:LITHO1.minT,maxThickness:LITHO1.maxT,maxRes:400,invert:LITHO1.invert});
+      var _lgeo=buildLithophaneGeometry(LITHO1.img,{widthMm:Math.max(20,LW),heightMm:Math.max(20,LH),minThickness:LITHO1.minT,maxThickness:LITHO1.maxT,maxRes:400,invert:LITHO1.invert,contrast:LITHO1.contrast});
       var _lmat=lithophaneMaterial(),_lm=new THREE.Mesh(_lgeo,_lmat);
       _lm.userData.lithoUL=_lmat.userData.uLit;_lm.userData.lithoTint=_lmat.userData.uTint;   // driven by the lamp in applyLabsLight
       var _lgrp=new THREE.Group();_lgrp.add(_lm);_lgrp.position.set(0,0,(TT||1)+0.05);
