@@ -1635,42 +1635,53 @@ function _labsScene(name,W,H){
       var ln=Math.sqrt(dx*dx+dy*dy)||1,nx=-dy/ln,ny=dx/ln;L.push([sp[i][0]+nx*w,sp[i][1]+ny*w]);Rr.push([sp[i][0]-nx*w,sp[i][1]-ny*w]);}
     return P(L.concat(Rr.reverse()));}
   var seed=20240707;function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
-  function uni(list){if(!list.length)return [];try{var r=list[0];for(var i=1;i<list.length;i++){var u=union2(r,[list[i]]);if(u&&u.length)r=u;}return r;}catch(e){return list;}}
-  // soft leafy foliage MASS: a rounded cloud of bumps (like tree-canopy silhouette), edged with a few leaf tips
-  function foliage(out,cx,cy,r,leafy){var parts=[circ(cx,cy,r*0.66)],m=7;
-    for(var i=0;i<m;i++){var a=Math.PI*2*(i+rnd()*0.6)/m,d=r*(0.5+rnd()*0.25);parts.push(circ(cx+Math.cos(a)*d,cy+Math.sin(a)*d,r*(0.4+rnd()*0.22)));}
-    var blob=uni(parts);out.push.apply(out,blob);
-    if(leafy)for(var j=0;j<9;j++){var a2=Math.PI*2*j/9,ex=cx+Math.cos(a2)*r*0.92,ey=cy+Math.sin(a2)*r*0.92;out.push(leaf(ex,ey,r*0.5,r*0.26,a2));}}
-  // an arc of foliage masses forming the round canopy (angles in degrees, over the top of the circle)
-  function canopyArc(out,a0,a1,cnt,rad,rr,leafy){for(var i=0;i<cnt;i++){var t=cnt>1?i/(cnt-1):0.5,a=(a0+(a1-a0)*t)*Math.PI/180,rj=rad*(0.98+rnd()*0.08);foliage(out,cx0+Math.cos(a)*R*rj,cy0+Math.sin(a)*R*rj,rr*R*(0.85+rnd()*0.3),leafy);}}
+  function orient(p){try{return ClipperLib.Clipper.Orientation(p)?p:p.slice().reverse();}catch(e){return p;}}
+  // union a pile of parts into clean solid silhouettes: normalise every path to the SAME winding first, else
+  // overlapping opposite-wound shapes cancel into holes (that was the confetti / broken-figure look).
+  function uni(list){var flat=[];for(var i=0;i<list.length;i++){if(list[i]&&list[i].length>2)flat.push(orient(list[i]));}if(!flat.length)return [];try{var r=union2(flat,[]);return (r&&r.length)?r:flat;}catch(e){return flat;}}
+  // LEAFY WREATH: a slim vine following an arc around the circle, with distinct teardrop leaves growing off it
+  // (mostly pointing inward toward the moon, a few outward) — a clean botanical ring like the reference.
+  function wreath(out,a0deg,a1deg,cnt,rad,lsz){var a0=a0deg*Math.PI/180,a1=a1deg*Math.PI/180,sp=[];
+    for(var i=0;i<=cnt;i++){var t=i/cnt,a=a0+(a1-a0)*t,rr=R*rad*(1+0.05*Math.sin(t*13));sp.push([cx0+Math.cos(a)*rr,cy0+Math.sin(a)*rr]);}
+    out.push(ribbon(sp,mn*0.009,mn*0.006));
+    for(var i=0;i<=cnt;i++){var t=i/cnt,a=a0+(a1-a0)*t,jit=(rnd()-0.5)*0.4;
+      out.push(leaf(sp[i][0],sp[i][1],lsz*R,lsz*R*0.5,a+Math.PI+jit));                       // inward leaf
+      out.push(leaf(sp[i][0],sp[i][1],lsz*R*0.82,lsz*R*0.44,a+Math.PI+(i%2?0.9:-0.9)+jit));   // second inward, angled
+      if(i%2===0)out.push(leaf(sp[i][0],sp[i][1],lsz*R*0.7,lsz*R*0.38,a+jit*0.5));}}           // occasional outward leaf
+  // a leafy bush (foreground mound topped with a few leaf tips)
+  function bush(out,cx,w,h){var pts=[[cx-w/2,gy-H*0.02]],n=18;for(var i=0;i<=n;i++){var t=i/n;pts.push([cx-w/2+w*t,gy+Math.sin(t*Math.PI)*h*(0.85+0.15*Math.sin(t*7))]);}pts.push([cx+w/2,gy-H*0.02]);out.push(P(pts));
+    for(var j=0;j<6;j++){var t=(j+0.5)/6,x=cx-w/2+w*t,y=gy+Math.sin(t*Math.PI)*h;out.push(leaf(x,y,h*0.55,h*0.3,Math.PI/2+(t-0.5)*1.3));}}
   function fern(out,bx,by,len,ang,flip){var tip=[bx+Math.cos(ang)*len,by+Math.sin(ang)*len],sp=qc([bx,by],[bx+Math.cos(ang+0.5*flip)*len*0.5,by+Math.sin(ang+0.5*flip)*len*0.5],tip,8);
     out.push(ribbon(sp,len*0.02,len*0.005));for(var i=1;i<sp.length-1;i++){var t=i/(sp.length-1),ll=len*0.28*(1-t*0.6),pa=ang+1.15*flip;out.push(leaf(sp[i][0],sp[i][1],ll,ll*0.4,pa));out.push(leaf(sp[i][0],sp[i][1],ll,ll*0.4,ang-1.15*flip));}}
   function tuft(out,bx,n,h){for(var i=0;i<n;i++){var o=(i-(n-1)/2),bx2=bx+o*mn*0.012,hh2=h*(0.7+0.3*(1-Math.abs(o)/n));out.push(P([[bx2-mn*0.004,gy-H*0.01],[bx2+mn*0.004,gy-H*0.01],[bx2+o*mn*0.01,gy+hh2]]));}}
   function mushroom(out,bx,s){out.push(rct(bx,gy+s*0.4,s*0.35,s*0.8));var cap=[],n=14;for(var i=0;i<=n;i++){var a=Math.PI*i/n;cap.push([bx-Math.cos(a)*s*0.85,gy+s*0.8+Math.sin(a)*s*0.5]);}out.push(P(cap));}
   var outer=rct(0,0,W,H),inner=rct(0,0,W-2*border,H-2*border),frame=diff([outer],[inner]);
-  function clipIn(paths){try{var r=intersect(paths,[inner]);return (r&&r.length)?r:[];}catch(e){return paths;}}
+  function clipIn(paths){try{var u=uni(paths);if(!u.length)return [];var r=intersect(u,[inner]);return (r&&r.length)?r:[];}catch(e){return paths;}}
   // ---- subject silhouettes (clean, centred, standing/seated on the ground line gy) ----
   function subjFox(){var s=R*0.9,x0=-s*0.02,pts=[[-0.98,0.30],[-0.90,0.34],[-0.84,0.30],[-0.86,0.52],[-0.78,0.62],[-0.70,0.46],[-0.66,0.66],[-0.60,0.46],[-0.42,0.44],[-0.05,0.42],[0.30,0.44],[0.46,0.56],[0.56,0.82],[0.74,0.98],[0.96,0.86],[0.82,0.66],[0.60,0.50],[0.54,0.44],[0.54,0.0],[0.42,0.0],[0.42,0.34],[0.20,0.38],[-0.14,0.38],[-0.34,0.34],[-0.44,0.0],[-0.56,0.0],[-0.56,0.36],[-0.70,0.34],[-0.86,0.30],[-0.94,0.26]];
     return [P(pts.map(function(p){return [x0+p[0]*s*0.5,gy+p[1]*s*0.5];}))];}
   function subjDeer(){var s=R*1.0,pts=[[-0.60,0.0],[-0.60,0.44],[-0.66,0.52],[-0.74,0.70],[-0.76,0.88],[-0.82,0.86],[-0.86,0.96],[-0.80,0.90],[-0.78,1.0],[-0.74,0.90],[-0.70,0.98],[-0.72,0.86],[-0.70,0.72],[-0.60,0.60],[-0.48,0.56],[-0.20,0.56],[0.28,0.54],[0.42,0.60],[0.50,0.56],[0.44,0.50],[0.30,0.46],[0.44,0.0],[0.32,0.0],[0.22,0.44],[-0.16,0.44],[-0.30,0.46],[-0.34,0.0],[-0.46,0.0],[-0.48,0.44],[-0.52,0.42],[-0.50,0.0]];
     return [P(pts.map(function(p){return [p[0]*s*0.5,gy+p[1]*s*0.55];}))];}
-  function subjGirl(){var paths=[],s=R,py=gy+s*0.06,ty=cy0+R*0.9;
-    paths.push(ribbon([[-s*0.16,ty],[-s*0.15,(ty+py)/2],[-s*0.12,py]],mn*0.005,mn*0.004));
-    paths.push(ribbon([[s*0.16,ty],[s*0.15,(ty+py)/2],[s*0.12,py]],mn*0.005,mn*0.004));
-    paths.push(rct(0,py,s*0.32,mn*0.012));   // plank
-    var hy=py+s*0.30;
-    paths.push(circ(-s*0.02,hy,s*0.055,20));paths.push(P([[-s*0.02,hy+s*0.02],[-s*0.10,hy+s*0.01],[-s*0.11,hy-s*0.05],[-s*0.05,hy-s*0.07]]));   // head+hair
-    paths.push(P([[-s*0.08,hy-s*0.04],[s*0.05,hy-s*0.06],[s*0.17,py+s*0.01],[-s*0.15,py+s*0.01]]));   // torso + flared dress
-    paths.push(ribbon([[s*0.03,py+s*0.005],[s*0.10,py-s*0.07],[s*0.14,py-s*0.16]],mn*0.011,mn*0.007));   // legs
-    paths.push(P([[-s*0.04,hy-s*0.02],[s*0.06,hy-s*0.05],[s*0.06,hy-s*0.02],[-s*0.04,hy+s*0.01]]));   // book
-    return paths;}
-  function subjFamily(){var paths=[],s=R,py=gy+s*0.05,ty=cy0+R*0.88;
-    paths.push(ribbon([[-s*0.28,ty],[-s*0.27,(ty+py)/2],[-s*0.26,py]],mn*0.005,mn*0.004));
-    paths.push(ribbon([[s*0.28,ty],[s*0.27,(ty+py)/2],[s*0.26,py]],mn*0.005,mn*0.004));
-    paths.push(rct(0,py,s*0.58,mn*0.014));   // bench
-    function fig(x,h){var hy=py+h,ps=[circ(x,hy,h*0.15,18)];ps.push(P([[x-h*0.16,hy-h*0.48],[x+h*0.16,hy-h*0.48],[x+h*0.15,py+s*0.004],[x-h*0.15,py+s*0.004]]));ps.push(rct(x-h*0.085,py-h*0.15,h*0.055,h*0.32));ps.push(rct(x+h*0.085,py-h*0.15,h*0.055,h*0.32));return ps;}
-    function dog(x,h){var hy=py+h*0.5,ps=[ellip(x,hy,h*0.16,h*0.12,16)];ps.push(circ(x+h*0.14,hy+h*0.05,h*0.09,14));ps.push(rct(x-h*0.1,py-h*0.06,h*0.04,h*0.16));ps.push(rct(x+h*0.08,py-h*0.06,h*0.04,h*0.16));return ps;}
-    return paths.concat(fig(-s*0.20,s*0.32)).concat(fig(-s*0.07,s*0.22)).concat(dog(s*0.06,s*0.19)).concat(fig(s*0.19,s*0.30));}
+  function subjGirl(){var s=R,py=gy+s*0.05,ty=cy0+R*0.92,hy=py+s*0.30,r=s*0.055;   // girl on a swing, reading
+    var body=uni([circ(-s*0.02,hy,r,20),                                          // head
+      P([[-s*0.02,hy+s*0.015],[-s*0.10,hy+s*0.005],[-s*0.11,hy-s*0.05],[-s*0.04,hy-s*0.07]]),   // hair bun
+      P([[-s*0.09,hy-r*0.6],[s*0.02,hy-r*0.8],[s*0.19,py+s*0.005],[-s*0.17,py+s*0.005]]),        // torso + flared dress (overlaps head)
+      P([[s*0.03,py+s*0.02],[s*0.13,py-s*0.06],[s*0.17,py-s*0.14],[s*0.11,py-s*0.15],[s*0.03,py-s*0.03]]),   // bent legs
+      P([[-s*0.04,hy-s*0.02],[s*0.07,hy-s*0.05],[s*0.07,hy-s*0.02],[-s*0.04,hy+s*0.01]])]);      // book
+    return [ribbon([[-s*0.17,ty],[-s*0.16,(ty+py)/2],[-s*0.13,py]],mn*0.005,mn*0.004),
+            ribbon([[s*0.17,ty],[s*0.16,(ty+py)/2],[s*0.13,py]],mn*0.005,mn*0.004),
+            rct(0,py,s*0.34,mn*0.012)].concat(body);}
+  function subjFamily(){var s=R,py=gy+s*0.05,ty=cy0+R*0.9;
+    function fig(x,h){var hy=py+h,r=h*0.15;return uni([circ(x,hy,r,18),
+      P([[x-h*0.17,hy-r*0.6],[x+h*0.17,hy-r*0.6],[x+h*0.15,py+s*0.004],[x-h*0.15,py+s*0.004]]),    // torso overlaps head
+      P([[x-h*0.15,py+h*0.02],[x-h*0.02,py+h*0.02],[x-h*0.03,py-h*0.16],[x-h*0.12,py-h*0.16]]),     // left leg
+      P([[x+h*0.02,py+h*0.02],[x+h*0.15,py+h*0.02],[x+h*0.12,py-h*0.16],[x+h*0.03,py-h*0.16]])]);}  // right leg
+    function dog(x,h){return uni([ellip(x,py+h*0.45,h*0.17,h*0.13,18),circ(x+h*0.16,py+h*0.52,h*0.1,14),
+      P([[x+h*0.22,py+h*0.55],[x+h*0.27,py+h*0.66],[x+h*0.24,py+h*0.5]]),                            // ear
+      rct(x-h*0.1,py+h*0.12,h*0.05,h*0.28),rct(x+h*0.1,py+h*0.12,h*0.05,h*0.28)]);}                  // legs
+    return [ribbon([[-s*0.3,ty],[-s*0.29,(ty+py)/2],[-s*0.28,py]],mn*0.005,mn*0.004),
+            ribbon([[s*0.3,ty],[s*0.29,(ty+py)/2],[s*0.28,py]],mn*0.005,mn*0.004),
+            rct(0,py,s*0.62,mn*0.014)].concat(fig(-s*0.22,s*0.32)).concat(fig(-s*0.08,s*0.22)).concat(dog(s*0.05,s*0.2)).concat(fig(s*0.2,s*0.30));}
   var subjFn=(name==="fox")?subjFox:(name==="deer")?subjDeer:(name==="girl")?subjGirl:subjFamily;
   // slender tree trunk (a tapered stroke rising from the ground at x)
   function trunk(out,x,topY,w){out.push(ribbon([[x,gy-H*0.02],[x+ (x<0?1:-1)*mn*0.02,(gy+topY)/2],[x+(x<0?1:-1)*mn*0.05,topY]],w,w*0.4));}
@@ -1680,24 +1691,25 @@ function _labsScene(name,W,H){
   for(var k=0;k<N;k++){
     var paths=frame.slice(),fol=[];
     if(k===5){   // BACK: bright moon only (its own big disc), on the open sky
-      paths.push(circ(cx0,cy0+R*0.20,R*0.42));
-    }else if(k===4){   // sky stars + far distant hill + a few faint far foliage tips
-      for(var s2=0;s2<26;s2++){var a=rnd()*Math.PI*2,rr=R*(0.5+rnd()*0.55),sx=cx0+Math.cos(a)*rr,sy=cy0+Math.sin(a)*rr*0.9;if(Math.hypot(sx-cx0,sy-(cy0+R*0.20))<R*0.5)continue;paths.push(circ(sx,sy,mn*0.004+rnd()*mn*0.005));}
-      canopyArc(fol,198,-18,7,1.12,0.15,false);paths.push(hill(gy+H*0.06,H*0.05));
-    }else if(k===3){   // MAIN canopy: big soft leafy masses arching over the top + down the upper sides
-      canopyArc(fol,150,-60,11,1.0,0.28,true);paths.push(hill(gy+H*0.04,H*0.05));
-    }else if(k===2){   // lower side foliage + tree trunks framing the sides
-      canopyArc(fol,150,220,3,1.02,0.26,true);canopyArc(fol,-40,-92,3,1.02,0.26,true);
-      trunk(fol,-iw*0.94,cy0+R*0.7,mn*0.032);trunk(fol,iw*0.94,cy0+R*0.7,mn*0.032);
+      paths.push(circ(cx0,cy0+R*0.18,R*0.40));
+    }else if(k===4){   // sky stars + distant hill + a faint far leafy wreath peeking behind the main one
+      for(var s2=0;s2<24;s2++){var a=rnd()*Math.PI*2,rr=R*(0.52+rnd()*0.5),sx=cx0+Math.cos(a)*rr,sy=cy0+Math.sin(a)*rr*0.9;if(Math.hypot(sx-cx0,sy-(cy0+R*0.18))<R*0.48)continue;paths.push(circ(sx,sy,mn*0.004+rnd()*mn*0.005));}
+      wreath(fol,205,-25,10,1.16,0.10);paths.push(hill(gy+H*0.06,H*0.05));
+    }else if(k===3){   // MAIN leafy wreath arching over the top + upper sides (the hero foliage)
+      wreath(fol,158,-68,20,1.0,0.15);wreath(fol,150,-60,16,0.86,0.12);paths.push(hill(gy+H*0.04,H*0.05));
+    }else if(k===2){   // lower side wreath ends + tree trunks framing the sides
+      wreath(fol,158,232,6,1.02,0.14);wreath(fol,-48,-112,6,1.02,0.14);
+      trunk(fol,-iw*0.95,cy0+R*0.85,mn*0.03);trunk(fol,iw*0.95,cy0+R*0.85,mn*0.03);
       paths.push(hill(gy+H*0.025,H*0.05));
-    }else if(k===1){   // foreground plants: ferns, grass tufts, mushrooms, low foliage clumps at the bottom
+    }else if(k===1){   // foreground plants: bushes, ferns, grass tufts, mushrooms along the bottom
       paths.push(hill(gy+H*0.01,H*0.05));
-      fern(fol,-R*0.6,gy+H*0.01,R*0.32,1.1,1);fern(fol,R*0.58,gy,R*0.30,2.0,-1);
-      foliage(fol,-R*0.9,gy+H*0.05,R*0.2,true);foliage(fol,R*0.92,gy+H*0.05,R*0.2,true);
-      tuft(fol,-R*0.5,6,H*0.06);tuft(fol,-R*0.15,5,H*0.05);tuft(fol,R*0.22,6,H*0.06);tuft(fol,R*0.52,5,H*0.05);
-      mushroom(fol,-R*0.32,H*0.04);mushroom(fol,R*0.06,H*0.03);
-    }else{   // FRONT (k===0): the SUBJECT as the crisp dark silhouette, standing on the front ground
-      var _sp=subjFn();paths=paths.concat(clipIn(_sp));paths.push(hill(gy-H*0.008,H*0.045));
+      bush(fol,-R*0.72,R*0.5,H*0.13);bush(fol,R*0.74,R*0.46,H*0.12);
+      fern(fol,-R*0.4,gy+H*0.01,R*0.3,1.15,1);fern(fol,R*0.38,gy,R*0.28,1.99,-1);
+      tuft(fol,-R*0.15,6,H*0.06);tuft(fol,R*0.16,6,H*0.055);tuft(fol,R*0.5,5,H*0.05);
+      mushroom(fol,-R*0.28,H*0.045);mushroom(fol,R*0.02,H*0.032);
+    }else{   // FRONT (k===0): the SUBJECT — big crisp dark silhouette standing on the front ground, up against the moon
+      var _sp=subjFn(),_sc=1.5,_gyS=gy*S;_sp=_sp.map(function(pp){return pp.map(function(q){return {X:Math.round(q.X*_sc),Y:Math.round(_gyS+(q.Y-_gyS)*_sc)};});});
+      paths=paths.concat(clipIn(_sp));paths.push(hill(gy-H*0.008,H*0.045));
     }
     if(fol.length)paths=paths.concat(clipIn(fol));
     layers.push({d:k,paths:paths});
