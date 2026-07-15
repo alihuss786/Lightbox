@@ -1635,6 +1635,12 @@ function _labsScene(name,W,H){
       var ln=Math.sqrt(dx*dx+dy*dy)||1,nx=-dy/ln,ny=dx/ln;L.push([sp[i][0]+nx*w,sp[i][1]+ny*w]);Rr.push([sp[i][0]-nx*w,sp[i][1]-ny*w]);}
     return P(L.concat(Rr.reverse()));}
   var seed=20240707;function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+  // Catmull-Rom smoothing through control points → a flowing closed outline (duplicate a point to keep a sharp
+  // corner like an ear tip or a hoof). Returns raw [x,y] points; caller scales + P()s them.
+  function smooth(cp,sp){sp=sp||9;var out=[],n=cp.length;for(var i=0;i<n;i++){var p0=cp[(i-1+n)%n],p1=cp[i],p2=cp[(i+1)%n],p3=cp[(i+2)%n];
+    for(var t=0;t<sp;t++){var s=t/sp,s2=s*s,s3=s2*s;
+      out.push([0.5*(2*p1[0]+(-p0[0]+p2[0])*s+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*s2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*s3),
+                0.5*(2*p1[1]+(-p0[1]+p2[1])*s+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*s2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*s3)]);}}return out;}
   function orient(p){try{return ClipperLib.Clipper.Orientation(p)?p:p.slice().reverse();}catch(e){return p;}}
   // union a pile of parts into clean solid silhouettes: normalise every path to the SAME winding first, else
   // overlapping opposite-wound shapes cancel into holes (that was the confetti / broken-figure look).
@@ -1658,30 +1664,34 @@ function _labsScene(name,W,H){
   var outer=rct(0,0,W,H),inner=rct(0,0,W-2*border,H-2*border),frame=diff([outer],[inner]);
   function clipIn(paths){try{var u=uni(paths);if(!u.length)return [];var r=intersect(u,[inner]);return (r&&r.length)?r:[];}catch(e){return paths;}}
   // ---- subject silhouettes (clean, centred, standing/seated on the ground line gy) ----
-  function subjFox(){var s=R*0.9,x0=-s*0.02,pts=[[-0.98,0.30],[-0.90,0.34],[-0.84,0.30],[-0.86,0.52],[-0.78,0.62],[-0.70,0.46],[-0.66,0.66],[-0.60,0.46],[-0.42,0.44],[-0.05,0.42],[0.30,0.44],[0.46,0.56],[0.56,0.82],[0.74,0.98],[0.96,0.86],[0.82,0.66],[0.60,0.50],[0.54,0.44],[0.54,0.0],[0.42,0.0],[0.42,0.34],[0.20,0.38],[-0.14,0.38],[-0.34,0.34],[-0.44,0.0],[-0.56,0.0],[-0.56,0.36],[-0.70,0.34],[-0.86,0.30],[-0.94,0.26]];
-    return [P(pts.map(function(p){return [x0+p[0]*s*0.5,gy+p[1]*s*0.5];}))];}
-  function subjDeer(){var s=R*1.0,pts=[[-0.60,0.0],[-0.60,0.44],[-0.66,0.52],[-0.74,0.70],[-0.76,0.88],[-0.82,0.86],[-0.86,0.96],[-0.80,0.90],[-0.78,1.0],[-0.74,0.90],[-0.70,0.98],[-0.72,0.86],[-0.70,0.72],[-0.60,0.60],[-0.48,0.56],[-0.20,0.56],[0.28,0.54],[0.42,0.60],[0.50,0.56],[0.44,0.50],[0.30,0.46],[0.44,0.0],[0.32,0.0],[0.22,0.44],[-0.16,0.44],[-0.30,0.46],[-0.34,0.0],[-0.46,0.0],[-0.48,0.44],[-0.52,0.42],[-0.50,0.0]];
-    return [P(pts.map(function(p){return [p[0]*s*0.5,gy+p[1]*s*0.55];}))];}
-  function subjGirl(){var s=R,py=gy+s*0.05,ty=cy0+R*0.92,hy=py+s*0.30,r=s*0.055;   // girl on a swing, reading
-    var body=uni([circ(-s*0.02,hy,r,20),                                          // head
-      P([[-s*0.02,hy+s*0.015],[-s*0.10,hy+s*0.005],[-s*0.11,hy-s*0.05],[-s*0.04,hy-s*0.07]]),   // hair bun
-      P([[-s*0.09,hy-r*0.6],[s*0.02,hy-r*0.8],[s*0.19,py+s*0.005],[-s*0.17,py+s*0.005]]),        // torso + flared dress (overlaps head)
-      P([[s*0.03,py+s*0.02],[s*0.13,py-s*0.06],[s*0.17,py-s*0.14],[s*0.11,py-s*0.15],[s*0.03,py-s*0.03]]),   // bent legs
-      P([[-s*0.04,hy-s*0.02],[s*0.07,hy-s*0.05],[s*0.07,hy-s*0.02],[-s*0.04,hy+s*0.01]])]);      // book
+  function subjFox(){var s=R*0.92,   // alert fox, facing left, bushy tail — smooth spline outline
+    cp=[[-1.0,0.44],[-0.88,0.53],[-0.79,0.50],[-0.75,0.60],[-0.81,0.84],[-0.81,0.84],[-0.66,0.60],[-0.60,0.62],[-0.585,0.86],[-0.585,0.86],[-0.45,0.60],[-0.32,0.565],[0.02,0.55],[0.36,0.535],[0.54,0.57],[0.77,0.69],[0.99,0.54],[0.99,0.54],[0.82,0.40],[0.585,0.35],[0.49,0.33],[0.475,0.02],[0.52,0.0],[0.52,0.0],[0.40,0.0],[0.385,0.30],[0.06,0.285],[-0.29,0.29],[-0.375,0.0],[-0.375,0.0],[-0.485,0.0],[-0.50,0.29],[-0.57,0.35],[-0.74,0.39],[-0.89,0.41]];
+    return [P(smooth(cp,7).map(function(p){return [p[0]*s*0.52,gy+p[1]*s*0.62];}))];}
+  function subjDeer(){var s=R*0.98,   // slender standing deer, facing left — smooth body + forked antlers
+    cp=[[-0.80,1.0],[-0.71,1.09],[-0.65,1.12],[-0.60,1.10],[-0.55,1.04],[-0.50,1.13],[-0.50,1.13],[-0.45,1.0],[-0.40,0.92],[-0.20,0.86],[0.16,0.845],[0.42,0.87],[0.50,0.80],[0.47,0.62],[0.455,0.02],[0.50,0.0],[0.50,0.0],[0.39,0.0],[0.375,0.60],[0.02,0.52],[-0.32,0.52],[-0.35,0.0],[-0.35,0.0],[-0.46,0.0],[-0.475,0.55],[-0.45,0.72],[-0.52,0.86],[-0.60,0.94],[-0.71,0.965]],
+    body=[P(smooth(cp,7).map(function(p){return [p[0]*s*0.52,gy+p[1]*s*0.46];}))];
+    function ant(x0,y0,dir){var b=[x0,y0];return [ribbon([b,[x0+dir*0.06,y0+0.14],[x0+dir*0.02,y0+0.30]].map(sc),mn*0.006,mn*0.003),
+      ribbon([[x0+dir*0.03,y0+0.12],[x0+dir*0.14,y0+0.17],[x0+dir*0.19,y0+0.26]].map(sc),mn*0.005,mn*0.003),
+      ribbon([[x0+dir*0.02,y0+0.22],[x0+dir*0.10,y0+0.28],[x0+dir*0.13,y0+0.36]].map(sc),mn*0.005,mn*0.003)];}
+    function sc(p){return [p[0]*s*0.52,gy+p[1]*s*0.46];}
+    return body.concat(ant(-0.60,1.10,-1)).concat(ant(-0.56,1.10,0.6));}
+  function subjGirl(){var s=R,py=gy+s*0.03,ty=cy0+R*0.92;   // girl seated on a swing, reading, facing right — smooth
+    var cp=[[-0.09,0.99],[0.03,1.0],[0.13,0.92],[0.155,0.82],[0.115,0.75],[0.175,0.68],[0.33,0.60],[0.365,0.54],[0.285,0.50],[0.20,0.48],[0.33,0.28],[0.35,0.09],[0.29,0.0],[0.09,0.02],[-0.05,0.06],[-0.17,0.13],[-0.205,0.35],[-0.165,0.57],[-0.205,0.72],[-0.245,0.85],[-0.15,0.96]];
+    var body=P(smooth(cp,6).map(function(p){return [p[0]*s*0.86,py+p[1]*s*0.52];})),
+        book=P([[0.17,0.60],[0.35,0.55],[0.35,0.60],[0.17,0.65]].map(function(p){return [p[0]*s*0.86,py+p[1]*s*0.52];}));
     return [ribbon([[-s*0.17,ty],[-s*0.16,(ty+py)/2],[-s*0.13,py]],mn*0.005,mn*0.004),
             ribbon([[s*0.17,ty],[s*0.16,(ty+py)/2],[s*0.13,py]],mn*0.005,mn*0.004),
-            rct(0,py,s*0.34,mn*0.012)].concat(body);}
-  function subjFamily(){var s=R,py=gy+s*0.05,ty=cy0+R*0.9;
-    function fig(x,h){var hy=py+h,r=h*0.15;return uni([circ(x,hy,r,18),
-      P([[x-h*0.17,hy-r*0.6],[x+h*0.17,hy-r*0.6],[x+h*0.15,py+s*0.004],[x-h*0.15,py+s*0.004]]),    // torso overlaps head
-      P([[x-h*0.15,py+h*0.02],[x-h*0.02,py+h*0.02],[x-h*0.03,py-h*0.16],[x-h*0.12,py-h*0.16]]),     // left leg
-      P([[x+h*0.02,py+h*0.02],[x+h*0.15,py+h*0.02],[x+h*0.12,py-h*0.16],[x+h*0.03,py-h*0.16]])]);}  // right leg
-    function dog(x,h){return uni([ellip(x,py+h*0.45,h*0.17,h*0.13,18),circ(x+h*0.16,py+h*0.52,h*0.1,14),
-      P([[x+h*0.22,py+h*0.55],[x+h*0.27,py+h*0.66],[x+h*0.24,py+h*0.5]]),                            // ear
-      rct(x-h*0.1,py+h*0.12,h*0.05,h*0.28),rct(x+h*0.1,py+h*0.12,h*0.05,h*0.28)]);}                  // legs
+            rct(0,py,s*0.34,mn*0.012),body,book];}
+  function subjFamily(){var s=R,py=gy+s*0.03,ty=cy0+R*0.9;   // family + dog on a bench swing, seen from behind — smooth
+    function person(x,h,sh){var cp=[[0,1.0],[0.13,0.93],[0.17,0.83],[0.09,0.73],[sh,0.66],[sh*0.9,0.34],[0.22,0.0],[-0.22,0.0],[-sh*0.9,0.34],[-sh,0.66],[-0.09,0.73],[-0.17,0.83],[-0.13,0.93]];
+      return uni([P(smooth(cp,6).map(function(p){return [x+p[0]*h,py+p[1]*h];})),
+        rct(x-h*0.1,py-h*0.2,h*0.085,h*0.42),rct(x+h*0.1,py-h*0.2,h*0.085,h*0.42)]);}   // dangling legs
+    function pup(x,h){return uni([ellip(x,py+h*0.42,h*0.19,h*0.13,20),circ(x+h*0.18,py+h*0.5,h*0.11,16),
+      P([[x+h*0.24,py+h*0.54],[x+h*0.30,py+h*0.68],[x+h*0.25,py+h*0.5]]),
+      rct(x-h*0.09,py+h*0.05,h*0.05,h*0.34),rct(x+h*0.12,py+h*0.05,h*0.05,h*0.34)]);}
     return [ribbon([[-s*0.3,ty],[-s*0.29,(ty+py)/2],[-s*0.28,py]],mn*0.005,mn*0.004),
             ribbon([[s*0.3,ty],[s*0.29,(ty+py)/2],[s*0.28,py]],mn*0.005,mn*0.004),
-            rct(0,py,s*0.62,mn*0.014)].concat(fig(-s*0.22,s*0.32)).concat(fig(-s*0.08,s*0.22)).concat(dog(s*0.05,s*0.2)).concat(fig(s*0.2,s*0.30));}
+            rct(0,py,s*0.62,mn*0.014)].concat(person(-s*0.22,s*0.36,0.27)).concat(person(-s*0.085,s*0.25,0.25)).concat(pup(s*0.05,s*0.2)).concat(person(s*0.2,s*0.34,0.26));}
   var subjFn=(name==="fox")?subjFox:(name==="deer")?subjDeer:(name==="girl")?subjGirl:subjFamily;
   // slender tree trunk (a tapered stroke rising from the ground at x)
   function trunk(out,x,topY,w){out.push(ribbon([[x,gy-H*0.02],[x+ (x<0?1:-1)*mn*0.02,(gy+topY)/2],[x+(x<0?1:-1)*mn*0.05,topY]],w,w*0.4));}
