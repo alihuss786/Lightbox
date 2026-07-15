@@ -771,6 +771,38 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       </div>
     </div>
   </div>
+  <div class="acc" data-feat="labs2">
+    <div class="acc-h" onclick="accT(this)">Labs 2 ✨ <i class="chev">⌄</i></div>
+    <div class="acc-b">
+      <div class="hint">⚗️ <b>More experimental effects</b> — early prototypes that take the shape you’ve designed. Turn the lamp on to see them. Test-print before selling.</div>
+      <div class="sub" style="margin-top:6px">🌀 Shadowbox (layered depth)</div>
+      <div class="toggle-row"><span class="lbl">Nested layers receding inward</span><div class="tg" id="tg_labs2_shadow" onclick="labs2Toggle('shadow')"><div class="k"></div></div></div>
+      <div id="labs2_shadow_ctl" style="display:none;flex-direction:column;gap:9px">
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Layers — <b id="labs2_shadow_lbl">6</b></span><input type="range" id="labs2_shadow_layers" min="2" max="12" step="1" value="6" oninput="labs2Layers(this.value)"></div>
+        <div class="hint">Concentric copies of your shape step back into the box for a 3D tunnel of depth when lit.</div>
+      </div>
+      <div class="sub" style="margin-top:14px">💡 Faux-neon</div>
+      <div class="toggle-row"><span class="lbl">Your shape as glowing neon tubes</span><div class="tg" id="tg_labs2_neon" onclick="labs2Toggle('neon')"><div class="k"></div></div></div>
+      <div id="labs2_neon_ctl" style="display:none;flex-direction:column;gap:9px">
+        <div class="hint">Traces the outline of your letter / name / logo as a rounded neon tube on a dark backboard. Uses your Name/letter colour and the RGB glow.</div>
+      </div>
+      <div class="sub" style="margin-top:14px">🌙 Moon phase</div>
+      <div class="toggle-row"><span class="lbl">The moon on a special date</span><div class="tg" id="tg_labs2_moon" onclick="labs2Toggle('moon')"><div class="k"></div></div></div>
+      <div id="labs2_moon_ctl" style="display:none;flex-direction:column;gap:9px">
+        <div class="row"><span class="lbl">Date</span><input type="date" id="labs2_moon_date" onchange="labs2Moon()" style="padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:14px system-ui"></div>
+        <div class="hint">Shows the exact moon phase for that night, inside your shape. “The moon the night you were born.”</div>
+      </div>
+      <div class="sub" style="margin-top:14px">🔤 Word-fill</div>
+      <div class="toggle-row"><span class="lbl">Fill the shape with words</span><div class="tg" id="tg_labs2_wordfill" onclick="labs2Toggle('wordfill')"><div class="k"></div></div></div>
+      <div id="labs2_wordfill_ctl" style="display:none;flex-direction:column;gap:9px">
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Words (one per line)</span><textarea id="labs2_wordfill_txt" rows="4" placeholder="Love&#10;Family&#10;Always" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:14px system-ui,sans-serif;box-sizing:border-box;resize:vertical" oninput="labs2Words(this.value)">Love
+Family
+Always
+Forever</textarea></div>
+        <div class="hint">Packs your words to fill the shape — family names, a memorial, a team roster.</div>
+      </div>
+    </div>
+  </div>
   <div class="acc" data-feat="letter">
     <div class="acc-h" onclick="accT(this)">Letter <i class="chev">⌄</i></div>
     <div class="acc-b">
@@ -989,7 +1021,7 @@ let UNIT="mm";
    "soon" shows a greyed Coming-soon tab whose real controls are removed. The config is frozen and read only
    through featState() from this closure, so it cannot be flipped from the console. Default everything to
    "on" -> no change until launch. ===== */
-const _FEATURES=Object.freeze({textures:"on",name:"on",logo:"on",templates:"on",ar:"on",lithophane:"hidden",labs:"hidden"});
+const _FEATURES=Object.freeze({textures:"on",name:"on",logo:"on",templates:"on",ar:"on",lithophane:"hidden",labs:"hidden",labs2:"hidden"});
 try{window.__siteConfig=JSON.parse(localStorage.getItem("sl_cfg")||"null");}catch(e){window.__siteConfig=null;}
 try{window.__cachedTier=localStorage.getItem("sl_tier")||null;}catch(e){window.__cachedTier=null;}
 try{window.__viewAsTier=sessionStorage.getItem("sl_viewas")||null;}catch(e){window.__viewAsTier=null;}
@@ -1386,7 +1418,7 @@ function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");cons
 function setMode(m){mode=m;zoom=1;try{document.body.classList.toggle("plates-mode",m==="plates");}catch(e){}paintSeg();g("platelist").style.display=m==="plates"?"flex":"none";g("printerbox").style.display=m==="plates"?"flex":"none";g("zoomhint").style.display="block";clearTimeout(zhT);zhT=setTimeout(()=>g("zoomhint").style.display="none",1900);if(m==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}buildModel();buildSummary();}
 function toggleLight(){if((window.__explodeAmt||0)>0.001)return;lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plTab(i){var wrap=document.querySelector(".controls");if(!wrap)return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));accs.forEach(function(a,j){a.classList.toggle("open",j===i);});maybeExitNameMode();var tabs=[].slice.call(wrap.querySelectorAll(".pl-tab"));tabs.forEach(function(t,j){t.classList.toggle("active",j===i);});var at=tabs[i];if(at&&at.scrollIntoView){try{at.scrollIntoView({inline:"nearest",block:"nearest"});}catch(e){}}try{wrap.scrollTop=0;}catch(e){}}
 function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export)$/i.test(name))return;var _df=acc.getAttribute("data-feat");if(_df&&featState(_df)==="hidden")return;var t=document.createElement("button");t.className="pl-tab"+(acc.classList.contains("feat-soon")?" pl-soon":"");t.textContent=name;t.setAttribute("data-i",i);t.onclick=function(){plTab(i);};bar.appendChild(t);});[].slice.call(bar.querySelectorAll(".pl-soon")).forEach(function(x){bar.appendChild(x);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
-function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Letter"],name:["\u270e","Name"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"],logo:["\u25a3","Logo"],lithophane:["\u25d0","Lithophane"],labs:["\u2728","Labs"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
+function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Letter"],name:["\u270e","Name"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"],logo:["\u25a3","Logo"],lithophane:["\u25d0","Lithophane"],labs:["\u2728","Labs"],labs2:["\u2728","Labs 2"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
 // ---- Mounting tab: toggle a feature, reveal its controls, keep the slider labels live, and rebuild ----
 function mntToggle(k){var t=document.getElementById("tg_"+k);if(!t)return;t.classList.toggle("on");var c=document.getElementById(k+"Ctl");if(c)c.style.display=t.classList.contains("on")?"flex":"none";mntSyncPad();mntRebuild();if(typeof renderMntPad==="function")renderMntPad();}
@@ -1513,13 +1545,96 @@ async function buildLabs(filled,cx,cy,TT){
 }
 /* Backlit reveal / glow for the Labs panels — driven by the lamp, render mode only. */
 function applyLabsLight(){if(typeof pivot==="undefined"||!pivot)return;var lit=(lightOn&&mode==="render");
-  var labsOn=(LABS.hidden.on||LABS.clitho.on||LABS.star.on);   // a Labs panel IS the front — hide the competing name/text overlay so it reads clean
+  var labsOn=(LABS.hidden.on||LABS.clitho.on||LABS.star.on||(typeof LABS2!=="undefined"&&(LABS2.neon.on||LABS2.moon.on||LABS2.wordfill.on||LABS2.shadow.on)));   // a Labs panel IS the front — hide the competing name/text overlay so it reads clean
   if(mode==="render")pivot.traverse(function(o){if(o.userData&&o.userData.textId!=null)o.visible=!labsOn;});
   pivot.traverse(function(o){if(!o.isMesh||!o.material||!o.material.emissive)return;var u=o.userData||{};
   if(u.labsHidden){o.material.emissive.copy(lit?new THREE.Color(COLORS.front).multiplyScalar(1.1):new THREE.Color(0));o.material.color.set(COLORS.front);}
   else if(u.labsGlow){o.material.emissive.copy(lit?new THREE.Color(u.labsGlow).multiplyScalar(0.7):new THREE.Color(0));}
   else if(u.labsStar!=null){o.material.emissive.copy(lit?new THREE.Color("#dfe8ff").multiplyScalar(u.labsStar):new THREE.Color(0x0a0a12));}
 });}
+
+/* ===================== LABS 2 — more experimental backlit features (prototypes) =====================
+   Shadowbox (layered depth), Faux-neon (silhouette as glowing tubes), Moon phase (for a date), Word-fill
+   (fill the shape with words). All clipped to / built from the CHOSEN shape and glow via the same tags. */
+var LABS2={shadow:{on:false,layers:6},neon:{on:false},moon:{on:false,date:""},wordfill:{on:false,text:"Love\nFamily\nAlways\nForever"}};
+function labs2Toggle(k){if(!LABS2[k])return;LABS2[k].on=!LABS2[k].on;var t=document.getElementById("tg_labs2_"+k);if(t)t.classList.toggle("on",LABS2[k].on);var c=document.getElementById("labs2_"+k+"_ctl");if(c)c.style.display=LABS2[k].on?"flex":"none";if(typeof scheduleBuild==="function")scheduleBuild();}
+function labs2Moon(){LABS2.moon.date=(document.getElementById("labs2_moon_date")||{}).value||"";if(typeof scheduleBuild==="function")scheduleBuild();}
+function labs2Words(v){LABS2.wordfill.text=v||"";if(typeof scheduleBuild==="function")scheduleBuild();}
+function labs2Layers(v){LABS2.shadow.layers=Math.max(2,Math.min(12,+v||6));var lb=document.getElementById("labs2_shadow_lbl");if(lb)lb.textContent=LABS2.shadow.layers;if(typeof scheduleBuild==="function")scheduleBuild();}
+/* shared shape context (centred silhouette + point-in-shape test), same convention as buildLabs */
+function _labsShapeCtx(filled,cx,cy){
+  var CXS=Math.round(cx*S),CYS=Math.round(cy*S);
+  var filC=filled.map(function(p){return p.map(function(q){return {X:q.X-CXS,Y:q.Y-CYS};});});
+  var panelPaths=filC;try{var _o=off(filC,-0.4);if(_o&&_o.length)panelPaths=_o;}catch(e){}
+  var contentPaths=panelPaths;try{var _c=off(filC,-3);if(_c&&_c.length)contentPaths=_c;}catch(e){}
+  var polys=contentPaths.map(function(p){return p.map(function(q){return [q.X/S,q.Y/S];});});
+  function inShape(x,y){var c=false;for(var pi=0;pi<polys.length;pi++){var poly=polys[pi];for(var i=0,j=poly.length-1;i<poly.length;j=i++){var xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/((yj-yi)||1e-9)+xi))c=!c;}}return c;}
+  var mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;panelPaths.forEach(function(p){p.forEach(function(q){var X=q.X/S,Yy=q.Y/S;if(X<mnx)mnx=X;if(X>mxx)mxx=X;if(Yy<mny)mny=Yy;if(Yy>mxy)mxy=Yy;});});
+  if(!isFinite(mnx)){mnx=-45;mxx=45;mny=-55;mxy=55;}
+  return {filC:filC,panelPaths:panelPaths,contentPaths:contentPaths,inShape:inShape,mnx:mnx,mxx:mxx,mny:mny,mxy:mxy,w:Math.max(20,mxx-mnx),h:Math.max(20,mxy-mny),ccx:(mnx+mxx)/2,ccy:(mny+mxy)/2};
+}
+function _labsMoonPhase(dateStr){var dt=dateStr?new Date(dateStr+"T21:00:00Z"):new Date();if(isNaN(dt.getTime()))dt=new Date();var Y=dt.getUTCFullYear(),M=dt.getUTCMonth()+1,D=dt.getUTCDate(),UT=dt.getUTCHours()+dt.getUTCMinutes()/60;var JD=367*Y-Math.floor(7*(Y+Math.floor((M+9)/12))/4)+Math.floor(275*M/9)+D+1721013.5+UT/24;var p=((JD-2451550.1)/29.530588853)%1;if(p<0)p+=1;return p;}
+async function buildLabs2(filled,cx,cy,TT){
+  var parts=[];if(typeof THREE==="undefined"||!filled||!filled.length)return parts;
+  if(!(LABS2.shadow.on||LABS2.neon.on||LABS2.moon.on||LABS2.wordfill.on))return parts;
+  var C=_labsShapeCtx(filled,cx,cy),z0=(TT||1)+0.05;
+  function panelShapes(paths){return diffToShapes(paths||C.panelPaths,null,0);}
+  function extr(sh,d){return new THREE.ExtrudeGeometry(sh,{depth:d,bevelEnabled:false,curveSegments:5});}
+  // (1) SHADOWBOX — nested silhouette frames receding into the box = layered depth
+  if(LABS2.shadow.on){
+    try{
+      var N=LABS2.shadow.layers,step=3.0,frameW=1.7,gap=2.4,g=new THREE.Group(),made=0;
+      for(var k=0;k<N;k++){var outer=off(C.filC,-(0.4+k*step));if(!outer||!outer.length)break;var inner=off(C.filC,-(0.4+k*step+frameW));var ring=(inner&&inner.length)?diff(outer,inner):outer;var sh=diffToShapes(ring,null,0);if(!sh||!sh.length)break;var m=new THREE.Mesh(extr(sh,1.2),new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.5}));m.position.z=-k*gap;m.userData.labsGlow=COLORS.front;g.add(m);made++;}
+      if(made){g.position.set(0,0,z0);parts.push({group:g,name:"Shadowbox",flip:false,labs:true,color:COLORS.front});}
+    }catch(e){}
+  }
+  // (2) FAUX-NEON — the chosen silhouette outline drawn as glowing neon tubes on a dark backboard
+  if(LABS2.neon.on){
+    try{
+      var ng=new THREE.Group();
+      ng.add(new THREE.Mesh(extr(panelShapes(),1.0),new THREE.MeshStandardMaterial({color:"#0a0a12",roughness:0.7})));
+      var rad=Math.max(0.9,Math.min(1.6,C.w*0.012));
+      C.filC.forEach(function(path){var pts=[];for(var i=0;i<path.length;i++){pts.push(new THREE.Vector3(path[i].X/S,path[i].Y/S,1.0+rad));}if(pts.length<4)return;try{var curve=new THREE.CatmullRomCurve3(pts,true,"catmullrom",0.2);var tube=new THREE.TubeGeometry(curve,Math.min(400,pts.length*2),rad,8,true);var tm=new THREE.Mesh(tube,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.35,emissive:new THREE.Color(COLORS.front),emissiveIntensity:0.0}));tm.userData.labsGlow=COLORS.front;ng.add(tm);}catch(e){}});
+      ng.position.set(0,0,z0);parts.push({group:ng,name:"Neon",flip:false,labs:true,color:COLORS.front});
+    }catch(e){}
+  }
+  // (3) MOON PHASE — the shape becomes a night sky with the moon at its phase for the chosen date
+  if(LABS2.moon.on){
+    try{
+      var mg=new THREE.Group();
+      mg.add(new THREE.Mesh(extr(panelShapes(),1.2),new THREE.MeshStandardMaterial({color:"#0b1024",roughness:0.6})));
+      var phase=_labsMoonPhase(LABS2.moon.date),R=Math.min(C.w,C.h)*0.4,zc=1.2;
+      var baseC=new THREE.CircleGeometry(R,64);baseC.translate(C.ccx,C.ccy,zc+0.02);mg.add(new THREE.Mesh(baseC,new THREE.MeshStandardMaterial({color:"#232a45",roughness:0.7})));
+      var pa=phase*2*Math.PI,lit=(1-Math.cos(pa))/2,NN=54,pcs=[];
+      for(var i=0;i<=NN;i++){var y=-R+2*R*i/NN,xw=Math.sqrt(Math.max(0,R*R-y*y));pcs.push([(phase<0.5?xw:-xw),y]);}
+      for(var i2=NN;i2>=0;i2--){var y2=-R+2*R*i2/NN,xw2=Math.sqrt(Math.max(0,R*R-y2*y2));var xt=(phase<0.5?(1-2*lit):(2*lit-1))*xw2;pcs.push([xt,y2]);}
+      if(lit>0.02){var msh=new THREE.Shape(pcs.map(function(p){return new THREE.Vector2(p[0],p[1]);}));var mgeo=new THREE.ShapeGeometry(msh);mgeo.translate(C.ccx,C.ccy,zc+0.06);var mm=new THREE.Mesh(mgeo,new THREE.MeshStandardMaterial({color:"#eef3ff",roughness:0.4,side:THREE.DoubleSide}));mm.userData.labsGlow="#eef3ff";mg.add(mm);}
+      mg.position.set(0,0,z0);parts.push({group:mg,name:"Moon phase",flip:false,labs:true,color:"#0b1024"});
+    }catch(e){}
+  }
+  // (4) WORD-FILL — fill the shape with words (flow-laid, clipped to the silhouette), glowing when lit
+  if(LABS2.wordfill.on){
+    try{
+      var words=(LABS2.wordfill.text||"").split(/[\n,]+/).map(function(s){return s.trim();}).filter(Boolean);
+      if(!words.length)words=["Love"];
+      var otf=await loadOT((typeof baseFontUrl==="function")?baseFontUrl():selNameFont.url);
+      var totChars=words.join(" ").length||6,size=Math.max(5,Math.min(22,Math.sqrt(C.w*C.h/(totChars*26)))),gap=size*0.4,lineH=size*1.28;
+      var all=[],penX=C.mnx,penY=C.mxy-size,i=0,guard=0;
+      while(penY>C.mny&&guard<4000){guard++;
+        var wrd=words[i%words.length];i++;var wp=nameSubjOT(otf,wrd,size);
+        var a=1e18,b=1e18,cc=-1e18,d=-1e18;wp.forEach(function(p){p.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<a)a=X;if(X>cc)cc=X;if(Y<b)b=Y;if(Y>d)d=Y;});});
+        var ww=cc-a;if(ww<=0){continue;}
+        if(penX+ww>C.mxx){penX=C.mnx;penY-=lineH;if(penY<C.mny)break;}
+        var dx=penX-a,dy=penY-d;wp.forEach(function(p){all.push(p.map(function(q){return {X:Math.round((q.X/S+dx)*S),Y:Math.round((q.Y/S+dy)*S)};}));});
+        penX+=ww+gap;
+      }
+      var clipped=all;try{var _ci=intersect(all,C.contentPaths);if(_ci&&_ci.length)clipped=_ci;}catch(e){}
+      var sh2=diffToShapes(clipped,null,0);
+      if(sh2&&sh2.length){var wg=new THREE.Group();wg.add(new THREE.Mesh(extr(panelShapes(),1.0),new THREE.MeshStandardMaterial({color:"#12131a",roughness:0.7})));var tgeo=extr(sh2,0.7);tgeo.translate(0,0,0.4);var tm2=new THREE.Mesh(tgeo,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.45}));tm2.userData.labsGlow=COLORS.front;wg.add(tm2);wg.position.set(0,0,z0);parts.push({group:wg,name:"Word-fill",flip:false,labs:true,color:COLORS.front});}
+    }catch(e){}
+  }
+  return parts;
+}
 
 function handleUpload(inp){const files=inp.files;if(!files||!files.length)return;Array.from(files).forEach(file=>{const ext=(file.name.split(".").pop()||"").toLowerCase();if(ext==="stl"||ext==="3mf"){uiAlert("Custom 3D uploads have been replaced by the Model catalog below — pick a model from there.");return;}loadImage(file);});inp.value="";}
 function loadImage(file){
@@ -3034,6 +3149,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       if(_tbres&&_tbres.geo){var _tgrp=new THREE.Group();_tgrp.add(new THREE.Mesh(_tbres.geo,MATS.body));_tgrp.rotation.x=-Math.PI/2;_tgrp.position.set(0,_tbres.yWallTop-(_tb.raise||0),-depth/2);partList.push({group:_tgrp,name:"TestBase",flip:false,isBase:true,color:COLORS.body});}}
     // LABS experimental front-panel effects (hidden message / colour print / star map) — additive, self-contained.
     try{var _labsGate=(typeof featState!=="function")||featState("labs")!=="hidden";if(_labsGate&&typeof buildLabs==="function"&&(LABS.hidden.on||LABS.clitho.on||LABS.star.on)){var _lab=await buildLabs(filled,cx,cy,TT);if(_lab&&_lab.length)_lab.forEach(function(p){partList.push(p);});}}catch(e){}
+    try{var _l2Gate=(typeof featState!=="function")||featState("labs2")!=="hidden";if(_l2Gate&&typeof buildLabs2==="function"&&(LABS2.shadow.on||LABS2.neon.on||LABS2.moon.on||LABS2.wordfill.on)){var _lab2=await buildLabs2(filled,cx,cy,TT);if(_lab2&&_lab2.length)_lab2.forEach(function(p){partList.push(p);});}}catch(e){}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
 
@@ -4909,7 +5025,7 @@ window.USDZExporter=USDZExporter;})();
       card.querySelector(".tDel").onclick=async function(){var ok=await dashConfirm("Delete template \u201c"+(t.name||"")+"\u201d? This removes it for everyone.");if(!ok)return;var dd=await sb.from("templates").delete().eq("id",t.id);if(dd&&dd.error){uiAlert("Delete failed: "+esc(dd.error.message));return;}renderTemplatesAdmin(host);try{if(window.__loadTemplates)window.__loadTemplates();}catch(e){}};
       var swap=async function(j){if(j<0||j>=rows.length)return;var a=rows[i],b=rows[j];await sb.from("templates").update({sort:b.sort}).eq("id",a.id);await sb.from("templates").update({sort:a.sort}).eq("id",b.id);renderTemplatesAdmin(host);try{if(window.__loadTemplates)window.__loadTemplates();}catch(e){}};
       card.querySelector(".tUp").onclick=function(){swap(i-1);};card.querySelector(".tDn").onclick=function(){swap(i+1);};list.appendChild(card);});}
-  function renderTabsAdmin(host){var sb=window.__sb;var FEATS=[["templates","Templates"],["textures","Textures"],["lithophane","Lithophane"],["labs","Labs ✨ (experimental)"],["letter","Letter"],["name","Name"],["logo","Logo"],["models","Images & 3D models"],["dimensions","Dimensions"],["ar","View in AR button"],["kiosk","Kiosk (mode · orders · stock · analytics)"]];if(!_dashCfg||typeof _dashCfg!=="object")_dashCfg={};if(!_dashCfg.features)_dashCfg.features={};if(!_dashCfg.tiers)_dashCfg.tiers={};
+  function renderTabsAdmin(host){var sb=window.__sb;var FEATS=[["templates","Templates"],["textures","Textures"],["lithophane","Lithophane"],["labs","Labs ✨ (experimental)"],["labs2","Labs 2 ✨ (experimental)"],["letter","Letter"],["name","Name"],["logo","Logo"],["models","Images & 3D models"],["dimensions","Dimensions"],["ar","View in AR button"],["kiosk","Kiosk (mode · orders · stock · analytics)"]];if(!_dashCfg||typeof _dashCfg!=="object")_dashCfg={};if(!_dashCfg.features)_dashCfg.features={};if(!_dashCfg.tiers)_dashCfg.tiers={};
     var TIERS=[["features","Everyone"],["spark","Spark"],["hobby","Hobby"],["studio","Studio"],["merchant","Merchant"]];var isTier=_tabTier!=="features";if(isTier&&!_dashCfg.tiers[_tabTier])_dashCfg.tiers[_tabTier]={};var store=isTier?_dashCfg.tiers[_tabTier]:_dashCfg.features;if(isTier)FEATS.forEach(function(f){if(!store[f[0]])store[f[0]]=(_dashCfg.features[f[0]]||"on");});var STATES=[["on","On"],["soon","Coming soon"],["hidden","Hidden"]];
     var selBar=TIERS.map(function(t){var on=t[0]===_tabTier;return '<button data-tier="'+t[0]+'" style="padding:7px 13px;border-radius:9px;border:1px solid '+(on?"#e0c08d":"#2a2d35")+';background:'+(on?"rgba(224,192,141,.14)":"transparent")+';color:'+(on?"#e0c08d":"#c7cbd2")+';font-size:12px;font-weight:600;cursor:pointer">'+t[1]+'</button>';}).join("");
     var _tnm=TIERS.filter(function(x){return x[0]===_tabTier;})[0][1];var hint=isTier?('Set every tab manually for <b style="color:#e0c08d">'+esc(_tnm)+'</b> accounts. Seeded from the Everyone settings \u2014 tweak to give this tier features first.'):'The baseline for every visitor. Each tier is set separately below.';
