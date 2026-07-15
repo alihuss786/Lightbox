@@ -778,10 +778,11 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="sub" style="margin-top:6px">🌀 Shadowbox (layered depth)</div>
       <div class="toggle-row"><span class="lbl">Nested layers receding inward</span><div class="tg" id="tg_labs2_shadow" onclick="labs2Toggle('shadow')"><div class="k"></div></div></div>
       <div id="labs2_shadow_ctl" style="display:none;flex-direction:column;gap:9px">
+        <div class="row"><span class="lbl">Scene</span><select id="labs2_shadow_scene" class="psel" style="width:auto" onchange="labs2ShadowScene(this.value)"><option value="">Photo / my shape</option><option value="family">👨‍👩‍👧 Family under the stars</option></select></div>
         <label class="upfont" style="cursor:pointer">⬆ Upload a photo (for a real diorama)<input type="file" id="labs2_shadow_file" accept="image/*" hidden onchange="labs2ShadowUpload(this)"></label>
         <div class="hint" id="labs2_shadow_photo" style="color:var(--acc)"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Depth layers — <b id="labs2_shadow_lbl">6</b></span><input type="range" id="labs2_shadow_layers" min="2" max="12" step="1" value="6" oninput="labs2Layers(this.value)"></div>
-        <div class="hint">Upload a photo and it’s split by brightness into stacked cut-out layers at different depths — a true backlit shadowbox scene. With no photo it falls back to a concentric “infinity tunnel” of your shape.</div>
+        <div class="hint">Pick a ready-made <b>Scene</b> for a layered diorama, or upload a photo and it’s split by brightness into stacked cut-out layers at different depths. With neither, it falls back to a concentric “infinity tunnel” of your shape.</div>
       </div>
       <div class="sub" style="margin-top:14px">💡 Faux-neon</div>
       <div class="toggle-row"><span class="lbl">Your shape as glowing neon tubes</span><div class="tg" id="tg_labs2_neon" onclick="labs2Toggle('neon')"><div class="k"></div></div></div>
@@ -1557,12 +1558,13 @@ function applyLabsLight(){if(typeof pivot==="undefined"||!pivot)return;var lit=(
 /* ===================== LABS 2 — more experimental backlit features (prototypes) =====================
    Shadowbox (layered depth), Faux-neon (silhouette as glowing tubes), Moon phase (for a date), Word-fill
    (fill the shape with words). All clipped to / built from the CHOSEN shape and glow via the same tags. */
-var LABS2={shadow:{on:false,layers:6,px:null},neon:{on:false},moon:{on:false,date:""},wordfill:{on:false,shape:"heart",text:"Love, Caring, Kind, Brave, Wise, Funny, Patient, Beautiful, Smart, Selfless, Amazing, Thoughtful, Happy, Inspiring, Gentle, Strong"}};
+var LABS2={shadow:{on:false,layers:6,px:null,scene:""},neon:{on:false},moon:{on:false,date:""},wordfill:{on:false,shape:"heart",text:"Love, Caring, Kind, Brave, Wise, Funny, Patient, Beautiful, Smart, Selfless, Amazing, Thoughtful, Happy, Inspiring, Gentle, Strong"}};
 function labs2Toggle(k){if(!LABS2[k])return;LABS2[k].on=!LABS2[k].on;var t=document.getElementById("tg_labs2_"+k);if(t)t.classList.toggle("on",LABS2[k].on);var c=document.getElementById("labs2_"+k+"_ctl");if(c)c.style.display=LABS2[k].on?"flex":"none";if(typeof scheduleBuild==="function")scheduleBuild();}
 function labs2Moon(){LABS2.moon.date=(document.getElementById("labs2_moon_date")||{}).value||"";if(typeof scheduleBuild==="function")scheduleBuild();}
 function labs2Words(v){LABS2.wordfill.text=v||"";if(typeof scheduleBuild==="function")scheduleBuild();}
 function labs2WordShape(v){LABS2.wordfill.shape=v||"heart";if(typeof scheduleBuild==="function")scheduleBuild();}
 function labs2Layers(v){LABS2.shadow.layers=Math.max(2,Math.min(12,+v||6));var lb=document.getElementById("labs2_shadow_lbl");if(lb)lb.textContent=LABS2.shadow.layers;if(typeof scheduleBuild==="function")scheduleBuild();}
+function labs2ShadowScene(v){LABS2.shadow.scene=v||"";if(typeof scheduleBuild==="function")scheduleBuild();}
 function labs2ShadowUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();img.onload=function(){try{LABS2.shadow.px=(typeof _labsSample==="function")?_labsSample(img,96):null;var h=document.getElementById("labs2_shadow_photo");if(h)h.textContent="✓ Photo loaded — split into depth layers.";if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}};var rd=new FileReader();rd.onload=function(e){img.src=e.target.result;};rd.readAsDataURL(f);input.value="";}
 /* shared shape context (centred silhouette + point-in-shape test), same convention as buildLabs */
 function _labsShapeCtx(filled,cx,cy){
@@ -1662,7 +1664,16 @@ async function buildLabs2(filled,cx,cy,TT){
   if(LABS2.shadow.on){
     try{
       var g=new THREE.Group(),made=0;
-      if(LABS2.shadow.px&&LABS2.shadow.px.cells){
+      if(LABS2.shadow.scene){
+        // ORIGINAL layered scene template — procedural silhouette layers stacked at stepped depths inside a
+        // rectangular diorama frame (all original art). Darkest/front = d0, back = higher d. Backlit → real depth.
+        var scW=Math.max(C.w,C.h)*0.95,sc=_labsScene(LABS2.shadow.scene,scW,scW*0.82),gapSc=Math.max(2.0,scW*0.03),dMax=0;
+        if(sc&&sc.layers){
+          var frame=diffToShapes(sc.outline,null,0);
+          sc.layers.forEach(function(L){if(L.d>dMax)dMax=L.d;var lp=L.paths;try{var _ci=intersect(L.paths,sc.outline);if(_ci&&_ci.length)lp=_ci;}catch(e){}var sh=diffToShapes(lp,null,0);if(!sh||!sh.length)return;var geo=extr(sh,1.1);geo.translate(0,0,-L.d*gapSc);var mm=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.5,side:THREE.DoubleSide}));mm.userData.labsGlow=COLORS.front;g.add(mm);made++;});
+          if(frame&&frame.length){var bpS=new THREE.Mesh(extr(frame,1.0),new THREE.MeshStandardMaterial({color:"#0d0d14",roughness:0.8}));bpS.position.z=-(dMax+1)*gapSc;g.add(bpS);}
+        }
+      }else if(LABS2.shadow.px&&LABS2.shadow.px.cells){
         // REAL shadowbox — split the PHOTO into depth layers by brightness: the darkest parts sit at the FRONT and
         // each lighter band steps back, so backlighting reveals a genuine 3-D scene of stacked cut-out layers.
         var px=LABS2.shadow.px,G=px.G,N=Math.max(3,Math.min(8,LABS2.shadow.layers)),cw=C.w/G,ch=C.h/G,gap=Math.max(1.8,C.h*0.022);
@@ -3254,7 +3265,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     try{var _labsGate=(typeof featState!=="function")||featState("labs")!=="hidden";if(_labsGate&&typeof buildLabs==="function"&&(LABS.hidden.on||LABS.clitho.on||LABS.star.on)){var _lab=await buildLabs(filled,cx,cy,TT);if(_lab&&_lab.length)_lab.forEach(function(p){partList.push(p);});}}catch(e){}
     // Standalone preset: when a Labs 2 word-cloud uses a preset shape (heart/star/…) it is its OWN object,
     // so the base letter/name/logo lightbox is hidden in the render preview (see applyLabsLight).
-    window.__labsStandalone=(typeof LABS2!=="undefined"&&LABS2.wordfill.on&&LABS2.wordfill.shape&&LABS2.wordfill.shape!=="mine");
+    window.__labsStandalone=(typeof LABS2!=="undefined"&&((LABS2.wordfill.on&&LABS2.wordfill.shape&&LABS2.wordfill.shape!=="mine")||(LABS2.shadow.on&&LABS2.shadow.scene)));
     try{var _l2Gate=(typeof featState!=="function")||featState("labs2")!=="hidden";if(_l2Gate&&typeof buildLabs2==="function"&&(LABS2.shadow.on||LABS2.neon.on||LABS2.moon.on||LABS2.wordfill.on)){var _lab2=await buildLabs2(filled,cx,cy,TT);if(_lab2&&_lab2.length)_lab2.forEach(function(p){partList.push(p);});}}catch(e){}
     PLATES=partList;
     PLATE_THUMBS=(mode==="plates")?partList.map(p=>makeThumb(p)):[];
