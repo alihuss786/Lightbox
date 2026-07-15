@@ -741,6 +741,20 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       </div>
     </div>
   </div>
+  <div class="acc" data-feat="litho1">
+    <div class="acc-h" onclick="accT(this)">Lithophane 1 <i class="chev">⌄</i></div>
+    <div class="acc-b">
+      <div class="hint">Native 3-D lithophane: your photo becomes a real depth relief (dark = thick, light = thin) built as one <b>watertight, printable</b> solid with a flat back — reveals the picture when the lamp is on.</div>
+      <label class="upfont" style="cursor:pointer">⬆ Upload a photo<input type="file" id="litho1_file" accept="image/*" hidden onchange="litho1Upload(this)"></label>
+      <div id="litho1_ctl" style="display:none;flex-direction:column;gap:12px">
+        <div class="row"><span class="lbl">Preview</span><div id="litho1_thumb" style="width:96px;height:96px;border-radius:10px;border:1px solid var(--line);background:#0a0b0e center/cover no-repeat;align-self:flex-start"></div></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thinnest (white) — <b id="litho1_minl">0.8</b> mm</span><input type="range" id="litho1_min" min="0.4" max="2" step="0.1" value="0.8" oninput="litho1Thick('min',this.value)"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickest (black) — <b id="litho1_maxl">3.0</b> mm</span><input type="range" id="litho1_max" min="1.5" max="6" step="0.1" value="3" oninput="litho1Thick('max',this.value)"></div>
+        <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_litho1_inv" onclick="litho1Invert()"><div class="k"></div></div></div>
+        <button class="addtext" onclick="litho1Clear()">Remove photo</button>
+      </div>
+    </div>
+  </div>
   <div class="acc" data-feat="labs">
     <div class="acc-h" onclick="accT(this)">Labs ✨ <i class="chev">⌄</i></div>
     <div class="acc-b">
@@ -1762,6 +1776,54 @@ function _labsScene(name,W,H,customSubj){
   }
   return {outline:[outer],layers:layers};
 }
+/* ===================== Lithophane 1 — native Three.js lithophane generator =====================
+   Replicates the core Lithofun-style math in plain Three.js (no external deps, so the scene + .3mf
+   multi-colour export stay intact): uploaded image → hidden ≤400px canvas → per-pixel grayscale →
+   a displaced grid whose Z is the print thickness (black = maxThickness, white = minThickness) →
+   sealed into a WATERTIGHT, MANIFOLD solid with a flat base + closed sides so it slices in Bambu. */
+var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.0,invert:false};
+function buildLithophaneGeometry(img,opts){
+  opts=opts||{};
+  var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
+  var minT=(opts.minThickness!=null?+opts.minThickness:0.8),maxT=(opts.maxThickness!=null?+opts.maxThickness:3.0);
+  var maxRes=+opts.maxRes||400,invert=!!opts.invert;
+  // 1) hidden canvas — scale so the longest side ≤ maxRes (keeps aspect, protects the browser)
+  var iw=img.naturalWidth||img.width||1,ih=img.naturalHeight||img.height||1,s=Math.min(1,maxRes/Math.max(iw,ih));
+  var cw=Math.max(2,Math.round(iw*s)),ch=Math.max(2,Math.round(ih*s));
+  var cv=document.createElement("canvas");cv.width=cw;cv.height=ch;var ctx=cv.getContext("2d");ctx.drawImage(img,0,0,cw,ch);
+  // 2) raw RGBA pixels
+  var data=ctx.getImageData(0,0,cw,ch).data;
+  // 3) a front grid at the canvas resolution (segments = res-1), doubled with a flat back so the solid is watertight
+  var nx=cw,ny=ch,NV=nx*ny,off=NV,pos=new Float32Array(NV*2*3),hx=W/2,hy=Ht/2,range=(maxT-minT);
+  for(var j=0;j<ny;j++){var imgRow=(ny-1-j);   // flip Y so the photo prints upright
+    for(var i=0;i<nx;i++){var p=(imgRow*nx+i)*4,lum=(0.299*data[p]+0.587*data[p+1]+0.114*data[p+2])/255;if(invert)lum=1-lum;
+      // 4) displacement: pure black (lum 0) = maxThickness, pure white (lum 1) = minThickness
+      var z=minT+(1-lum)*range,x=-hx+W*(i/(nx-1)),y=-hy+Ht*(j/(ny-1)),v=(j*nx+i)*3;
+      pos[v]=x;pos[v+1]=y;pos[v+2]=z;                      // front relief
+      var b=(off+j*nx+i)*3;pos[b]=x;pos[b+1]=y;pos[b+2]=0;}}   // flat back
+  var idx=[],a,b2,c,d;
+  for(var j=0;j<ny-1;j++)for(var i=0;i<nx-1;i++){a=j*nx+i;b2=a+1;c=a+nx;d=c+1;idx.push(a,b2,c, b2,d,c);}        // front faces (+Z)
+  for(var j=0;j<ny-1;j++)for(var i=0;i<nx-1;i++){a=off+j*nx+i;b2=a+1;c=a+nx;d=c+1;idx.push(a,c,b2, b2,c,d);}    // back faces (−Z)
+  // 5) close the four sides: walk the perimeter CCW and stitch the front edge to the back edge (outward winding)
+  var perim=[];
+  for(var i=0;i<nx;i++)perim.push(i);
+  for(var j=1;j<ny;j++)perim.push(j*nx+(nx-1));
+  for(var i=nx-2;i>=0;i--)perim.push((ny-1)*nx+i);
+  for(var j=ny-2;j>=1;j--)perim.push(j*nx);
+  for(var q=0;q<perim.length;q++){var f0=perim[q],f1=perim[(q+1)%perim.length];idx.push(f0,off+f0,f1, f1,off+f0,off+f1);}
+  var geo=new THREE.BufferGeometry();
+  geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();   // correct shading in the browser scene + normals baked for the .3mf export
+  return geo;
+}
+function litho1Upload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();
+  img.onload=function(){LITHO1.img=img;LITHO1.src=img.src;LITHO1.on=true;var c=document.getElementById("litho1_ctl");if(c)c.style.display="flex";var th=document.getElementById("litho1_thumb");if(th)th.style.backgroundImage="url("+img.src+")";if(typeof scheduleBuild==="function")scheduleBuild();};
+  img.onerror=function(){if(typeof uiAlert==="function")uiAlert("Could not read that image.");};
+  var rd=new FileReader();rd.onload=function(e){img.src=e.target.result;};rd.readAsDataURL(f);input.value="";}
+function litho1Thick(which,val){val=+val;if(which==="min")LITHO1.minT=Math.max(0.4,Math.min(2,val||0.8));else LITHO1.maxT=Math.max(1.5,Math.min(6,val||3));if(LITHO1.maxT<LITHO1.minT+0.3)LITHO1.maxT=LITHO1.minT+0.3;var a=document.getElementById("litho1_minl"),b=document.getElementById("litho1_maxl");if(a)a.textContent=LITHO1.minT.toFixed(1);if(b)b.textContent=LITHO1.maxT.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
+function litho1Invert(){LITHO1.invert=!LITHO1.invert;var t=document.getElementById("tg_litho1_inv");if(t)t.classList.toggle("on",LITHO1.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
+function litho1Clear(){LITHO1.on=false;LITHO1.img=null;LITHO1.src=null;var c=document.getElementById("litho1_ctl");if(c)c.style.display="none";var th=document.getElementById("litho1_thumb");if(th)th.style.backgroundImage="";if(typeof scheduleBuild==="function")scheduleBuild();}
 async function buildLabs2(filled,cx,cy,TT){
   var parts=[];if(typeof THREE==="undefined"||!filled||!filled.length)return parts;
   if(!(LABS2.shadow.on||LABS2.wordfill.on))return parts;
@@ -3366,6 +3428,15 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // so the base letter/name/logo lightbox is hidden in the render preview (see applyLabsLight).
     window.__labsStandalone=(typeof LABS2!=="undefined"&&((LABS2.wordfill.on&&LABS2.wordfill.shape&&LABS2.wordfill.shape!=="mine")||(LABS2.shadow.on&&LABS2.shadow.scene)));
     try{var _l2Gate=(typeof featState!=="function")||featState("labs2")!=="hidden";if(_l2Gate&&typeof buildLabs2==="function"&&(LABS2.shadow.on||LABS2.wordfill.on)){var _lab2=await buildLabs2(filled,cx,cy,TT);if(_lab2&&_lab2.length)_lab2.forEach(function(p){partList.push(p);});}}catch(e){}
+    // Lithophane 1 — a native, watertight lithophane solid sized to the lid cutout. It IS the whole front piece,
+    // so (like a standalone Labs scene) it prints on its own plate and hides the base box in the preview.
+    try{var _l1Gate=(typeof featState!=="function")||featState("litho1")!=="hidden";if(_l1Gate&&LITHO1.on&&LITHO1.img&&typeof buildLithophaneGeometry==="function"){
+      var _lgeo=buildLithophaneGeometry(LITHO1.img,{widthMm:Math.max(20,LW),heightMm:Math.max(20,LH),minThickness:LITHO1.minT,maxThickness:LITHO1.maxT,maxRes:400,invert:LITHO1.invert});
+      var _lmat=new THREE.MeshStandardMaterial({color:COLORS.front,roughness:0.62,metalness:0}),_lm=new THREE.Mesh(_lgeo,_lmat);_lm.userData.labsGlow=COLORS.front;
+      var _lgrp=new THREE.Group();_lgrp.add(_lm);_lgrp.position.set(0,0,(TT||1)+0.05);
+      partList.push({group:_lgrp,name:"Lithophane",flip:false,labs:true,litho:true,color:COLORS.front});
+      window.__labsStandalone=true;
+    }}catch(e){}
     // Standalone Labs 2 (preset word-cloud / scene shadowbox) IS the whole object — drop every other box so the
     // plates list + preview show only its parts (each scene layer is already its own "Layer N" plate).
     if(window.__labsStandalone){for(var _pi=partList.length-1;_pi>=0;_pi--){if(!partList[_pi].labs)partList.splice(_pi,1);}}
