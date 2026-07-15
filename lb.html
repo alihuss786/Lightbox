@@ -747,6 +747,8 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="hint">Native 3-D lithophane: your photo becomes a real depth relief (dark = thick, light = thin) built as one <b>watertight, printable</b> solid with a flat back — reveals the picture when the lamp is on.</div>
       <label class="upfont" style="cursor:pointer">⬆ Upload a photo<input type="file" id="litho1_file" accept="image/*" hidden onchange="litho1Upload(this)"></label>
       <div id="litho1_ctl" style="display:none;flex-direction:column;gap:12px">
+        <div class="row"><span class="lbl">Mode</span><select id="litho1_mode" class="psel" style="width:auto" onchange="litho1Mode(this.value)"><option value="grey">⬜ Greyscale (1 filament)</option><option value="cmyk">🎨 Full colour (CMYK · beta)</option></select></div>
+        <div class="hint" id="litho1_cmyk_hint" style="display:none;color:var(--acc)">Full colour builds <b>4 stacked layers</b> — Cyan, Magenta, Yellow, White — each ≤ sub-mm, exported as 4 separate bodies so you can assign each to an AMS filament slot in Bambu Studio. Needs an AMS to print.</div>
         <div class="row"><span class="lbl">Preview</span><div id="litho1_thumb" style="width:96px;height:96px;border-radius:10px;border:1px solid var(--line);background:#0a0b0e center/cover no-repeat;align-self:flex-start"></div></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thinnest (white) — <b id="litho1_minl">0.8</b> mm</span><input type="range" id="litho1_min" min="0.4" max="2" step="0.1" value="0.8" oninput="litho1Thick('min',this.value)"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickest (black) — <b id="litho1_maxl">3.5</b> mm</span><input type="range" id="litho1_max" min="1.5" max="6" step="0.1" value="3.5" oninput="litho1Thick('max',this.value)"></div>
@@ -1788,7 +1790,7 @@ function _labsScene(name,W,H,customSubj){
    multi-colour export stay intact): uploaded image → hidden ≤400px canvas → per-pixel grayscale →
    a displaced grid whose Z is the print thickness (black = maxThickness, white = minThickness) →
    sealed into a WATERTIGHT, MANIFOLD solid with a flat base + closed sides so it slices in Bambu. */
-var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0};
+var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey"};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
@@ -1858,11 +1860,50 @@ function buildLithophaneBox(W,H,maxT){
   g.add(extr(hole(rect(ow,oh),W+clr,H+clr),frontLip,0));                            // front recess — the litho seats flush here, z∈[0,frontLip]
   g.userData.cavity=cavity;return g;
 }
+/* Watertight slab between two per-vertex surfaces (bottom + top grids) — the building block for stacked layers. */
+function _lithoSlab(nx,ny,W,Ht,botZ,topZ){
+  var NV=nx*ny,off=NV,pos=new Float32Array(NV*2*3),hx=W/2,hy=Ht/2,i,j,a,b2,c,d;
+  for(j=0;j<ny;j++)for(i=0;i<nx;i++){var fv=j*nx+i,x=-hx+W*(i/(nx-1)),y=-hy+Ht*(j/(ny-1));
+    pos[fv*3]=x;pos[fv*3+1]=y;pos[fv*3+2]=topZ[fv];var bi=off+fv;pos[bi*3]=x;pos[bi*3+1]=y;pos[bi*3+2]=botZ[fv];}
+  var idx=[];
+  for(j=0;j<ny-1;j++)for(i=0;i<nx-1;i++){a=j*nx+i;b2=a+1;c=a+nx;d=c+1;idx.push(a,b2,c, b2,d,c);}       // top
+  for(j=0;j<ny-1;j++)for(i=0;i<nx-1;i++){a=off+j*nx+i;b2=a+1;c=a+nx;d=c+1;idx.push(a,c,b2, b2,c,d);}   // bottom
+  var perim=[];for(i=0;i<nx;i++)perim.push(i);for(j=1;j<ny;j++)perim.push(j*nx+(nx-1));for(i=nx-2;i>=0;i--)perim.push((ny-1)*nx+i);for(j=ny-2;j>=1;j--)perim.push(j*nx);
+  for(var q=0;q<perim.length;q++){var f0=perim[q],f1=perim[(q+1)%perim.length];idx.push(f0,off+f0,f1, f1,off+f0,off+f1);}
+  var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.BufferAttribute(pos,3));geo.setIndex(idx);geo.computeVertexNormals();return geo;
+}
+/* FULL-COLOUR (CMYW) lithophane — a completely different path to the grayscale one. Separate the image into
+   Cyan / Magenta / Yellow / White density maps, then generate FOUR independent watertight meshes stacked flush,
+   each mapping its colour's density to a sub-mm thickness (total ≤ 3.0mm). They are returned as four distinct
+   coloured bodies so the .3mf exporter emits four AMS-assignable parts (never merged). */
+function buildCMYKLithophane(img,opts){
+  opts=opts||{};
+  var W=+opts.widthMm||60,Ht=+opts.heightMm||60,maxRes=+opts.maxRes||280,cap=(+opts.totalMax||3.0);
+  var contrast=(opts.contrast!=null?+opts.contrast:1),gamma=(opts.gamma!=null?+opts.gamma:1);
+  var iw=img.naturalWidth||img.width||1,ih=img.naturalHeight||img.height||1,s=Math.min(1,maxRes/Math.max(iw,ih));
+  var cw=Math.max(2,Math.round(iw*s)),ch=Math.max(2,Math.round(ih*s));
+  var cv=document.createElement("canvas");cv.width=cw;cv.height=ch;var ctx=cv.getContext("2d");ctx.drawImage(img,0,0,cw,ch);var data=ctx.getImageData(0,0,cw,ch).data;
+  var nx=cw,ny=ch,NV=nx*ny,floor=0.09,span=Math.max(0.1,(cap-4*floor)/4);   // per-layer: floor + density*span, 4 layers ≤ cap
+  function adj(v){if(gamma!==1)v=Math.pow(Math.max(0,v),gamma);return Math.min(1,Math.max(0,(v-0.5)*contrast+0.5));}
+  // stacking order back→front (against the light first): White base, then Yellow, Magenta, Cyan
+  var layers=[{name:"White",color:"#FFFFFF",d:function(r,g,b,L){return L;}},
+              {name:"Yellow",color:"#F5E100",d:function(r,g,b){return 1-b;}},
+              {name:"Magenta",color:"#E5007E",d:function(r,g,b){return 1-g;}},
+              {name:"Cyan",color:"#00A7E1",d:function(r,g,b){return 1-r;}}];
+  var cum=new Float32Array(NV),out=[];
+  layers.forEach(function(layer){var bot=new Float32Array(NV),top=new Float32Array(NV);
+    for(var j=0;j<ny;j++){var imgRow=ny-1-j;for(var i=0;i<nx;i++){var p=(imgRow*nx+i)*4,r=data[p]/255,g=data[p+1]/255,b=data[p+2]/255,L=0.299*r+0.587*g+0.114*b;
+      var t=floor+adj(layer.d(r,g,b,L))*span,fv=j*nx+i;bot[fv]=cum[fv];top[fv]=cum[fv]+t;}}
+    out.push({name:layer.name,color:layer.color,geometry:_lithoSlab(nx,ny,W,Ht,bot,top)});
+    for(var k=0;k<NV;k++)cum[k]=top[k];});
+  return out;   // [{name,color,geometry} × 4], stacked flush, total height ≤ cap
+}
 function litho1Upload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();
   img.onload=function(){LITHO1.img=img;LITHO1.src=img.src;LITHO1.on=true;var c=document.getElementById("litho1_ctl");if(c)c.style.display="flex";var th=document.getElementById("litho1_thumb");if(th)th.style.backgroundImage="url("+img.src+")";try{litho1Auto();}catch(e){if(typeof scheduleBuild==="function")scheduleBuild();}};   // auto-balance for a good one-click default
   img.onerror=function(){if(typeof uiAlert==="function")uiAlert("Could not read that image.");};
   var rd=new FileReader();rd.onload=function(e){img.src=e.target.result;};rd.readAsDataURL(f);input.value="";}
 function litho1Thick(which,val){val=+val;if(which==="min")LITHO1.minT=Math.max(0.4,Math.min(2,val||0.8));else LITHO1.maxT=Math.max(1.5,Math.min(6,val||3));if(LITHO1.maxT<LITHO1.minT+0.3)LITHO1.maxT=LITHO1.minT+0.3;var a=document.getElementById("litho1_minl"),b=document.getElementById("litho1_maxl");if(a)a.textContent=LITHO1.minT.toFixed(1);if(b)b.textContent=LITHO1.maxT.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
+function litho1Mode(v){LITHO1.mode=(v==="cmyk")?"cmyk":"grey";var h=document.getElementById("litho1_cmyk_hint");if(h)h.style.display=(LITHO1.mode==="cmyk")?"":"none";if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Invert(){LITHO1.invert=!LITHO1.invert;var t=document.getElementById("tg_litho1_inv");if(t)t.classList.toggle("on",LITHO1.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Contrast(val){LITHO1.contrast=Math.max(0.5,Math.min(2.5,+val||1));var l=document.getElementById("litho1_conl");if(l)l.textContent=LITHO1.contrast.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
 /* Auto-balance: sample the photo's luminance histogram, recentre midtones (gamma → mean maps to ~0.5) and
@@ -3494,14 +3535,22 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     try{var _l1Gate=(typeof featState!=="function")||featState("litho1")!=="hidden";if(_l1Gate&&LITHO1.on&&LITHO1.img&&typeof buildLithophaneGeometry==="function"){
       // Match the uploaded image's ASPECT RATIO (contain-fit within the lid footprint) so it is never stretched.
       var _iw=LITHO1.img.naturalWidth||LITHO1.img.width||1,_ih=LITHO1.img.naturalHeight||LITHO1.img.height||1,_ar=_iw/_ih;
-      var _aw=Math.max(20,LW),_ah=Math.max(20,LH),_lW=_aw,_lH=_aw/_ar;if(_lH>_ah){_lH=_ah;_lW=_ah*_ar;}
-      var _lgeo=buildLithophaneGeometry(LITHO1.img,{widthMm:_lW,heightMm:_lH,minThickness:LITHO1.minT,maxThickness:LITHO1.maxT,maxRes:400,invert:LITHO1.invert,contrast:LITHO1.contrast,gamma:LITHO1.gamma});
-      var _lmat=lithophaneMaterial(),_lm=new THREE.Mesh(_lgeo,_lmat);
-      _lm.userData.lithoUL=_lmat.userData.uLit;_lm.userData.lithoTint=_lmat.userData.uTint;   // driven by the lamp in applyLabsLight
-      var _lgrp=new THREE.Group();_lgrp.add(_lm);_lgrp.position.set(0,0,(TT||1)+0.05);
-      partList.push({group:_lgrp,name:"Lithophane",flip:false,labs:true,litho:true,color:"#FFFFFF"});
-      // 40 mm-deep housing box the lithophane seats into (front bezel holds it, hollow + open back for the light).
-      if(typeof buildLithophaneBox==="function"){var _box=buildLithophaneBox(_lW,_lH,LITHO1.maxT);_box.position.set(0,0,(TT||1)+0.05);partList.push({group:_box,name:"Lithophane box (40mm)",flip:false,labs:true,litho:true,color:"#D8D4CC"});}
+      var _aw=Math.max(20,LW),_ah=Math.max(20,LH),_lW=_aw,_lH=_aw/_ar,_z0=(TT||1)+0.05,_boxMax=LITHO1.maxT;if(_lH>_ah){_lH=_ah;_lW=_ah*_ar;}
+      if(LITHO1.mode==="cmyk"&&typeof buildCMYKLithophane==="function"){
+        // FULL COLOUR: four stacked C/M/Y/W meshes, each its own coloured body → 4 AMS parts on export.
+        var _cmyk=buildCMYKLithophane(LITHO1.img,{widthMm:_lW,heightMm:_lH,maxRes:280,totalMax:3.0,contrast:LITHO1.contrast,gamma:LITHO1.gamma}),_cg=new THREE.Group();
+        _cmyk.forEach(function(L){var m=new THREE.Mesh(L.geometry,new THREE.MeshStandardMaterial({color:L.color,roughness:0.55,metalness:0,side:THREE.DoubleSide}));m.userData.cmykLayer=L.name;_cg.add(m);});
+        _cg.position.set(0,0,_z0);partList.push({group:_cg,name:"Lithophane CMYK",flip:false,labs:true,litho:true,cmyk:true,color:"#FFFFFF"});
+        _boxMax=3.0;
+      }else{
+        var _lgeo=buildLithophaneGeometry(LITHO1.img,{widthMm:_lW,heightMm:_lH,minThickness:LITHO1.minT,maxThickness:LITHO1.maxT,maxRes:400,invert:LITHO1.invert,contrast:LITHO1.contrast,gamma:LITHO1.gamma});
+        var _lmat=lithophaneMaterial(),_lm=new THREE.Mesh(_lgeo,_lmat);
+        _lm.userData.lithoUL=_lmat.userData.uLit;_lm.userData.lithoTint=_lmat.userData.uTint;   // driven by the lamp in applyLabsLight
+        var _lgrp=new THREE.Group();_lgrp.add(_lm);_lgrp.position.set(0,0,_z0);
+        partList.push({group:_lgrp,name:"Lithophane",flip:false,labs:true,litho:true,color:"#FFFFFF"});
+      }
+      // Housing box the lithophane (or CMYK stack) seats into — flush front, solid 2mm back, 40mm cavity.
+      if(typeof buildLithophaneBox==="function"){var _box=buildLithophaneBox(_lW,_lH,_boxMax);_box.position.set(0,0,_z0);partList.push({group:_box,name:"Lithophane box (40mm)",flip:false,labs:true,litho:true,color:"#D8D4CC"});}
       window.__labsStandalone=true;
     }}catch(e){}
     // Standalone Labs 2 (preset word-cloud / scene shadowbox) IS the whole object — drop every other box so the
