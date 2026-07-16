@@ -765,6 +765,21 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       </div>
     </div>
   </div>
+  <div class="acc" data-feat="shadowtrace">
+    <div class="acc-h" onclick="accT(this)">Shadow Lightbox 🌓 <i class="chev">⌄</i></div>
+    <div class="acc-b">
+      <div class="hint">Auto-trace a photo into a layered <b>shadow box</b>: it's posterised into 4 tonal bands, vectorised and smoothed, then built as <b>4 separate stacked plates</b> (dark front silhouette → solid back wall). Export drops into Bambu Studio as 4 independent bodies — use <b>Auto Orient / Lay on Face</b> to arrange them flat.</div>
+      <label class="upfont" style="cursor:pointer">⬆ Upload a photo<input type="file" id="shtrace_file" accept="image/*" hidden onchange="shtraceUpload(this)"></label>
+      <div id="shtrace_ctl" style="display:none;flex-direction:column;gap:12px">
+        <div class="row"><span class="lbl">Preview</span><div id="shtrace_thumb" style="width:96px;height:96px;border-radius:10px;border:1px solid var(--line);background:#0a0b0e center/cover no-repeat;align-self:flex-start"></div></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Width — <b id="shtrace_wl">110</b> mm</span><input type="range" id="shtrace_w" min="50" max="220" step="5" value="110" oninput="shtraceWidth(this.value)"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Smoothing — <b id="shtrace_sl">1.8</b></span><input type="range" id="shtrace_s" min="0.5" max="4" step="0.1" value="1.8" oninput="shtraceSmooth(this.value)"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Preview gap — <b id="shtrace_gl">5</b> mm</span><input type="range" id="shtrace_g" min="0" max="20" step="1" value="5" oninput="shtraceGap(this.value)"></div>
+        <div class="hint"><b>Smoothing</b> cleans jagged pixel edges so the toolhead runs smoothly — turn it up for simpler curves, down to keep fine detail. Each plate prints at 0.8&nbsp;mm; the gap only spaces the on-screen preview.</div>
+        <button class="addtext" onclick="shtraceClear()">Remove photo</button>
+      </div>
+    </div>
+  </div>
   <div class="acc" data-feat="labs">
     <div class="acc-h" onclick="accT(this)">Labs ✨ <i class="chev">⌄</i></div>
     <div class="acc-b">
@@ -1803,6 +1818,8 @@ function _labsScene(name,W,H,customSubj){
 var LITHO_CMYK={C:{name:"Cyan",hex:"#0086D6"},M:{name:"Magenta",hex:"#EC008C"},Y:{name:"Yellow",hex:"#F4EE2A"},W:{name:"Jade White",hex:"#FFFFFF"}};
 // ams[slotIndex] = colour key held in that AMS slot. Default Slot1:Cyan, Slot2:Magenta, Slot3:Yellow, Slot4:White.
 var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey",ams:["C","M","Y","W"]};
+// Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
+var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
@@ -1911,6 +1928,65 @@ function buildCMYKLithophane(img,opts){
     for(var k=0;k<NV;k++)cum[k]=top[k];});
   return out;   // [{name,color,geometry} × 4], stacked flush, total height ≤ cap
 }
+/* ===================== SHADOW LIGHTBOX — Auto-Tracer (raster → posterised vector plates) =====================
+   Turns an ordinary JPG/PNG into 4 stacked, 3D-printable vector plates:
+     1. draw to a hidden canvas, convert to grayscale luminance
+     2. posterise into 4 tonal bands (Black / Dark grey / Light grey / White) via CUMULATIVE thresholds, so the
+        darkest band is the smallest front silhouette (most negative space) and the lightest is a solid box (back wall)
+     3. trace each band's boundary with marching squares (traceMask) → closed loops
+     4. SMOOTH: Clipper CleanPolygons + SimplifyPolygons collapses the pixel stairstep + micro-nodes so the toolhead
+        doesn't stutter, then the PolyTree (diffToShapes) rebuilds correct outer→hole nesting
+     5. extrude each layer to 0.8 mm; the caller stacks them along Z with a 5 mm gap for the depth preview. */
+function _shtraceLum(img,maxPx){
+  var iw=img.naturalWidth||img.width||300,ih=img.naturalHeight||img.height||300,sc=Math.min(1,maxPx/Math.max(iw,ih));
+  var w=Math.max(2,Math.round(iw*sc)),h=Math.max(2,Math.round(ih*sc));
+  var cv=document.createElement("canvas");cv.width=w;cv.height=h;var ctx=cv.getContext("2d");ctx.drawImage(img,0,0,w,h);
+  var data;try{data=ctx.getImageData(0,0,w,h).data;}catch(e){return null;}
+  var lum=new Float32Array(w*h);for(var i=0;i<w*h;i++){var p=i*4;lum[i]=(0.299*data[p]+0.587*data[p+1]+0.114*data[p+2])/255;}
+  return {lum:lum,w:w,h:h};
+}
+// One tonal band → THREE.Shapes. thr = cumulative luminance cut (include pixels darker than thr). smoothPx tunes
+// how hard the stairstep/micro-nodes are collapsed (higher = cleaner curves, fewer print-stuttering vertices).
+function _shtraceBandShapes(lum,w,h,thr,targetMm,smoothPx){
+  var W=w+2,H=h+2,mask=[],y,x;for(y=0;y<H;y++)mask.push(new Array(W).fill(0));
+  for(y=0;y<h;y++)for(x=0;x<w;x++){mask[y+1][x+1]=(lum[y*w+x]<thr)?1:0;}
+  var loops=traceMask(mask,H,W);if(!loops.length)return [];
+  var a=w/h,bw,bh;if(a>=1){bw=targetMm;bh=targetMm/a;}else{bh=targetMm;bw=targetMm*a;}
+  var sx=bw/w,sy=bh/h,out=[];
+  loops.forEach(function(loop){if(loop.length<4)return;
+    var path=loop.map(function(p){return {X:Math.round(((p[0]-1)*sx-bw/2)*S),Y:Math.round((bh/2-(p[1]-1)*sy)*S)};});
+    var ar=0;for(var i=0,n=path.length;i<n;i++){var q=path[(i+1)%n];ar+=path[i].X*q.Y-q.X*path[i].Y;}
+    if(Math.abs(ar/2)<(0.8*S*S))return;   // drop specks under ~0.8 mm² so tiny noise isn't extruded
+    out.push(path);});
+  if(!out.length)return [];
+  // NODE SMOOTHING: fold the 1-px marching-squares stairs + near-duplicate vertices into clean segments.
+  try{var s=ClipperLib.Clipper.CleanPolygons(out,(smoothPx||1.8)*sx*S);s=ClipperLib.Clipper.SimplifyPolygons(s,ClipperLib.PolyFillType.pftNonZero);s=s.filter(function(p){return p&&p.length>2;});if(s.length)out=s;}catch(_){}
+  return diffToShapes(out,null,0.8);   // PolyTree union → correct outer/hole nesting → THREE.Shapes
+}
+function buildShadowTrace(img,opts){
+  opts=opts||{};var bands=4,targetMm=+opts.widthMm||110,thick=+opts.thickness||0.8,maxPx=+opts.maxPx||240,smoothPx=(opts.smooth!=null?+opts.smooth:1.8);
+  var g=_shtraceLum(img,maxPx);if(!g)return [];
+  var a=g.w/g.h,bw,bh;if(a>=1){bw=targetMm;bh=targetMm/a;}else{bh=targetMm;bw=targetMm*a;}
+  var tones=["#2b2b2b","#6f6f6f","#b8b8b8","#f4f4f4"];                       // front dark → back light
+  var names=["Layer 1 · front (dark)","Layer 2","Layer 3","Layer 4 · back (solid)"];
+  var out=[];
+  for(var k=0;k<bands;k++){
+    var shapes;
+    if(k===bands-1){var sh=new THREE.Shape();sh.moveTo(-bw/2,-bh/2);sh.lineTo(bw/2,-bh/2);sh.lineTo(bw/2,bh/2);sh.lineTo(-bw/2,bh/2);sh.closePath();shapes=[sh];}   // lightest = solid bounding box back wall
+    else{shapes=_shtraceBandShapes(g.lum,g.w,g.h,(k+1)/bands+1e-4,targetMm,smoothPx);}
+    if(!shapes.length)continue;
+    var geo=new THREE.ExtrudeGeometry(shapes,{depth:thick,bevelEnabled:false,curveSegments:4});geo.computeVertexNormals();
+    out.push({name:names[k],color:tones[k],geometry:geo});
+  }
+  return out;   // [{name,color,geometry}] front→back; caller stacks along Z
+}
+function shtraceUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();
+  img.onload=function(){SHTRACE.img=img;SHTRACE.src=img.src;SHTRACE.on=true;var c=document.getElementById("shtrace_ctl");if(c)c.style.display="flex";var th=document.getElementById("shtrace_thumb");if(th)th.style.backgroundImage="url("+img.src+")";if(typeof scheduleBuild==="function")scheduleBuild();};
+  img.src=URL.createObjectURL(f);}
+function shtraceWidth(v){SHTRACE.widthMm=Math.max(50,Math.min(220,+v||110));var l=document.getElementById("shtrace_wl");if(l)l.textContent=Math.round(SHTRACE.widthMm);if(typeof scheduleBuild==="function")scheduleBuild();}
+function shtraceGap(v){SHTRACE.gap=Math.max(0,Math.min(20,+v||5));var l=document.getElementById("shtrace_gl");if(l)l.textContent=SHTRACE.gap.toFixed(0);if(typeof scheduleBuild==="function")scheduleBuild();}
+function shtraceSmooth(v){SHTRACE.smooth=Math.max(0.5,Math.min(4,+v||1.8));var l=document.getElementById("shtrace_sl");if(l)l.textContent=SHTRACE.smooth.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
+function shtraceClear(){SHTRACE.on=false;SHTRACE.img=null;SHTRACE.src=null;var c=document.getElementById("shtrace_ctl");if(c)c.style.display="none";var th=document.getElementById("shtrace_thumb");if(th)th.style.backgroundImage="";if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Upload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();
   img.onload=function(){LITHO1.img=img;LITHO1.src=img.src;LITHO1.on=true;var c=document.getElementById("litho1_ctl");if(c)c.style.display="flex";var th=document.getElementById("litho1_thumb");if(th)th.style.backgroundImage="url("+img.src+")";try{litho1Auto();}catch(e){if(typeof scheduleBuild==="function")scheduleBuild();}};   // auto-balance for a good one-click default
   img.onerror=function(){if(typeof uiAlert==="function")uiAlert("Could not read that image.");};
@@ -3604,6 +3680,19 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       // Housing box the lithophane (or CMYK stack) seats into — flush front, solid 2mm back, 40mm cavity.
       if(typeof buildLithophaneBox==="function"){var _box=buildLithophaneBox(_lW,_lH,_boxMax);_box.position.set(0,0,_z0);partList.push({group:_box,name:"Lithophane box (40mm)",flip:false,labs:true,litho:true,color:"#D8D4CC"});}
       window.__labsStandalone=true;
+    }}catch(e){}
+    // Shadow Lightbox — auto-traced photo → 4 posterised vector plates, each its OWN part so the exporter emits
+    // 4 separate unmerged bodies (drop-in for Bambu "Auto Orient / Lay on Face"). Stacked along Z for the preview.
+    try{var _stGate=(typeof featState!=="function")||featState("shadowtrace")!=="hidden";
+    if(_stGate&&SHTRACE.on&&SHTRACE.img&&typeof buildShadowTrace==="function"){
+      var _st=buildShadowTrace(SHTRACE.img,{widthMm:SHTRACE.widthMm,thickness:SHTRACE.thickness,smooth:SHTRACE.smooth});
+      var _sn=_st.length,_sgap=SHTRACE.gap,_sz0=(TT||1)+0.05;
+      _st.forEach(function(L,i){
+        var m=new THREE.Mesh(L.geometry,new THREE.MeshStandardMaterial({color:L.color,roughness:0.7,metalness:0,side:THREE.DoubleSide}));
+        var grp=new THREE.Group();grp.add(m);grp.position.set(0,0,_sz0+(_sn-1-i)*_sgap);   // front layer nearest the viewer
+        partList.push({group:grp,name:L.name,flip:false,labs:true,shtrace:true,color:L.color});
+      });
+      if(_st.length)window.__labsStandalone=true;
     }}catch(e){}
     // Standalone Labs 2 (preset word-cloud / scene shadowbox) IS the whole object — drop every other box so the
     // plates list + preview show only its parts (each scene layer is already its own "Layer N" plate).
