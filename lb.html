@@ -774,6 +774,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="row"><span class="lbl">Preview</span><div id="shtrace_thumb" style="width:96px;height:96px;border-radius:10px;border:1px solid var(--line);background:#0a0b0e center/cover no-repeat;align-self:flex-start"></div></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Width — <b id="shtrace_wl">110</b> mm</span><input type="range" id="shtrace_w" min="50" max="220" step="5" value="110" oninput="shtraceWidth(this.value)"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Smoothing — <b id="shtrace_sl">1.8</b></span><input type="range" id="shtrace_s" min="0.5" max="4" step="0.1" value="1.8" oninput="shtraceSmooth(this.value)"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Frame rim — <b id="shtrace_fl">5</b> mm</span><input type="range" id="shtrace_f" min="2" max="12" step="0.5" value="5" oninput="shtraceFrame(this.value)"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Preview gap — <b id="shtrace_gl">5</b> mm</span><input type="range" id="shtrace_g" min="0" max="20" step="1" value="5" oninput="shtraceGap(this.value)"></div>
         <div class="hint"><b>Smoothing</b> cleans jagged pixel edges so the toolhead runs smoothly — turn it up for simpler curves, down to keep fine detail. Each plate prints at 0.8&nbsp;mm; the gap only spaces the on-screen preview.</div>
         <button class="addtext" onclick="shtraceClear()">Remove photo</button>
@@ -1819,7 +1820,7 @@ var LITHO_CMYK={C:{name:"Cyan",hex:"#0086D6"},M:{name:"Magenta",hex:"#EC008C"},Y
 // ams[slotIndex] = colour key held in that AMS slot. Default Slot1:Cyan, Slot2:Magenta, Slot3:Yellow, Slot4:White.
 var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey",ams:["C","M","Y","W"]};
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
-var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8};
+var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
@@ -1945,13 +1946,14 @@ function _shtraceLum(img,maxPx){
   var lum=new Float32Array(w*h);for(var i=0;i<w*h;i++){var p=i*4;lum[i]=(0.299*data[p]+0.587*data[p+1]+0.114*data[p+2])/255;}
   return {lum:lum,w:w,h:h};
 }
-// One tonal band → THREE.Shapes. thr = cumulative luminance cut (include pixels darker than thr). smoothPx tunes
-// how hard the stairstep/micro-nodes are collapsed (higher = cleaner curves, fewer print-stuttering vertices).
-function _shtraceBandShapes(lum,w,h,thr,targetMm,smoothPx){
+// An axis-aligned rectangle as a Clipper integer path (units already ×S).
+function _shtraceRect(x0,y0,x1,y1){return [{X:Math.round(x0),Y:Math.round(y0)},{X:Math.round(x1),Y:Math.round(y0)},{X:Math.round(x1),Y:Math.round(y1)},{X:Math.round(x0),Y:Math.round(y1)}];}
+// One tonal band → cleaned Clipper paths (integer) of its filled region. thr = cumulative luminance cut (darker
+// than thr is filled). smoothPx tunes how hard the pixel stairstep / micro-nodes are collapsed.
+function _shtraceBandPaths(lum,w,h,thr,bw,bh,smoothPx){
   var W=w+2,H=h+2,mask=[],y,x;for(y=0;y<H;y++)mask.push(new Array(W).fill(0));
   for(y=0;y<h;y++)for(x=0;x<w;x++){mask[y+1][x+1]=(lum[y*w+x]<thr)?1:0;}
   var loops=traceMask(mask,H,W);if(!loops.length)return [];
-  var a=w/h,bw,bh;if(a>=1){bw=targetMm;bh=targetMm/a;}else{bh=targetMm;bw=targetMm*a;}
   var sx=bw/w,sy=bh/h,out=[];
   loops.forEach(function(loop){if(loop.length<4)return;
     var path=loop.map(function(p){return {X:Math.round(((p[0]-1)*sx-bw/2)*S),Y:Math.round((bh/2-(p[1]-1)*sy)*S)};});
@@ -1961,24 +1963,51 @@ function _shtraceBandShapes(lum,w,h,thr,targetMm,smoothPx){
   if(!out.length)return [];
   // NODE SMOOTHING: fold the 1-px marching-squares stairs + near-duplicate vertices into clean segments.
   try{var s=ClipperLib.Clipper.CleanPolygons(out,(smoothPx||1.8)*sx*S);s=ClipperLib.Clipper.SimplifyPolygons(s,ClipperLib.PolyFillType.pftNonZero);s=s.filter(function(p){return p&&p.length>2;});if(s.length)out=s;}catch(_){}
-  return diffToShapes(out,null,0.8);   // PolyTree union → correct outer/hole nesting → THREE.Shapes
+  return out;
+}
+// STENCIL BRIDGES: nothing may float. Union the content, walk the PolyTree for EVERY solid body (including
+// islands nested inside holes — a pupil in an eye), and for any body that doesn't already reach the rim,
+// drop a stout bridge to its NEAREST inner frame edge. Bridges + frame + content union into one connected solid.
+function _shtraceBridges(content,HX,HY,rimS){
+  var c=new ClipperLib.Clipper();c.AddPaths(content,ClipperLib.PolyType.ptSubject,true);
+  var tree=new ClipperLib.PolyTree();c.Execute(ClipperLib.ClipType.ctUnion,tree,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);
+  var solids=[];(function walk(n){n.Childs().forEach(function(ch){if(!ch.IsHole())solids.push(ch.Contour());walk(ch);});})(tree);
+  var bars=[],half=1.6*S,eps=0.4*S,iX=HX-rimS,iY=HY-rimS;   // inner frame edges (nearest frame solid)
+  solids.forEach(function(ct){var mnx=1e18,mxx=-1e18,mny=1e18,mxy=-1e18;
+    ct.forEach(function(p){if(p.X<mnx)mnx=p.X;if(p.X>mxx)mxx=p.X;if(p.Y<mny)mny=p.Y;if(p.Y>mxy)mxy=p.Y;});
+    var cx=(mnx+mxx)/2,cy=(mny+mxy)/2,dB=mny+iY,dT=iY-mxy,dL=mnx+iX,dR=iX-mxx,m=Math.min(dB,dT,dL,dR);
+    if(m<=eps)return;   // already overlaps a rim → grounded
+    if(m===dB)bars.push(_shtraceRect(cx-half,-HY,cx+half,mny+2*S));        // grounded to the BOTTOM frame edge
+    else if(m===dT)bars.push(_shtraceRect(cx-half,mxy-2*S,cx+half,HY));
+    else if(m===dL)bars.push(_shtraceRect(-HX,cy-half,mnx+2*S,cy+half));
+    else bars.push(_shtraceRect(mxx-2*S,cy-half,HX,cy+half));});
+  return bars;
 }
 function buildShadowTrace(img,opts){
   opts=opts||{};var bands=4,targetMm=+opts.widthMm||110,thick=+opts.thickness||0.8,maxPx=+opts.maxPx||240,smoothPx=(opts.smooth!=null?+opts.smooth:1.8);
   var g=_shtraceLum(img,maxPx);if(!g)return [];
   var a=g.w/g.h,bw,bh;if(a>=1){bw=targetMm;bh=targetMm/a;}else{bh=targetMm;bw=targetMm*a;}
+  var rim=Math.max(1.5,Math.min((opts.frame!=null?+opts.frame:5),Math.min(bw,bh)/3));   // rim never eats more than ⅓ of the plate
+  var HX=bw/2*S,HY=bh/2*S,rimS=rim*S;
+  var outerRect=_shtraceRect(-HX,-HY,HX,HY),innerRect=_shtraceRect(-HX+rimS,-HY+rimS,HX-rimS,HY-rimS);
+  var frameRing=diff([outerRect],[innerRect]);   // continuous rectangular rim (outer − inner)
   var tones=["#2b2b2b","#6f6f6f","#b8b8b8","#f4f4f4"];                       // front dark → back light
-  var names=["Layer 1 · front (dark)","Layer 2","Layer 3","Layer 4 · back (solid)"];
+  var names=["Layer 1 · front (dark)","Layer 2 (mid)","Layer 3 (light)","Layer 4 · back (solid)"];
   var out=[];
   for(var k=0;k<bands;k++){
     var shapes;
-    if(k===bands-1){var sh=new THREE.Shape();sh.moveTo(-bw/2,-bh/2);sh.lineTo(bw/2,-bh/2);sh.lineTo(bw/2,bh/2);sh.lineTo(-bw/2,bh/2);sh.closePath();shapes=[sh];}   // lightest = solid bounding box back wall
-    else{shapes=_shtraceBandShapes(g.lum,g.w,g.h,(k+1)/bands+1e-4,targetMm,smoothPx);}
+    if(k===bands-1){var sh=new THREE.Shape();sh.moveTo(-bw/2,-bh/2);sh.lineTo(bw/2,-bh/2);sh.lineTo(bw/2,bh/2);sh.lineTo(-bw/2,bh/2);sh.closePath();shapes=[sh];}   // lightest = completely solid backplate (diffuser), no cutouts
+    else{
+      var content=_shtraceBandPaths(g.lum,g.w,g.h,(k+1)/bands+1e-4,bw,bh,smoothPx);
+      var bridges=content.length?_shtraceBridges(content,HX,HY,rimS):[];
+      // frame ∪ traced content ∪ anchoring bridges → one continuous, connected solid (diffToShapes unions + nests)
+      shapes=diffToShapes(frameRing.concat(content).concat(bridges),null,0.5);
+    }
     if(!shapes.length)continue;
     var geo=new THREE.ExtrudeGeometry(shapes,{depth:thick,bevelEnabled:false,curveSegments:4});geo.computeVertexNormals();
     out.push({name:names[k],color:tones[k],geometry:geo});
   }
-  return out;   // [{name,color,geometry}] front→back; caller stacks along Z
+  return out;   // [{name,color,geometry}] front→back; every layer is a framed, fully-connected plate
 }
 function shtraceUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();
   img.onload=function(){SHTRACE.img=img;SHTRACE.src=img.src;SHTRACE.on=true;var c=document.getElementById("shtrace_ctl");if(c)c.style.display="flex";var th=document.getElementById("shtrace_thumb");if(th)th.style.backgroundImage="url("+img.src+")";if(typeof scheduleBuild==="function")scheduleBuild();};
@@ -1986,6 +2015,7 @@ function shtraceUpload(input){var f=input&&input.files&&input.files[0];if(!f)ret
 function shtraceWidth(v){SHTRACE.widthMm=Math.max(50,Math.min(220,+v||110));var l=document.getElementById("shtrace_wl");if(l)l.textContent=Math.round(SHTRACE.widthMm);if(typeof scheduleBuild==="function")scheduleBuild();}
 function shtraceGap(v){SHTRACE.gap=Math.max(0,Math.min(20,+v||5));var l=document.getElementById("shtrace_gl");if(l)l.textContent=SHTRACE.gap.toFixed(0);if(typeof scheduleBuild==="function")scheduleBuild();}
 function shtraceSmooth(v){SHTRACE.smooth=Math.max(0.5,Math.min(4,+v||1.8));var l=document.getElementById("shtrace_sl");if(l)l.textContent=SHTRACE.smooth.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
+function shtraceFrame(v){SHTRACE.frame=Math.max(2,Math.min(12,+v||5));var l=document.getElementById("shtrace_fl");if(l)l.textContent=SHTRACE.frame.toFixed(1).replace(/\.0$/,"");if(typeof scheduleBuild==="function")scheduleBuild();}
 function shtraceClear(){SHTRACE.on=false;SHTRACE.img=null;SHTRACE.src=null;var c=document.getElementById("shtrace_ctl");if(c)c.style.display="none";var th=document.getElementById("shtrace_thumb");if(th)th.style.backgroundImage="";if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Upload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();
   img.onload=function(){LITHO1.img=img;LITHO1.src=img.src;LITHO1.on=true;var c=document.getElementById("litho1_ctl");if(c)c.style.display="flex";var th=document.getElementById("litho1_thumb");if(th)th.style.backgroundImage="url("+img.src+")";try{litho1Auto();}catch(e){if(typeof scheduleBuild==="function")scheduleBuild();}};   // auto-balance for a good one-click default
@@ -3685,7 +3715,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // 4 separate unmerged bodies (drop-in for Bambu "Auto Orient / Lay on Face"). Stacked along Z for the preview.
     try{var _stGate=(typeof featState!=="function")||featState("shadowtrace")!=="hidden";
     if(_stGate&&SHTRACE.on&&SHTRACE.img&&typeof buildShadowTrace==="function"){
-      var _st=buildShadowTrace(SHTRACE.img,{widthMm:SHTRACE.widthMm,thickness:SHTRACE.thickness,smooth:SHTRACE.smooth});
+      var _st=buildShadowTrace(SHTRACE.img,{widthMm:SHTRACE.widthMm,thickness:SHTRACE.thickness,smooth:SHTRACE.smooth,frame:SHTRACE.frame});
       var _sn=_st.length,_sgap=SHTRACE.gap,_sz0=(TT||1)+0.05;
       _st.forEach(function(L,i){
         var m=new THREE.Mesh(L.geometry,new THREE.MeshStandardMaterial({color:L.color,roughness:0.7,metalness:0,side:THREE.DoubleSide}));
