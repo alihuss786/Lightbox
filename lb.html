@@ -1569,7 +1569,7 @@ function applyLabsLight(){if(typeof pivot==="undefined"||!pivot)return;var lit=(
   // Full-colour CMYK preview trick: only the front mesh is shown. Lamp OFF → matte white (looks like unlit white
   // plastic, hides the C/M/Y tinting); lamp ON → the original photo textured on unlit → glowing colour photograph.
   // This is VIEWPORT ONLY — the export reads userData.exportColor, so the four printed CMYW bodies are untouched.
-  if(u.cmyk){if(u.cmykTop){o.visible=true;o.material=(lit?u.matLit:u.matUnlit)||o.material;}else{o.visible=false;}return;}
+  if(u.cmyk){if(u.cmykTop){o.visible=true;if(o.material&&"emissiveIntensity" in o.material)o.material.emissiveIntensity=lit?1.8:0;}else{o.visible=false;}return;}
   // Lithophane transmission preview: when lit, the front glows per-vertex by how much light passes through the
   // relief (thin = bright, thick = dark) so the photo reveals like a real backlit lithophane.
   if(u.lithoUL){u.lithoUL.value=lit?1:0;if(u.lithoTint)u.lithoTint.value.set("#fff4e6");return;}   // white lithophane, warm backlight
@@ -3580,15 +3580,17 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         // FULL COLOUR: four stacked C/M/Y/W meshes, each its own coloured body → 4 AMS parts on export.
         if(typeof litho1SyncAms==="function")litho1SyncAms();   // AMS palette = the user's CMYW slot mapping, always current at export time
         var _cmyk=buildCMYKLithophane(LITHO1.img,{widthMm:_lW,heightMm:_lH,maxRes:280,totalMax:3.0,contrast:LITHO1.contrast,gamma:LITHO1.gamma}),_cg=new THREE.Group();
-        // Build a matte-white preview material for the front mesh + an unlit textured one (the original photo).
-        // These only drive the VIEWPORT — the export reads userData.exportColor, so the four printed bodies stay CMYW.
+        // Front mesh preview = ONE physical matte-plastic material. The photo drives the EMISSIVE map, so lamp-off
+        // reads as a solid off-white PLA block (physical bumps catching the scene lights) and lamp-on makes the
+        // relief glow the photo through a warm LED tone. This is VIEWPORT ONLY — export reads userData.exportColor.
         var _cTex=new THREE.Texture(LITHO1.img);_cTex.needsUpdate=true;_cTex.encoding=THREE.sRGBEncoding;
-        var _matUnlit=new THREE.MeshStandardMaterial({color:"#f2f2f0",roughness:0.75,metalness:0,side:THREE.DoubleSide}),
-            _matLit=new THREE.MeshBasicMaterial({map:_cTex,side:THREE.DoubleSide});
+        var _PM=(typeof THREE.MeshPhysicalMaterial==="function")?THREE.MeshPhysicalMaterial:THREE.MeshStandardMaterial;
+        var _matGlow=new _PM({color:"#eeeeee",roughness:0.75,metalness:0,side:THREE.DoubleSide,
+          emissive:new THREE.Color("#fff4d2"),emissiveMap:_cTex,emissiveIntensity:0});   // warm-LED glow; intensity toggled by the lamp
         _cmyk.forEach(function(L,_li){var _top=(_li===_cmyk.length-1);
-          var m=new THREE.Mesh(L.geometry,_top?_matUnlit:new THREE.MeshStandardMaterial({color:L.color,roughness:0.55,metalness:0,side:THREE.DoubleSide}));
+          var m=new THREE.Mesh(L.geometry,_top?_matGlow:new THREE.MeshStandardMaterial({color:L.color,roughness:0.55,metalness:0,side:THREE.DoubleSide}));
           m.userData.cmykLayer=L.name;m.userData.cmyk=true;m.userData.exportColor=L.color;   // export colour is fixed regardless of preview material
-          if(_top){m.userData.cmykTop=true;m.userData.matUnlit=_matUnlit;m.userData.matLit=_matLit;}
+          if(_top){m.userData.cmykTop=true;m.userData.matGlow=_matGlow;}
           _cg.add(m);});
         _cg.position.set(0,0,_z0);partList.push({group:_cg,name:"Lithophane CMYK",flip:false,labs:true,litho:true,cmyk:true,color:"#FFFFFF"});
         _boxMax=3.0;
