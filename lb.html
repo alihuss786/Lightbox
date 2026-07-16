@@ -775,8 +775,8 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Width — <b id="shtrace_wl">110</b> mm</span><input type="range" id="shtrace_w" min="50" max="220" step="5" value="110" oninput="shtraceWidth(this.value)"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Smoothing — <b id="shtrace_sl">1.8</b></span><input type="range" id="shtrace_s" min="0.5" max="4" step="0.1" value="1.8" oninput="shtraceSmooth(this.value)"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Frame rim — <b id="shtrace_fl">5</b> mm</span><input type="range" id="shtrace_f" min="2" max="12" step="0.5" value="5" oninput="shtraceFrame(this.value)"></div>
-        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Preview gap — <b id="shtrace_gl">5</b> mm</span><input type="range" id="shtrace_g" min="0" max="20" step="1" value="5" oninput="shtraceGap(this.value)"></div>
-        <div class="hint"><b>Smoothing</b> cleans jagged pixel edges so the toolhead runs smoothly — turn it up for simpler curves, down to keep fine detail. Each plate prints at 0.8&nbsp;mm; the gap only spaces the on-screen preview.</div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">LED cavity depth — <b id="shtrace_cl">30</b> mm</span><input type="range" id="shtrace_c" min="10" max="60" step="1" value="30" oninput="shtraceCavity(this.value)"></div>
+        <div class="hint"><b>Smoothing</b> cleans jagged pixel edges so the toolhead runs smoothly. Each plate prints at 0.8&nbsp;mm and drops into internal <b>1.1&nbsp;mm rails</b> in the enclosure, spaced 5&nbsp;mm apart for the shadow depth — the front (dark) plate sits nearest the glass, the solid backplate sits in front of the LED cavity.</div>
         <button class="addtext" onclick="shtraceClear()">Remove photo</button>
       </div>
     </div>
@@ -1820,7 +1820,7 @@ var LITHO_CMYK={C:{name:"Cyan",hex:"#0086D6"},M:{name:"Magenta",hex:"#EC008C"},Y
 // ams[slotIndex] = colour key held in that AMS slot. Default Slot1:Cyan, Slot2:Magenta, Slot3:Yellow, Slot4:White.
 var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey",ams:["C","M","Y","W"]};
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
-var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5};
+var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5,cavity:30};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
@@ -1999,6 +1999,9 @@ function buildShadowTrace(img,opts){
     if(k===bands-1){var sh=new THREE.Shape();sh.moveTo(-bw/2,-bh/2);sh.lineTo(bw/2,-bh/2);sh.lineTo(bw/2,bh/2);sh.lineTo(-bw/2,bh/2);sh.closePath();shapes=[sh];}   // lightest = completely solid backplate (diffuser), no cutouts
     else{
       var content=_shtraceBandPaths(g.lum,g.w,g.h,(k+1)/bands+1e-4,bw,bh,smoothPx);
+      // BORDER CLEAN-UP: clip content to the inner rect so the outer rim is ONLY the solid frame — this strips
+      // any ultra-thin hairline/stroke artifacts the trace can leave hugging the image edge (flush, solid outer).
+      if(content.length){try{var _ci=intersect(content,[innerRect]);if(_ci&&_ci.length)content=_ci;}catch(_){}}
       var bridges=content.length?_shtraceBridges(content,HX,HY,rimS):[];
       // frame ∪ traced content ∪ anchoring bridges → one continuous, connected solid (diffToShapes unions + nests)
       shapes=diffToShapes(frameRing.concat(content).concat(bridges),null,0.5);
@@ -2007,7 +2010,39 @@ function buildShadowTrace(img,opts){
     var geo=new THREE.ExtrudeGeometry(shapes,{depth:thick,bevelEnabled:false,curveSegments:4});geo.computeVertexNormals();
     out.push({name:names[k],color:tones[k],geometry:geo});
   }
+  out.bw=bw;out.bh=bh;   // plate footprint, so the enclosure can size its window + rails to match
   return out;   // [{name,color,geometry}] front→back; every layer is a framed, fully-connected plate
+}
+/* The main Lightbox ENCLOSURE that physically holds the shadow-box slides. It reads the layer count and builds
+   internal comb rails on the left/right/bottom walls: solid segments separated by 1.1 mm channels (a clean slide-in
+   fit for the 0.8 mm plates) with a solid 5 mm gap between slots for the shadow depth. Plate 1 (dark) seats in the
+   front-most slot; the slots step backward to the solid Backplate in the rear-most slot, right in front of a hollow
+   LED cavity closed by a solid back panel. Returns the group + the world z of each slot centre for the preview. */
+function _shBox(mat,x0,x1,y0,y1,z0,z1){var w=x1-x0,h=y1-y0,d=z1-z0;var g=new THREE.BoxGeometry(w,h,d);g.translate((x0+x1)/2,(y0+y1)/2,(z0+z1)/2);return new THREE.Mesh(g,mat);}
+function buildShadowBoxEnclosure(bw,bh,N,opts){
+  opts=opts||{};
+  var slotW=1.1,gap=5,capF=2.4,cavity=Math.max(10,+opts.cavity||30),back=2,wall=3,ov=3,wallGap=2,backRailW=2.4,pitch=slotW+gap;
+  var g=new THREE.Group(),mat=new THREE.MeshStandardMaterial({color:"#d8d4cc",roughness:0.72,metalness:0});
+  var hx=bw/2,hy=bh/2,innerHX=hx+wallGap,outerHX=innerHX+wall,innerBY=-hy-wallGap,outerBY=innerBY-wall,topY=hy;
+  var chFront=[],slotZ=[],j;for(j=0;j<N;j++){var f=-(capF+j*pitch);chFront.push(f);slotZ.push(f-slotW/2);}
+  var zBackSlots=chFront[N-1]-slotW,cavityBack=zBackSlots-backRailW-cavity,D=-(cavityBack-back),backZ=-D;
+  // Structural outer shell (all outboard of the plates) + solid diffuser back panel. Open top for slide-in loading.
+  g.add(_shBox(mat,innerHX,outerHX,outerBY,topY,backZ,0));       // right wall
+  g.add(_shBox(mat,-outerHX,-innerHX,outerBY,topY,backZ,0));     // left wall
+  g.add(_shBox(mat,-outerHX,outerHX,outerBY,innerBY,backZ,0));   // bottom wall
+  g.add(_shBox(mat,-outerHX,outerHX,outerBY,topY,backZ,backZ+back));  // solid back panel (LED diffuser)
+  // Comb rails: each solid segment protrudes inward on L/R/bottom, overlapping the plate edge by `ov`; the empty
+  // 1.1 mm channels between segments are the slots the plates drop into.
+  function railSeg(zBack,zFront){
+    g.add(_shBox(mat,hx-ov,innerHX,-hy,topY,zBack,zFront));          // right rail
+    g.add(_shBox(mat,-innerHX,-(hx-ov),-hy,topY,zBack,zFront));      // left rail
+    g.add(_shBox(mat,-(hx-ov),hx-ov,innerBY,-hy+ov,zBack,zFront));   // bottom rail
+  }
+  railSeg(-capF,0);                                                  // front lip / cap (stops plate 1 falling out)
+  for(j=0;j<N-1;j++)railSeg(chFront[j+1],chFront[j]-slotW);          // 5 mm solid gaps between slots
+  railSeg(zBackSlots-backRailW,zBackSlots);                          // back stop behind the rear-most slot
+  g.userData.slotZ=slotZ;g.userData.depth=D;
+  return g;
 }
 function shtraceUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();
   img.onload=function(){SHTRACE.img=img;SHTRACE.src=img.src;SHTRACE.on=true;var c=document.getElementById("shtrace_ctl");if(c)c.style.display="flex";var th=document.getElementById("shtrace_thumb");if(th)th.style.backgroundImage="url("+img.src+")";if(typeof scheduleBuild==="function")scheduleBuild();};
@@ -2016,6 +2051,7 @@ function shtraceWidth(v){SHTRACE.widthMm=Math.max(50,Math.min(220,+v||110));var 
 function shtraceGap(v){SHTRACE.gap=Math.max(0,Math.min(20,+v||5));var l=document.getElementById("shtrace_gl");if(l)l.textContent=SHTRACE.gap.toFixed(0);if(typeof scheduleBuild==="function")scheduleBuild();}
 function shtraceSmooth(v){SHTRACE.smooth=Math.max(0.5,Math.min(4,+v||1.8));var l=document.getElementById("shtrace_sl");if(l)l.textContent=SHTRACE.smooth.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
 function shtraceFrame(v){SHTRACE.frame=Math.max(2,Math.min(12,+v||5));var l=document.getElementById("shtrace_fl");if(l)l.textContent=SHTRACE.frame.toFixed(1).replace(/\.0$/,"");if(typeof scheduleBuild==="function")scheduleBuild();}
+function shtraceCavity(v){SHTRACE.cavity=Math.max(10,Math.min(60,+v||30));var l=document.getElementById("shtrace_cl");if(l)l.textContent=Math.round(SHTRACE.cavity);if(typeof scheduleBuild==="function")scheduleBuild();}
 function shtraceClear(){SHTRACE.on=false;SHTRACE.img=null;SHTRACE.src=null;var c=document.getElementById("shtrace_ctl");if(c)c.style.display="none";var th=document.getElementById("shtrace_thumb");if(th)th.style.backgroundImage="";if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Upload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();
   img.onload=function(){LITHO1.img=img;LITHO1.src=img.src;LITHO1.on=true;var c=document.getElementById("litho1_ctl");if(c)c.style.display="flex";var th=document.getElementById("litho1_thumb");if(th)th.style.backgroundImage="url("+img.src+")";try{litho1Auto();}catch(e){if(typeof scheduleBuild==="function")scheduleBuild();}};   // auto-balance for a good one-click default
@@ -3711,15 +3747,23 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       if(typeof buildLithophaneBox==="function"){var _box=buildLithophaneBox(_lW,_lH,_boxMax);_box.position.set(0,0,_z0);partList.push({group:_box,name:"Lithophane box (40mm)",flip:false,labs:true,litho:true,color:"#D8D4CC"});}
       window.__labsStandalone=true;
     }}catch(e){}
-    // Shadow Lightbox — auto-traced photo → 4 posterised vector plates, each its OWN part so the exporter emits
-    // 4 separate unmerged bodies (drop-in for Bambu "Auto Orient / Lay on Face"). Stacked along Z for the preview.
+    // Shadow Lightbox — auto-traced photo → posterised vector plates, each its OWN part; PLUS a lightbox enclosure
+    // with internal comb rails sized to the layer count that physically holds the plates. Exports as separate
+    // unmerged bodies (drop-in for Bambu "Auto Orient / Lay on Face").
     try{var _stGate=(typeof featState!=="function")||featState("shadowtrace")!=="hidden";
     if(_stGate&&SHTRACE.on&&SHTRACE.img&&typeof buildShadowTrace==="function"){
       var _st=buildShadowTrace(SHTRACE.img,{widthMm:SHTRACE.widthMm,thickness:SHTRACE.thickness,smooth:SHTRACE.smooth,frame:SHTRACE.frame});
-      var _sn=_st.length,_sgap=SHTRACE.gap,_sz0=(TT||1)+0.05;
+      var _sn=_st.length,_sz0=(TT||1)+0.05,_slotZ=null;
+      if(_sn&&typeof buildShadowBoxEnclosure==="function"){
+        var _encl=buildShadowBoxEnclosure(_st.bw||SHTRACE.widthMm,_st.bh||SHTRACE.widthMm,_sn,{cavity:SHTRACE.cavity});
+        _slotZ=_encl.userData.slotZ;_encl.position.set(0,0,_sz0);
+        partList.push({group:_encl,name:"Lightbox enclosure",flip:false,labs:true,shtrace:true,color:"#D8D4CC"});
+      }
       _st.forEach(function(L,i){
         var m=new THREE.Mesh(L.geometry,new THREE.MeshStandardMaterial({color:L.color,roughness:0.7,metalness:0,side:THREE.DoubleSide}));
-        var grp=new THREE.Group();grp.add(m);grp.position.set(0,0,_sz0+(_sn-1-i)*_sgap);   // front layer nearest the viewer
+        var grp=new THREE.Group();grp.add(m);
+        var _pz=_slotZ?(_slotZ[i]-(SHTRACE.thickness||0.8)/2):((_sn-1-i)*5);   // seat each plate centred in its slot
+        grp.position.set(0,0,_sz0+_pz);
         partList.push({group:grp,name:L.name,flip:false,labs:true,shtrace:true,color:L.color});
       });
       if(_st.length)window.__labsStandalone=true;
