@@ -1561,6 +1561,10 @@ function applyLabsLight(){if(typeof pivot==="undefined"||!pivot)return;var lit=(
   var standalone=(typeof window!=="undefined"&&window.__labsStandalone);
   if(mode==="render")pivot.traverse(function(o){if(o.userData){if(o.userData.textId!=null)o.visible=!labsOn;if(o.userData.baseShell)o.visible=!standalone;}});
   pivot.traverse(function(o){if(!o.isMesh)return;var u=o.userData||{};
+  // Full-colour CMYK preview trick: only the front mesh is shown. Lamp OFF → matte white (looks like unlit white
+  // plastic, hides the C/M/Y tinting); lamp ON → the original photo textured on unlit → glowing colour photograph.
+  // This is VIEWPORT ONLY — the export reads userData.exportColor, so the four printed CMYW bodies are untouched.
+  if(u.cmyk){if(u.cmykTop){o.visible=true;o.material=(lit?u.matLit:u.matUnlit)||o.material;}else{o.visible=false;}return;}
   // Lithophane transmission preview: when lit, the front glows per-vertex by how much light passes through the
   // relief (thin = bright, thick = dark) so the photo reveals like a real backlit lithophane.
   if(u.lithoUL){u.lithoUL.value=lit?1:0;if(u.lithoTint)u.lithoTint.value.set("#fff4e6");return;}   // white lithophane, warm backlight
@@ -1862,15 +1866,16 @@ function buildLithophaneBox(W,H,maxT){
 }
 /* Watertight slab between two per-vertex surfaces (bottom + top grids) — the building block for stacked layers. */
 function _lithoSlab(nx,ny,W,Ht,botZ,topZ){
-  var NV=nx*ny,off=NV,pos=new Float32Array(NV*2*3),hx=W/2,hy=Ht/2,i,j,a,b2,c,d;
-  for(j=0;j<ny;j++)for(i=0;i<nx;i++){var fv=j*nx+i,x=-hx+W*(i/(nx-1)),y=-hy+Ht*(j/(ny-1));
-    pos[fv*3]=x;pos[fv*3+1]=y;pos[fv*3+2]=topZ[fv];var bi=off+fv;pos[bi*3]=x;pos[bi*3+1]=y;pos[bi*3+2]=botZ[fv];}
+  var NV=nx*ny,off=NV,pos=new Float32Array(NV*2*3),uv=new Float32Array(NV*2*2),hx=W/2,hy=Ht/2,i,j,a,b2,c,d;
+  for(j=0;j<ny;j++)for(i=0;i<nx;i++){var fv=j*nx+i,x=-hx+W*(i/(nx-1)),y=-hy+Ht*(j/(ny-1)),u=i/(nx-1),vv=j/(ny-1);
+    pos[fv*3]=x;pos[fv*3+1]=y;pos[fv*3+2]=topZ[fv];var bi=off+fv;pos[bi*3]=x;pos[bi*3+1]=y;pos[bi*3+2]=botZ[fv];
+    uv[fv*2]=u;uv[fv*2+1]=vv;uv[bi*2]=u;uv[bi*2+1]=vv;}
   var idx=[];
   for(j=0;j<ny-1;j++)for(i=0;i<nx-1;i++){a=j*nx+i;b2=a+1;c=a+nx;d=c+1;idx.push(a,b2,c, b2,d,c);}       // top
   for(j=0;j<ny-1;j++)for(i=0;i<nx-1;i++){a=off+j*nx+i;b2=a+1;c=a+nx;d=c+1;idx.push(a,c,b2, b2,c,d);}   // bottom
   var perim=[];for(i=0;i<nx;i++)perim.push(i);for(j=1;j<ny;j++)perim.push(j*nx+(nx-1));for(i=nx-2;i>=0;i--)perim.push((ny-1)*nx+i);for(j=ny-2;j>=1;j--)perim.push(j*nx);
   for(var q=0;q<perim.length;q++){var f0=perim[q],f1=perim[(q+1)%perim.length];idx.push(f0,off+f0,f1, f1,off+f0,off+f1);}
-  var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.BufferAttribute(pos,3));geo.setIndex(idx);geo.computeVertexNormals();return geo;
+  var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.BufferAttribute(pos,3));geo.setAttribute("uv",new THREE.BufferAttribute(uv,2));geo.setIndex(idx);geo.computeVertexNormals();return geo;
 }
 /* FULL-COLOUR (CMYW) lithophane — a completely different path to the grayscale one. Separate the image into
    Cyan / Magenta / Yellow / White density maps, then generate FOUR independent watertight meshes stacked flush,
@@ -3539,7 +3544,16 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       if(LITHO1.mode==="cmyk"&&typeof buildCMYKLithophane==="function"){
         // FULL COLOUR: four stacked C/M/Y/W meshes, each its own coloured body → 4 AMS parts on export.
         var _cmyk=buildCMYKLithophane(LITHO1.img,{widthMm:_lW,heightMm:_lH,maxRes:280,totalMax:3.0,contrast:LITHO1.contrast,gamma:LITHO1.gamma}),_cg=new THREE.Group();
-        _cmyk.forEach(function(L){var m=new THREE.Mesh(L.geometry,new THREE.MeshStandardMaterial({color:L.color,roughness:0.55,metalness:0,side:THREE.DoubleSide}));m.userData.cmykLayer=L.name;_cg.add(m);});
+        // Build a matte-white preview material for the front mesh + an unlit textured one (the original photo).
+        // These only drive the VIEWPORT — the export reads userData.exportColor, so the four printed bodies stay CMYW.
+        var _cTex=new THREE.Texture(LITHO1.img);_cTex.needsUpdate=true;_cTex.encoding=THREE.sRGBEncoding;
+        var _matUnlit=new THREE.MeshStandardMaterial({color:"#f2f2f0",roughness:0.75,metalness:0,side:THREE.DoubleSide}),
+            _matLit=new THREE.MeshBasicMaterial({map:_cTex,side:THREE.DoubleSide});
+        _cmyk.forEach(function(L,_li){var _top=(_li===_cmyk.length-1);
+          var m=new THREE.Mesh(L.geometry,_top?_matUnlit:new THREE.MeshStandardMaterial({color:L.color,roughness:0.55,metalness:0,side:THREE.DoubleSide}));
+          m.userData.cmykLayer=L.name;m.userData.cmyk=true;m.userData.exportColor=L.color;   // export colour is fixed regardless of preview material
+          if(_top){m.userData.cmykTop=true;m.userData.matUnlit=_matUnlit;m.userData.matLit=_matLit;}
+          _cg.add(m);});
         _cg.position.set(0,0,_z0);partList.push({group:_cg,name:"Lithophane CMYK",flip:false,labs:true,litho:true,cmyk:true,color:"#FFFFFF"});
         _boxMax=3.0;
       }else{
@@ -3903,7 +3917,8 @@ function partTrianglesByColor(part,skipLayout){
   clone.rotation.x=part.flip?Math.PI/2:-Math.PI/2;clone.position.set(0,0,0);clone.updateMatrixWorld(true);
   const v=new THREE.Vector3();const fin=p=>isFinite(p.x)&&isFinite(p.y)&&isFinite(p.z);const byCol={};
   clone.traverse(o=>{if(!o.isMesh||!o.geometry||(o.userData&&(o.userData.isGlow||o.userData.isPreview)))return;const ge=o.geometry,pos=ge.attributes&&ge.attributes.position;if(!pos)return;const mw=o.matrixWorld,idx=ge.index;
-    var col="#DDDDDD";try{if(o.material&&o.material.color)col="#"+o.material.color.getHexString().toUpperCase();}catch(e){}
+    var col="#DDDDDD";try{if(o.userData&&o.userData.exportColor)col=String(o.userData.exportColor).toUpperCase();   // preview material may be swapped (CMYK trick) — the export colour is fixed on userData
+      else if(o.material&&o.material.color)col="#"+o.material.color.getHexString().toUpperCase();}catch(e){}
     var arr=byCol[col]||(byCol[col]=[]);
     const gv=i=>{v.fromBufferAttribute(pos,i).applyMatrix4(mw);return{x:v.x,y:v.y,z:v.z};};
     const addTri=(a,b2,c)=>{if(fin(a)&&fin(b2)&&fin(c))arr.push([a,b2,c]);};
