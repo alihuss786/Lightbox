@@ -749,6 +749,11 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div id="litho1_ctl" style="display:none;flex-direction:column;gap:12px">
         <div class="row"><span class="lbl">Mode</span><select id="litho1_mode" class="psel" style="width:auto" onchange="litho1Mode(this.value)"><option value="grey">⬜ Greyscale (1 filament)</option><option value="cmyk">🎨 Full colour (CMYK · beta)</option></select></div>
         <div class="hint" id="litho1_cmyk_hint" style="display:none;color:var(--acc)">Full colour builds <b>4 stacked layers</b> — Cyan, Magenta, Yellow, White — each ≤ sub-mm, exported as 4 separate bodies so you can assign each to an AMS filament slot in Bambu Studio. Needs an AMS to print.</div>
+        <div id="litho1_ams" style="display:none;flex-direction:column;gap:8px;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--card)">
+          <span class="lbl" style="font-weight:600">🎛 AMS filament slots</span>
+          <div class="hint" style="margin:0">Map each CMYK colour to the AMS slot that holds it — no need to rearrange spools. These bake straight into the .3mf so Bambu Studio auto-assigns the right filament per body.</div>
+          <div id="litho1_ams_rows" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
         <div class="row"><span class="lbl">Preview</span><div id="litho1_thumb" style="width:96px;height:96px;border-radius:10px;border:1px solid var(--line);background:#0a0b0e center/cover no-repeat;align-self:flex-start"></div></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thinnest (white) — <b id="litho1_minl">0.8</b> mm</span><input type="range" id="litho1_min" min="0.4" max="2" step="0.1" value="0.8" oninput="litho1Thick('min',this.value)"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickest (black) — <b id="litho1_maxl">3.5</b> mm</span><input type="range" id="litho1_max" min="1.5" max="6" step="0.1" value="3.5" oninput="litho1Thick('max',this.value)"></div>
@@ -1794,7 +1799,10 @@ function _labsScene(name,W,H,customSubj){
    multi-colour export stay intact): uploaded image → hidden ≤400px canvas → per-pixel grayscale →
    a displaced grid whose Z is the print thickness (black = maxThickness, white = minThickness) →
    sealed into a WATERTIGHT, MANIFOLD solid with a flat base + closed sides so it slices in Bambu. */
-var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey"};
+// CMYW filament definitions — exact Bambu Lab PLA Basic hex codes so the exported .3mf colours match the spools.
+var LITHO_CMYK={C:{name:"Cyan",hex:"#0086D6"},M:{name:"Magenta",hex:"#EC008C"},Y:{name:"Yellow",hex:"#F4EE2A"},W:{name:"Jade White",hex:"#FFFFFF"}};
+// ams[slotIndex] = colour key held in that AMS slot. Default Slot1:Cyan, Slot2:Magenta, Slot3:Yellow, Slot4:White.
+var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey",ams:["C","M","Y","W"]};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
@@ -1891,10 +1899,10 @@ function buildCMYKLithophane(img,opts){
   var nx=cw,ny=ch,NV=nx*ny,floor=0.09,span=Math.max(0.1,(cap-4*floor)/4);   // per-layer: floor + density*span, 4 layers ≤ cap
   function adj(v){if(gamma!==1)v=Math.pow(Math.max(0,v),gamma);return Math.min(1,Math.max(0,(v-0.5)*contrast+0.5));}
   // stacking order back→front (against the light first): White base, then Yellow, Magenta, Cyan
-  var layers=[{name:"White",color:"#FFFFFF",d:function(r,g,b,L){return L;}},
-              {name:"Yellow",color:"#F5E100",d:function(r,g,b){return 1-b;}},
-              {name:"Magenta",color:"#E5007E",d:function(r,g,b){return 1-g;}},
-              {name:"Cyan",color:"#00A7E1",d:function(r,g,b){return 1-r;}}];
+  var layers=[{name:"White",color:LITHO_CMYK.W.hex,d:function(r,g,b,L){return L;}},
+              {name:"Yellow",color:LITHO_CMYK.Y.hex,d:function(r,g,b){return 1-b;}},
+              {name:"Magenta",color:LITHO_CMYK.M.hex,d:function(r,g,b){return 1-g;}},
+              {name:"Cyan",color:LITHO_CMYK.C.hex,d:function(r,g,b){return 1-r;}}];
   var cum=new Float32Array(NV),out=[];
   layers.forEach(function(layer){var bot=new Float32Array(NV),top=new Float32Array(NV);
     for(var j=0;j<ny;j++){var imgRow=ny-1-j;for(var i=0;i<nx;i++){var p=(imgRow*nx+i)*4,r=data[p]/255,g=data[p+1]/255,b=data[p+2]/255,L=0.299*r+0.587*g+0.114*b;
@@ -1908,7 +1916,34 @@ function litho1Upload(input){var f=input&&input.files&&input.files[0];if(!f)retu
   img.onerror=function(){if(typeof uiAlert==="function")uiAlert("Could not read that image.");};
   var rd=new FileReader();rd.onload=function(e){img.src=e.target.result;};rd.readAsDataURL(f);input.value="";}
 function litho1Thick(which,val){val=+val;if(which==="min")LITHO1.minT=Math.max(0.4,Math.min(2,val||0.8));else LITHO1.maxT=Math.max(1.5,Math.min(6,val||3));if(LITHO1.maxT<LITHO1.minT+0.3)LITHO1.maxT=LITHO1.minT+0.3;var a=document.getElementById("litho1_minl"),b=document.getElementById("litho1_maxl");if(a)a.textContent=LITHO1.minT.toFixed(1);if(b)b.textContent=LITHO1.maxT.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
-function litho1Mode(v){LITHO1.mode=(v==="cmyk")?"cmyk":"grey";var h=document.getElementById("litho1_cmyk_hint");if(h)h.style.display=(LITHO1.mode==="cmyk")?"":"none";if(typeof scheduleBuild==="function")scheduleBuild();}
+function litho1Mode(v){LITHO1.mode=(v==="cmyk")?"cmyk":"grey";var h=document.getElementById("litho1_cmyk_hint");if(h)h.style.display=(LITHO1.mode==="cmyk")?"":"none";
+  // Full colour owns the AMS: auto-enable it and load the four CMYW filaments into the slots the user has mapped.
+  if(LITHO1.mode==="cmyk")litho1SyncAms();
+  litho1RenderAms();
+  if(typeof scheduleBuild==="function")scheduleBuild();}
+// Push the CMYW slot mapping into the shared AMS palette + toggle AMS on. Pure (never triggers a build itself).
+function litho1SyncAms(){if(LITHO1.mode!=="cmyk")return;
+  window.__hasAMS=true;window.__amsPalette=LITHO1.ams.map(function(k){return LITHO_CMYK[k].hex;});
+  try{document.querySelectorAll(".amsToggleCb").forEach(function(cb){cb.checked=true;});}catch(e){}
+  try{document.querySelectorAll(".amsPalBox").forEach(function(el){el.style.display="block";});}catch(e){}
+  var lc=document.getElementById("amsToggle");if(lc)lc.checked=true;var lp=document.getElementById("amsPal");if(lp)lp.style.display="block";
+  try{if(typeof renderAmsSwatches==="function")renderAmsSwatches();}catch(e){}}
+// Render the four AMS-slot dropdowns (shown only in CMYK mode), reflecting the current LITHO1.ams mapping.
+function litho1RenderAms(){var box=document.getElementById("litho1_ams");if(!box)return;
+  box.style.display=(LITHO1.mode==="cmyk")?"flex":"none";if(LITHO1.mode!=="cmyk")return;
+  var rows=document.getElementById("litho1_ams_rows");if(!rows)return;var keys=["C","M","Y","W"],html="";
+  for(var s=0;s<4;s++){var cur=LITHO1.ams[s],hex=LITHO_CMYK[cur].hex;
+    html+='<div class="row" style="align-items:center;gap:8px">'
+      +'<span class="sw" style="width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:'+hex+'"></span>'
+      +'<span class="lbl" style="min-width:74px">AMS Slot '+(s+1)+'</span>'
+      +'<select class="psel" style="width:auto;flex:1" onchange="litho1AmsAssign('+s+',this.value)">'
+      +keys.map(function(k){return '<option value="'+k+'"'+(k===cur?' selected':'')+'>'+LITHO_CMYK[k].name+' '+LITHO_CMYK[k].hex+'</option>';}).join("")
+      +'</select></div>';}
+  rows.innerHTML=html;}
+// Assign a colour to a slot. Keeps a valid permutation (no two slots share a colour) by swapping the displaced one.
+function litho1AmsAssign(slot,key){slot=+slot;if(!LITHO_CMYK[key])return;var cur=LITHO1.ams.slice(),other=cur.indexOf(key);
+  if(other===slot)return;var displaced=cur[slot];cur[slot]=key;if(other>=0)cur[other]=displaced;LITHO1.ams=cur;
+  litho1SyncAms();litho1RenderAms();if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Invert(){LITHO1.invert=!LITHO1.invert;var t=document.getElementById("tg_litho1_inv");if(t)t.classList.toggle("on",LITHO1.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Contrast(val){LITHO1.contrast=Math.max(0.5,Math.min(2.5,+val||1));var l=document.getElementById("litho1_conl");if(l)l.textContent=LITHO1.contrast.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
 /* Auto-balance: sample the photo's luminance histogram, recentre midtones (gamma → mean maps to ~0.5) and
@@ -3543,6 +3578,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       var _aw=Math.max(20,LW),_ah=Math.max(20,LH),_lW=_aw,_lH=_aw/_ar,_z0=(TT||1)+0.05,_boxMax=LITHO1.maxT;if(_lH>_ah){_lH=_ah;_lW=_ah*_ar;}
       if(LITHO1.mode==="cmyk"&&typeof buildCMYKLithophane==="function"){
         // FULL COLOUR: four stacked C/M/Y/W meshes, each its own coloured body → 4 AMS parts on export.
+        if(typeof litho1SyncAms==="function")litho1SyncAms();   // AMS palette = the user's CMYW slot mapping, always current at export time
         var _cmyk=buildCMYKLithophane(LITHO1.img,{widthMm:_lW,heightMm:_lH,maxRes:280,totalMax:3.0,contrast:LITHO1.contrast,gamma:LITHO1.gamma}),_cg=new THREE.Group();
         // Build a matte-white preview material for the front mesh + an unlit textured one (the original photo).
         // These only drive the VIEWPORT — the export reads userData.exportColor, so the four printed bodies stay CMYW.
