@@ -796,7 +796,9 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div id="tlitho_letters" style="display:none;flex-direction:column;gap:8px"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Letter height — <b id="tlitho_hl">40</b> mm</span><input type="range" id="tlitho_h" min="20" max="80" step="2" value="40" oninput="tlithoHeight(this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thinnest (white) — <b id="tlitho_minl">0.8</b> mm</span><input type="range" id="tlitho_min" min="0.4" max="2" step="0.1" value="0.8" oninput="tlithoThick('min',this.value)"></div>
-      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickest (black) — <b id="tlitho_maxl">3.0</b> mm</span><input type="range" id="tlitho_max" min="1.5" max="6" step="0.1" value="3" oninput="tlithoThick('max',this.value)"></div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickest (black) — <b id="tlitho_maxl">3.0</b> mm</span><input type="range" id="tlitho_max" min="1.5" max="3.0" step="0.1" value="3" oninput="tlithoThick('max',this.value)"></div>
+      <div class="toggle-row"><span class="lbl">Raised frame + LED box</span><div class="tg on" id="tg_tlitho_frame" onclick="tlithoFrameTgl()"><div class="k"></div></div></div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">LED cavity depth — <b id="tlitho_cavl">25</b> mm</span><input type="range" id="tlitho_cav" min="6" max="50" step="1" value="25" oninput="tlithoCavity(this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Contrast / gamma — <b id="tlitho_conl">1.0</b>×</span><input type="range" id="tlitho_con" min="0.5" max="2.5" step="0.05" value="1" oninput="tlithoContrast(this.value)"></div>
       <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_tlitho_inv" onclick="tlithoInvert()"><div class="k"></div></div></div>
       <div class="hint">Lithophanes are always <b>white</b> — the photo reads through thickness when the lamp is on. Turn the lamp on to preview the glow. Each letter is watertight and exports cleanly to your .3mf pipeline.</div>
@@ -1843,7 +1845,7 @@ var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
 var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5,cavity:30};
 // Text Lithophane: photo relief mapped onto glyph front faces. mode span|perletter, assembly separate|fused.
-var TLITHO={text:"LOVE",mode:"span",assembly:"separate",img:null,src:null,perImgs:{},height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard"};
+var TLITHO={text:"LOVE",mode:"span",assembly:"separate",img:null,src:null,perImgs:{},height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,cavity:25};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
@@ -1933,6 +1935,7 @@ function buildGlyphLithophane(paths,img,opts){
   for(j=0;j<cellsY;j++)for(i=0;i<cellsX;i++){if(cellIn(i,j)){used[j*nx+i]=1;used[j*nx+i+1]=1;used[(j+1)*nx+i]=1;used[(j+1)*nx+i+1]=1;}}
   var ox=(opts.center===false)?0:cxc,oy=(opts.center===false)?0:cyc;   // center=false keeps glyph layout coords (for name assembly)
   for(j=0;j<ny;j++)for(i=0;i<nx;i++){var vi=j*nx+i,wx=mnx+i*cw,wy=mny+j*ch,z=used[vi]?sample(wx,wy):minT;
+    z=Math.max(minT,Math.min(maxT,z));   // HARD CLAMP: the relief is strictly between minThickness and maxThickness
     pos[vi*3]=wx-ox;pos[vi*3+1]=wy-oy;pos[vi*3+2]=z;var b=(off+vi)*3;pos[b]=wx-ox;pos[b+1]=wy-oy;pos[b+2]=0;
     lit[vi]=Math.pow(Math.exp(-2.6*(z-minT)/range),0.85);lit[off+vi]=0;}
   var idx=[];
@@ -1947,6 +1950,21 @@ function buildGlyphLithophane(paths,img,opts){
   }
   var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.BufferAttribute(pos,3));geo.setAttribute("aLit",new THREE.BufferAttribute(lit,1));geo.setIndex(idx);geo.computeVertexNormals();
   return geo;
+}
+/* The raised outer FRAME + LED box for a glyph/word contour: a hollow border (2mm wall) following the text
+   outline, extruded from the LED-cavity back (z=-cavity) forward to a raised front lip (z=lip). The letter's
+   inner opening is left hollow — that's the LED cavity, open at the back — and the recessed lithophane screen
+   drops into the front of it. Returns a watertight ring solid (ExtrudeGeometry of outer contour with the inner
+   region as a hole). `region` returns the shrunk inner path so the caller can size + overlap the screen to it. */
+function buildTextFrame(contour,opts){
+  opts=opts||{};var wall=+opts.wall||2,lip=(opts.lip!=null?+opts.lip:4),cavity=(opts.cavity!=null?+opts.cavity:25);
+  var inner=null;try{inner=off(contour,-wall);}catch(e){inner=null;}
+  if(!inner||!inner.length)return null;                       // stroke collapsed (glyph too thin for this wall)
+  var shapes=diffToShapes(contour,inner,0);                    // ring = contour − inner (correct outer/hole nesting)
+  if(!shapes||!shapes.length)return null;
+  var geo=new THREE.ExtrudeGeometry(shapes,{depth:lip+cavity,bevelEnabled:false,curveSegments:6});
+  geo.translate(0,0,-cavity);geo.computeVertexNormals();       // front lip at z=lip, back rim at z=-cavity
+  return {geo:geo,inner:inner};
 }
 // Lay out the text with the font's own advance widths and return each glyph's outline+holes as Clipper paths
 // (in shared layout coords) plus its character, so images can span the whole name or map per-letter.
@@ -1970,7 +1988,9 @@ function tlithoText(v){TLITHO.text=(v||"").slice(0,24);tlithoRenderLetters();if(
 function tlithoMode(v){TLITHO.mode=(v==="perletter")?"perletter":"span";tlithoRenderLetters();if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoAssembly(v){TLITHO.assembly=(v==="fused")?"fused":"separate";if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoHeight(v){TLITHO.height=Math.max(20,Math.min(80,+v||40));var l=document.getElementById("tlitho_hl");if(l)l.textContent=Math.round(TLITHO.height);if(typeof scheduleBuild==="function")scheduleBuild();}
-function tlithoThick(which,v){v=+v;if(which==="min")TLITHO.minT=Math.max(0.4,Math.min(2,v||0.8));else TLITHO.maxT=Math.max(1.5,Math.min(6,v||3));if(TLITHO.maxT<TLITHO.minT+0.3)TLITHO.maxT=TLITHO.minT+0.3;var a=document.getElementById("tlitho_minl"),b=document.getElementById("tlitho_maxl");if(a)a.textContent=TLITHO.minT.toFixed(1);if(b)b.textContent=TLITHO.maxT.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoThick(which,v){v=+v;if(which==="min")TLITHO.minT=Math.max(0.4,Math.min(1.6,v||0.8));else TLITHO.maxT=Math.max(1.5,Math.min(3.0,v||3));if(TLITHO.maxT<TLITHO.minT+0.3)TLITHO.maxT=TLITHO.minT+0.3;var a=document.getElementById("tlitho_minl"),b=document.getElementById("tlitho_maxl");if(a)a.textContent=TLITHO.minT.toFixed(1);if(b)b.textContent=TLITHO.maxT.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoFrameTgl(){TLITHO.frame=!TLITHO.frame;var t=document.getElementById("tg_tlitho_frame");if(t)t.classList.toggle("on",TLITHO.frame);if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoCavity(v){TLITHO.cavity=Math.max(6,Math.min(50,+v||25));var l=document.getElementById("tlitho_cavl");if(l)l.textContent=Math.round(TLITHO.cavity);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoContrast(v){TLITHO.contrast=Math.max(0.5,Math.min(2.5,+v||1));var l=document.getElementById("tlitho_conl");if(l)l.textContent=TLITHO.contrast.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoInvert(){TLITHO.invert=!TLITHO.invert;var t=document.getElementById("tg_tlitho_inv");if(t)t.classList.toggle("on",TLITHO.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoQuality(v){TLITHO.quality=(v==="draft"||v==="fine")?v:"standard";if(typeof scheduleBuild==="function")scheduleBuild();}
@@ -3907,6 +3927,18 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _tOpt={minThickness:TLITHO.minT,maxThickness:TLITHO.maxT,invert:TLITHO.invert,contrast:TLITHO.contrast,gamma:TLITHO.gamma,targetCell:_qCell,capCells:520,center:false};
         var _wordUV={x0:_tnb.x0,y0:_tnb.y0,w:_tnb.w,h:_tnb.h};
         function _tlithoMesh(geo){var mt=lithophaneMaterial(),mh=new THREE.Mesh(geo,mt);mh.userData.lithoUL=mt.userData.uLit;mh.userData.lithoTint=mt.userData.uTint;return mh;}
+        var _lip=TLITHO.maxT+1.0,_wall=TLITHO.wall,_cav=TLITHO.cavity;   // lip sits 1mm proud of the litho peak → recess
+        // Build ONE letter/word lightbox: raised frame + LED cavity (buildTextFrame) with the recessed lithophane
+        // screen dropped into its opening (peak maxT < lip). Returns a group of both watertight solids.
+        function _tlithoUnit(contour,img,sampleFn,uv,cx,cy,litOpts){
+          var grp=new THREE.Group(),region=contour;
+          if(TLITHO.frame){var fr=buildTextFrame(contour,{wall:_wall,lip:_lip,cavity:_cav});
+            if(fr){fr.geo.translate(-cx,-cy,0);grp.add(new THREE.Mesh(fr.geo,new THREE.MeshStandardMaterial({color:"#f0f0f0",roughness:0.5,metalness:0})));
+              try{var _lr=off(contour,-(_wall-0.6));if(_lr&&_lr.length)region=_lr;}catch(e){}}}   // screen overlaps the frame's inner wall
+          var lg=buildGlyphLithophane(region,img,Object.assign({},_tOpt,litOpts||{},{uvRect:uv,sampleFn:sampleFn||null}));
+          if(lg){lg.translate(-cx,-cy,0);grp.add(_tlithoMesh(lg));}
+          return grp.children.length?grp:null;
+        }
         var _built=false;
         if(TLITHO.assembly==="fused"){
           // CONNECTED WORD: squeeze the glyphs so adjacent letters overlap (font-independent), union them (nonzero →
@@ -3922,17 +3954,15 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           var _link=Math.max(1.4,TLITHO.height*0.05);try{var _cl=off(off(_uni,_link),-_link);if(_cl&&_cl.length)_uni=_cl;}catch(e){}   // seal any hairline neck; counters stay open
           var _wb=_tlithoBox([{paths:_uni}]),_wuv={x0:_wb.x0,y0:_wb.y0,w:_wb.w,h:_wb.h};
           var _sfn=(TLITHO.mode==="span")?null:_tlithoPiecewise(_shLetters,TLITHO.perImgs,TLITHO.invert,TLITHO.gamma,TLITHO.contrast,TLITHO.minT,_trange);
-          var _wg=buildGlyphLithophane(_uni,(TLITHO.mode==="span")?TLITHO.img:null,Object.assign({},_tOpt,{capCells:760,uvRect:_wuv,sampleFn:_sfn}));
-          if(_wg){_wg.translate(-_wb.cx,-_wb.cy,0);var _fg=new THREE.Group();_fg.add(_tlithoMesh(_wg));_fg.position.set(0,0,_tz0);
-            partList.push({group:_fg,name:"Text lightbox",flip:false,labs:true,tlitho:true,color:"#FFFFFF"});_built=true;}
+          var _fg=_tlithoUnit(_uni,(TLITHO.mode==="span")?TLITHO.img:null,_sfn,_wuv,_wb.cx,_wb.cy,{capCells:760});
+          if(_fg){_fg.position.set(0,0,_tz0);partList.push({group:_fg,name:"Text lightbox",flip:false,labs:true,tlitho:true,color:"#FFFFFF"});_built=true;}
         }else{
-          // SEPARATE: each glyph is its own text-shaped watertight body (best for AMS colour-per-letter).
-          _tletters.forEach(function(L,li){var _img,_uv;
+          // SEPARATE: each glyph is its own text-shaped lightbox (frame + recessed screen) — best for AMS per-letter.
+          _tletters.forEach(function(L,li){var _img,_uv,_sfn2=null;
             if(TLITHO.mode==="span"){_img=TLITHO.img;_uv=_wordUV;}
             else{var _pe=TLITHO.perImgs[li];if(!_pe)return;_img=_pe.img;var _bb=_tlithoBox([L]);_uv={x0:_bb.x0,y0:_bb.y0,w:_bb.w,h:_bb.h};}
-            if(!_img)return;var _g=buildGlyphLithophane(L.paths,_img,Object.assign({},_tOpt,{uvRect:_uv}));
-            if(_g){_g.translate(-_tnb.cx,-_tnb.cy,0);var _lg=new THREE.Group();_lg.add(_tlithoMesh(_g));_lg.position.set(0,0,_tz0);
-              partList.push({group:_lg,name:"Letter "+(L.char||"?"),flip:false,labs:true,tlitho:true,color:"#FFFFFF"});_built=true;}});
+            if(!_img)return;var _lg=_tlithoUnit(L.paths,_img,null,_uv,_tnb.cx,_tnb.cy);
+            if(_lg){_lg.position.set(0,0,_tz0);partList.push({group:_lg,name:"Letter "+(L.char||"?"),flip:false,labs:true,tlitho:true,color:"#FFFFFF"});_built=true;}});
         }
         if(_built)window.__labsStandalone=true;
       }
