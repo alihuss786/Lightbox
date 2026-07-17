@@ -781,6 +781,26 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       </div>
     </div>
   </div>
+  <div class="acc" data-feat="tlitho">
+    <div class="acc-h" onclick="accT(this)">Text Lithophane 🔤 <i class="chev">⌄</i></div>
+    <div class="acc-b">
+      <div class="hint">Turn a name into <b>glowing photo-relief letters</b>: the exact lithophane depth math (dark = thick, light = thin) is projected onto the front face of each 3D letter, built as a <b>watertight</b> solid. Spans one image across the whole name, or maps a separate photo to each letter.</div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Text</span><input type="text" id="tlitho_text" maxlength="24" value="LOVE" placeholder="e.g. a name" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:16px system-ui,sans-serif;box-sizing:border-box" oninput="tlithoText(this.value)"></div>
+      <div class="row"><span class="lbl">Image mode</span><select id="tlitho_mode" class="psel" style="width:auto" onchange="tlithoMode(this.value)"><option value="span">🖼 One image across the name</option><option value="perletter">🔤 A photo per letter</option></select></div>
+      <div class="row"><span class="lbl">Assembly</span><select id="tlitho_asm" class="psel" style="width:auto" onchange="tlithoAssembly(this.value)"><option value="separate">Separate body per letter</option><option value="fused">Fused into one piece</option></select></div>
+      <div id="tlitho_span" style="display:flex;flex-direction:column;gap:8px">
+        <label class="upfont" style="cursor:pointer">⬆ Upload the image<input type="file" id="tlitho_span_file" accept="image/*" hidden onchange="tlithoSpanUpload(this)"></label>
+        <div class="row"><span class="lbl">Preview</span><div id="tlitho_span_thumb" style="width:88px;height:88px;border-radius:10px;border:1px solid var(--line);background:#0a0b0e center/cover no-repeat;align-self:flex-start"></div></div>
+      </div>
+      <div id="tlitho_letters" style="display:none;flex-direction:column;gap:8px"></div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Letter height — <b id="tlitho_hl">40</b> mm</span><input type="range" id="tlitho_h" min="20" max="80" step="2" value="40" oninput="tlithoHeight(this.value)"></div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thinnest (white) — <b id="tlitho_minl">0.8</b> mm</span><input type="range" id="tlitho_min" min="0.4" max="2" step="0.1" value="0.8" oninput="tlithoThick('min',this.value)"></div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickest (black) — <b id="tlitho_maxl">3.0</b> mm</span><input type="range" id="tlitho_max" min="1.5" max="6" step="0.1" value="3" oninput="tlithoThick('max',this.value)"></div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Contrast / gamma — <b id="tlitho_conl">1.0</b>×</span><input type="range" id="tlitho_con" min="0.5" max="2.5" step="0.05" value="1" oninput="tlithoContrast(this.value)"></div>
+      <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_tlitho_inv" onclick="tlithoInvert()"><div class="k"></div></div></div>
+      <div class="hint">Lithophanes are always <b>white</b> — the photo reads through thickness when the lamp is on. Turn the lamp on to preview the glow. Each letter is watertight and exports cleanly to your .3mf pipeline.</div>
+    </div>
+  </div>
   <div class="acc" data-feat="labs">
     <div class="acc-h" onclick="accT(this)">Labs ✨ <i class="chev">⌄</i></div>
     <div class="acc-b">
@@ -1821,6 +1841,8 @@ var LITHO_CMYK={C:{name:"Cyan",hex:"#0086D6"},M:{name:"Magenta",hex:"#EC008C"},Y
 var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey",ams:["C","M","Y","W"]};
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
 var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5,cavity:30};
+// Text Lithophane: photo relief mapped onto glyph front faces. mode span|perletter, assembly separate|fused.
+var TLITHO={text:"LOVE",mode:"span",assembly:"separate",img:null,src:null,perImgs:{},height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
@@ -1905,8 +1927,9 @@ function buildGlyphLithophane(paths,img,opts){
   var sample=img?_lithoSampler(img,invert,gamma,contrast,minT,range,uv):function(){return minT;};
   var NV=nx*ny,off=NV,pos=new Float32Array(NV*2*3),lit=new Float32Array(NV*2),used=new Uint8Array(NV),i,j;
   for(j=0;j<cellsY;j++)for(i=0;i<cellsX;i++){if(cellIn(i,j)){used[j*nx+i]=1;used[j*nx+i+1]=1;used[(j+1)*nx+i]=1;used[(j+1)*nx+i+1]=1;}}
+  var ox=(opts.center===false)?0:cxc,oy=(opts.center===false)?0:cyc;   // center=false keeps glyph layout coords (for name assembly)
   for(j=0;j<ny;j++)for(i=0;i<nx;i++){var vi=j*nx+i,wx=mnx+i*cw,wy=mny+j*ch,z=used[vi]?sample(wx,wy):minT;
-    pos[vi*3]=wx-cxc;pos[vi*3+1]=wy-cyc;pos[vi*3+2]=z;var b=(off+vi)*3;pos[b]=wx-cxc;pos[b+1]=wy-cyc;pos[b+2]=0;
+    pos[vi*3]=wx-ox;pos[vi*3+1]=wy-oy;pos[vi*3+2]=z;var b=(off+vi)*3;pos[b]=wx-ox;pos[b+1]=wy-oy;pos[b+2]=0;
     lit[vi]=Math.pow(Math.exp(-2.6*(z-minT)/range),0.85);lit[off+vi]=0;}
   var idx=[];
   for(j=0;j<cellsY;j++)for(i=0;i<cellsX;i++){if(!cellIn(i,j))continue;
@@ -1920,6 +1943,39 @@ function buildGlyphLithophane(paths,img,opts){
   }
   var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.BufferAttribute(pos,3));geo.setAttribute("aLit",new THREE.BufferAttribute(lit,1));geo.setIndex(idx);geo.computeVertexNormals();
   return geo;
+}
+// Lay out the text with the font's own advance widths and return each glyph's outline+holes as Clipper paths
+// (in shared layout coords) plus its character, so images can span the whole name or map per-letter.
+function _tlithoLetters(font,text,size){
+  var shapes=font.generateShapes(String(text),size),chars=String(text).split("").filter(function(c){return c.trim().length;});
+  var toXY=function(pt){return {X:Math.round(pt.x*S),Y:Math.round(pt.y*S)};},out=[];
+  shapes.forEach(function(sh,i){var paths=[sh.getPoints(8).map(toXY)];(sh.holes||[]).forEach(function(h){paths.push(h.getPoints(8).map(toXY));});
+    if(paths[0].length>2)out.push({paths:paths,char:chars[i]||""});});
+  return out;
+}
+function _tlithoBox(paths){var mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;paths.forEach(function(arr){(arr.paths||arr).forEach(function(p){p.forEach(function(pt){var x=pt.X/S,y=pt.Y/S;if(x<mnx)mnx=x;if(x>mxx)mxx=x;if(y<mny)mny=y;if(y>mxy)mxy=y;});});});return {x0:mnx,y0:mny,w:mxx-mnx,h:mxy-mny,cx:(mnx+mxx)/2,cy:(mny+mxy)/2};}
+// ---- Text Lithophane UI ----
+function tlithoText(v){TLITHO.text=(v||"").slice(0,24);tlithoRenderLetters();if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoMode(v){TLITHO.mode=(v==="perletter")?"perletter":"span";tlithoRenderLetters();if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoAssembly(v){TLITHO.assembly=(v==="fused")?"fused":"separate";if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoHeight(v){TLITHO.height=Math.max(20,Math.min(80,+v||40));var l=document.getElementById("tlitho_hl");if(l)l.textContent=Math.round(TLITHO.height);if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoThick(which,v){v=+v;if(which==="min")TLITHO.minT=Math.max(0.4,Math.min(2,v||0.8));else TLITHO.maxT=Math.max(1.5,Math.min(6,v||3));if(TLITHO.maxT<TLITHO.minT+0.3)TLITHO.maxT=TLITHO.minT+0.3;var a=document.getElementById("tlitho_minl"),b=document.getElementById("tlitho_maxl");if(a)a.textContent=TLITHO.minT.toFixed(1);if(b)b.textContent=TLITHO.maxT.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoContrast(v){TLITHO.contrast=Math.max(0.5,Math.min(2.5,+v||1));var l=document.getElementById("tlitho_conl");if(l)l.textContent=TLITHO.contrast.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoInvert(){TLITHO.invert=!TLITHO.invert;var t=document.getElementById("tg_tlitho_inv");if(t)t.classList.toggle("on",TLITHO.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoSpanUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();img.onload=function(){TLITHO.img=img;TLITHO.src=img.src;var th=document.getElementById("tlitho_span_thumb");if(th)th.style.backgroundImage="url("+img.src+")";if(typeof scheduleBuild==="function")scheduleBuild();};img.src=URL.createObjectURL(f);}
+function tlithoPerUpload(i,input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();img.onload=function(){TLITHO.perImgs[i]={img:img,src:img.src};tlithoRenderLetters();if(typeof scheduleBuild==="function")scheduleBuild();};img.src=URL.createObjectURL(f);}
+// Dynamic per-letter upload fields: one row per non-space character of the name.
+function tlithoRenderLetters(){var span=document.getElementById("tlitho_span"),box=document.getElementById("tlitho_letters");
+  if(span)span.style.display=(TLITHO.mode==="span")?"flex":"none";if(!box)return;
+  var show=(TLITHO.mode==="perletter");box.style.display=show?"flex":"none";if(!show)return;
+  var chars=String(TLITHO.text).split("").filter(function(c){return c.trim().length;}),html="";
+  chars.forEach(function(ch,i){var pe=TLITHO.perImgs[i],bg=pe?("url("+pe.src+")"):"none";
+    html+='<div class="row" style="align-items:center;gap:9px">'
+      +'<span class="lbl" style="min-width:22px;font-weight:700;font-size:17px;text-align:center">'+ch.replace(/&/g,"&amp;").replace(/</g,"&lt;")+'</span>'
+      +'<div style="width:42px;height:42px;border-radius:8px;border:1px solid var(--line);background:#0a0b0e;background-image:'+bg+';background-size:cover;background-position:center"></div>'
+      +'<label class="upfont" style="cursor:pointer;flex:1;text-align:center;padding:8px">'+(pe?"Change photo":"Upload photo")+'<input type="file" accept="image/*" hidden onchange="tlithoPerUpload('+i+',this)"></label>'
+      +'</div>';});
+  box.innerHTML=html||'<div class="hint" style="margin:0">Type a name above to get an upload box per letter.</div>';
 }
 /* A lithophane material that also does the backlit-transmission preview: emissive per-vertex = how much light
    passes through the relief (thin = bright, thick = dark). uLit fades it in when the lamp is on. */
@@ -3824,6 +3880,38 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         partList.push({group:grp,name:L.name,flip:false,labs:true,shtrace:true,color:L.color});
       });
       if(_st.length)window.__labsStandalone=true;
+    }}catch(e){}
+    // Text Lithophane — the grayscale relief mapped onto each 3D letter's front face. Single image spanning the
+    // whole name (shared UV box) or a separate photo per letter (own UV box). Assembly: one watertight body per
+    // letter, or all fused onto a shared backplate as a single object. White (lithophane) + backlit preview.
+    try{var _tlGate=(typeof featState!=="function")||featState("tlitho")!=="hidden";
+    var _tlHasImg=(TLITHO.mode==="span")?!!TLITHO.img:(Object.keys(TLITHO.perImgs).length>0);
+    if(_tlGate&&TLITHO.text&&TLITHO.text.trim()&&_tlHasImg&&typeof buildGlyphLithophane==="function"){
+      var _tfont=await loadFont(selFont.url),_tletters=_tlithoLetters(_tfont,TLITHO.text,TLITHO.height);
+      if(_tletters.length){
+        var _tnb=_tlithoBox(_tletters),_tz0=(TT||1)+0.05,_tres=Math.max(110,Math.min(230,Math.round(1000/_tletters.length)));
+        var _tOpt={minThickness:TLITHO.minT,maxThickness:TLITHO.maxT,invert:TLITHO.invert,contrast:TLITHO.contrast,gamma:TLITHO.gamma,maxRes:_tres,center:false};
+        var _tmeshes=[];
+        _tletters.forEach(function(L,li){var _img,_uv;
+          if(TLITHO.mode==="span"){_img=TLITHO.img;_uv={x0:_tnb.x0,y0:_tnb.y0,w:_tnb.w,h:_tnb.h};}
+          else{var _pe=TLITHO.perImgs[li];if(!_pe)return;_img=_pe.img;_uv=_tlithoBox([L]);_uv={x0:_uv.x0,y0:_uv.y0,w:_uv.w,h:_uv.h};}
+          if(!_img)return;var _g=buildGlyphLithophane(L.paths,_img,Object.assign({},_tOpt,{uvRect:_uv}));
+          if(_g){_g.translate(-_tnb.cx,-_tnb.cy,0);_tmeshes.push({geo:_g,char:L.char||""});}});
+        if(_tmeshes.length){
+          function _tlithoMesh(geo){var mt=lithophaneMaterial(),mh=new THREE.Mesh(geo,mt);mh.userData.lithoUL=mt.userData.uLit;mh.userData.lithoTint=mt.userData.uTint;return mh;}
+          if(TLITHO.assembly==="fused"){
+            var _fg=new THREE.Group();
+            var _slab=new THREE.BoxGeometry(_tnb.w+6,_tnb.h+6,1.5);_slab.translate(0,0,-0.6);   // shared backplate, overlaps letter backs → one fused piece
+            _fg.add(new THREE.Mesh(_slab,new THREE.MeshStandardMaterial({color:"#ffffff",roughness:0.6,metalness:0})));
+            _tmeshes.forEach(function(m){_fg.add(_tlithoMesh(m.geo));});
+            _fg.position.set(0,0,_tz0);partList.push({group:_fg,name:"Text lithophane",flip:false,labs:true,tlitho:true,color:"#FFFFFF"});
+          }else{
+            _tmeshes.forEach(function(m){var _lg=new THREE.Group();_lg.add(_tlithoMesh(m.geo));_lg.position.set(0,0,_tz0);
+              partList.push({group:_lg,name:"Letter "+(m.char||"?"),flip:false,labs:true,tlitho:true,color:"#FFFFFF"});});
+          }
+          window.__labsStandalone=true;
+        }
+      }
     }}catch(e){}
     // Standalone Labs 2 (preset word-cloud / scene shadowbox) IS the whole object — drop every other box so the
     // plates list + preview show only its parts (each scene layer is already its own "Layer N" plate).
