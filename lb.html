@@ -797,8 +797,8 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Letter height — <b id="tlitho_hl">40</b> mm</span><input type="range" id="tlitho_h" min="20" max="80" step="2" value="40" oninput="tlithoHeight(this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thinnest (white) — <b id="tlitho_minl">0.8</b> mm</span><input type="range" id="tlitho_min" min="0.4" max="2" step="0.1" value="0.8" oninput="tlithoThick('min',this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickest (black) — <b id="tlitho_maxl">3.0</b> mm</span><input type="range" id="tlitho_max" min="1.5" max="3.0" step="0.1" value="3" oninput="tlithoThick('max',this.value)"></div>
-      <div class="toggle-row"><span class="lbl">Raised frame + LED box</span><div class="tg on" id="tg_tlitho_frame" onclick="tlithoFrameTgl()"><div class="k"></div></div></div>
-      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">LED cavity depth — <b id="tlitho_cavl">25</b> mm</span><input type="range" id="tlitho_cav" min="6" max="50" step="1" value="25" oninput="tlithoCavity(this.value)"></div>
+      <div class="toggle-row"><span class="lbl">Raised frame + solid backplate</span><div class="tg on" id="tg_tlitho_frame" onclick="tlithoFrameTgl()"><div class="k"></div></div></div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Backplate thickness — <b id="tlitho_backl">2</b> mm</span><input type="range" id="tlitho_back" min="1" max="8" step="0.5" value="2" oninput="tlithoBack(this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Contrast / gamma — <b id="tlitho_conl">1.0</b>×</span><input type="range" id="tlitho_con" min="0.5" max="2.5" step="0.05" value="1" oninput="tlithoContrast(this.value)"></div>
       <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_tlitho_inv" onclick="tlithoInvert()"><div class="k"></div></div></div>
       <div class="hint">Lithophanes are always <b>white</b> — the photo reads through thickness when the lamp is on. Turn the lamp on to preview the glow. Each letter is watertight and exports cleanly to your .3mf pipeline.</div>
@@ -1845,7 +1845,7 @@ var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
 var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5,cavity:30};
 // Text Lithophane: photo relief mapped onto glyph front faces. mode span|perletter, assembly separate|fused.
-var TLITHO={text:"LOVE",mode:"span",assembly:"separate",img:null,src:null,perImgs:{},height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,cavity:25};
+var TLITHO={text:"LOVE",mode:"span",assembly:"separate",img:null,src:null,perImgs:{},height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,back:2};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
@@ -1969,10 +1969,18 @@ function buildTextFrame(contour,opts){
 // Lay out the text with the font's own advance widths and return each glyph's outline+holes as Clipper paths
 // (in shared layout coords) plus its character, so images can span the whole name or map per-letter.
 function _tlithoLetters(font,text,size){
-  var shapes=font.generateShapes(String(text),size),chars=String(text).split("").filter(function(c){return c.trim().length;});
-  var toXY=function(pt){return {X:Math.round(pt.x*S),Y:Math.round(pt.y*S)};},out=[];
-  shapes.forEach(function(sh,i){var paths=[sh.getPoints(8).map(toXY)];(sh.holes||[]).forEach(function(h){paths.push(h.getPoints(8).map(toXY));});
-    if(paths[0].length>2)out.push({paths:paths,char:chars[i]||""});});
+  // Loop through EACH character: generate that glyph's own shapes and place it by the font's advance width. This
+  // groups multi-part glyphs (the dot of an i/j, accents) into ONE letter and keeps every letter a distinct body.
+  var str=String(text),out=[],fd=font.data||{},res=fd.resolution||1000,scale=size/res,penX=0;
+  function toXY(pt,ox){return {X:Math.round((pt.x+ox)*S),Y:Math.round(pt.y*S)};}
+  function adv(ch){var g=fd.glyphs&&fd.glyphs[ch];return (g&&g.ha?g.ha:res*0.6)*scale;}
+  for(var ci=0;ci<str.length;ci++){var ch=str[ci];
+    if(!ch.trim()){penX+=adv(ch)||res*0.4*scale;continue;}
+    var shapes;try{shapes=font.generateShapes(ch,size);}catch(e){shapes=null;}
+    if(shapes&&shapes.length){var paths=[];shapes.forEach(function(sh){var p=sh.getPoints(8).map(function(pt){return toXY(pt,penX);});if(p.length>2)paths.push(p);
+      (sh.holes||[]).forEach(function(h){var hp=h.getPoints(8).map(function(pt){return toXY(pt,penX);});if(hp.length>2)paths.push(hp);});});
+      if(paths.length)out.push({paths:paths,char:ch});}
+    penX+=adv(ch);}
   return out;
 }
 function _tlithoBox(paths){var mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;paths.forEach(function(arr){(arr.paths||arr).forEach(function(p){p.forEach(function(pt){var x=pt.X/S,y=pt.Y/S;if(x<mnx)mnx=x;if(x>mxx)mxx=x;if(y<mny)mny=y;if(y>mxy)mxy=y;});});});return {x0:mnx,y0:mny,w:mxx-mnx,h:mxy-mny,cx:(mnx+mxx)/2,cy:(mny+mxy)/2};}
@@ -1990,7 +1998,7 @@ function tlithoAssembly(v){TLITHO.assembly=(v==="fused")?"fused":"separate";if(t
 function tlithoHeight(v){TLITHO.height=Math.max(20,Math.min(80,+v||40));var l=document.getElementById("tlitho_hl");if(l)l.textContent=Math.round(TLITHO.height);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoThick(which,v){v=+v;if(which==="min")TLITHO.minT=Math.max(0.4,Math.min(1.6,v||0.8));else TLITHO.maxT=Math.max(1.5,Math.min(3.0,v||3));if(TLITHO.maxT<TLITHO.minT+0.3)TLITHO.maxT=TLITHO.minT+0.3;var a=document.getElementById("tlitho_minl"),b=document.getElementById("tlitho_maxl");if(a)a.textContent=TLITHO.minT.toFixed(1);if(b)b.textContent=TLITHO.maxT.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoFrameTgl(){TLITHO.frame=!TLITHO.frame;var t=document.getElementById("tg_tlitho_frame");if(t)t.classList.toggle("on",TLITHO.frame);if(typeof scheduleBuild==="function")scheduleBuild();}
-function tlithoCavity(v){TLITHO.cavity=Math.max(6,Math.min(50,+v||25));var l=document.getElementById("tlitho_cavl");if(l)l.textContent=Math.round(TLITHO.cavity);if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoBack(v){TLITHO.back=Math.max(1,Math.min(8,+v||2));var l=document.getElementById("tlitho_backl");if(l)l.textContent=TLITHO.back.toFixed(1).replace(/\.0$/,"");if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoContrast(v){TLITHO.contrast=Math.max(0.5,Math.min(2.5,+v||1));var l=document.getElementById("tlitho_conl");if(l)l.textContent=TLITHO.contrast.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoInvert(){TLITHO.invert=!TLITHO.invert;var t=document.getElementById("tg_tlitho_inv");if(t)t.classList.toggle("on",TLITHO.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoQuality(v){TLITHO.quality=(v==="draft"||v==="fine")?v:"standard";if(typeof scheduleBuild==="function")scheduleBuild();}
@@ -3927,14 +3935,20 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _tOpt={minThickness:TLITHO.minT,maxThickness:TLITHO.maxT,invert:TLITHO.invert,contrast:TLITHO.contrast,gamma:TLITHO.gamma,targetCell:_qCell,capCells:520,center:false};
         var _wordUV={x0:_tnb.x0,y0:_tnb.y0,w:_tnb.w,h:_tnb.h};
         function _tlithoMesh(geo){var mt=lithophaneMaterial(),mh=new THREE.Mesh(geo,mt);mh.userData.lithoUL=mt.userData.uLit;mh.userData.lithoTint=mt.userData.uTint;return mh;}
-        var _lip=TLITHO.maxT+1.0,_wall=TLITHO.wall,_cav=TLITHO.cavity;   // lip sits 1mm proud of the litho peak → recess
-        // Build ONE letter/word lightbox: raised frame + LED cavity (buildTextFrame) with the recessed lithophane
-        // screen dropped into its opening (peak maxT < lip). Returns a group of both watertight solids.
+        var _lip=TLITHO.maxT+1.0,_wall=TLITHO.wall,_back=TLITHO.back;   // lip 1mm proud of the litho peak; solid backplate _back thick
+        // Build ONE letter lightbox: a SOLID backplate (LED wall) + a raised border wall, with the recessed
+        // lithophane screen sitting on the backplate inside the walls (peak maxT < lip). Not hollow.
+        var _fmat=new THREE.MeshStandardMaterial({color:"#f0f0f0",roughness:0.5,metalness:0});
         function _tlithoUnit(contour,img,sampleFn,uv,cx,cy,litOpts){
           var grp=new THREE.Group(),region=contour;
-          if(TLITHO.frame){var fr=buildTextFrame(contour,{wall:_wall,lip:_lip,cavity:_cav});
-            if(fr){fr.geo.translate(-cx,-cy,0);grp.add(new THREE.Mesh(fr.geo,new THREE.MeshStandardMaterial({color:"#f0f0f0",roughness:0.5,metalness:0})));
-              try{var _lr=off(contour,-(_wall-0.6));if(_lr&&_lr.length)region=_lr;}catch(e){}}}   // screen overlaps the frame's inner wall
+          if(TLITHO.frame){
+            // Solid backplate: the character extruded z=[-back, 0.3] (overlaps the screen base by 0.3mm → fuses).
+            try{var _bp=diffToShapes(contour,null,0);if(_bp&&_bp.length){var _bg=new THREE.ExtrudeGeometry(_bp,{depth:_back+0.3,bevelEnabled:false,curveSegments:6});_bg.translate(0,0,-_back);_bg.translate(-cx,-cy,0);grp.add(new THREE.Mesh(_bg,_fmat));}}catch(e){}
+            // Frame walls: a border ring (char−0.4 → char+wall) from the backplate back up to the front lip z=lip.
+            try{var _outer=off(contour,_wall),_innerW=off(contour,-0.4);if(_outer&&_outer.length){var _ws=diffToShapes(_outer,(_innerW&&_innerW.length)?_innerW:contour,0);
+              if(_ws&&_ws.length){var _wg=new THREE.ExtrudeGeometry(_ws,{depth:_back+_lip,bevelEnabled:false,curveSegments:6});_wg.translate(0,0,-_back);_wg.translate(-cx,-cy,0);grp.add(new THREE.Mesh(_wg,_fmat));}}}catch(e){}
+            try{var _lr=off(contour,-0.2);if(_lr&&_lr.length)region=_lr;}catch(e){}   // screen tucks just under the wall inner edge
+          }
           var lg=buildGlyphLithophane(region,img,Object.assign({},_tOpt,litOpts||{},{uvRect:uv,sampleFn:sampleFn||null}));
           if(lg){lg.translate(-cx,-cy,0);grp.add(_tlithoMesh(lg));}
           return grp.children.length?grp:null;
