@@ -787,8 +787,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="hint">Turn a name into <b>glowing photo-relief letters</b>: the exact lithophane depth math (dark = thick, light = thin) is projected onto the front face of each 3D letter, built as a <b>watertight</b> solid. Spans one image across the whole name, or maps a separate photo to each letter.</div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Text</span><input type="text" id="tlitho_text" maxlength="24" value="LOVE" placeholder="e.g. a name" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:16px system-ui,sans-serif;box-sizing:border-box" oninput="tlithoText(this.value)"></div>
       <div class="row"><span class="lbl">Image mode</span><select id="tlitho_mode" class="psel" style="width:auto" onchange="tlithoMode(this.value)"><option value="span">🖼 One image across the name</option><option value="perletter">🔤 A photo per letter</option></select></div>
-      <div class="toggle-row"><span class="lbl">Base bar (connects the letters)</span><div class="tg on" id="tg_tlitho_base" onclick="tlithoBaseTgl()"><div class="k"></div></div></div>
-      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Base height — <b id="tlitho_baseHl">8</b> mm</span><input type="range" id="tlitho_baseH" min="3" max="25" step="1" value="8" oninput="tlithoBaseH(this.value)"></div>
+      <div class="hint">Want a stand? Turn on <b>🧱 Desk base</b> in the <b>Mounting</b> tab — it builds a base sized to the whole name that the letters sit on.</div>
       <div class="row"><span class="lbl">Edge quality</span><select id="tlitho_q" class="psel" style="width:auto" onchange="tlithoQuality(this.value)"><option value="draft">Draft (fast)</option><option value="standard" selected>Standard</option><option value="fine">Fine (crisp edges)</option></select></div>
       <div id="tlitho_span" style="display:flex;flex-direction:column;gap:8px">
         <label class="upfont" style="cursor:pointer">⬆ Upload the image<input type="file" id="tlitho_span_file" accept="image/*" hidden onchange="tlithoSpanUpload(this)"></label>
@@ -1847,7 +1846,7 @@ var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
 var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5,cavity:30};
 // Text Lithophane: photo relief mapped onto glyph front faces. mode span|perletter, assembly separate|fused.
-var TLITHO={text:"LOVE",mode:"span",img:null,src:null,perImgs:{},height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,back:2,spacing:10,base:true,baseH:8};
+var TLITHO={text:"LOVE",mode:"span",img:null,src:null,perImgs:{},height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,back:2,spacing:10};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
@@ -1993,8 +1992,6 @@ function _tlithoPiecewise(letters,perImgs,invert,gamma,contrast,minT,range){
 // ---- Text Lithophane UI ----
 function tlithoText(v){TLITHO.text=(v||"").slice(0,24);tlithoRenderLetters();if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoMode(v){TLITHO.mode=(v==="perletter")?"perletter":"span";tlithoRenderLetters();if(typeof scheduleBuild==="function")scheduleBuild();}
-function tlithoBaseTgl(){TLITHO.base=!TLITHO.base;var t=document.getElementById("tg_tlitho_base");if(t)t.classList.toggle("on",TLITHO.base);if(typeof scheduleBuild==="function")scheduleBuild();}
-function tlithoBaseH(v){TLITHO.baseH=Math.max(3,Math.min(25,+v||8));var l=document.getElementById("tlitho_baseHl");if(l)l.textContent=Math.round(TLITHO.baseH);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoHeight(v){TLITHO.height=Math.max(20,Math.min(80,+v||40));var l=document.getElementById("tlitho_hl");if(l)l.textContent=Math.round(TLITHO.height);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoThick(which,v){v=+v;if(which==="min")TLITHO.minT=Math.max(0.4,Math.min(1.6,v||0.8));else TLITHO.maxT=Math.max(1.5,Math.min(3.0,v||3));if(TLITHO.maxT<TLITHO.minT+0.3)TLITHO.maxT=TLITHO.minT+0.3;var a=document.getElementById("tlitho_minl"),b=document.getElementById("tlitho_maxl");if(a)a.textContent=TLITHO.minT.toFixed(1);if(b)b.textContent=TLITHO.maxT.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoFrameTgl(){TLITHO.frame=!TLITHO.frame;var t=document.getElementById("tg_tlitho_frame");if(t)t.classList.toggle("on",TLITHO.frame);if(typeof scheduleBuild==="function")scheduleBuild();}
@@ -3978,13 +3975,18 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           else{var _pe=TLITHO.perImgs[li];if(!_pe)return;_img=_pe.img;var _bb2=_tlithoBox([{paths:u.contourG}]);_uv={x0:_bb2.x0,y0:_bb2.y0,w:_bb2.w,h:_bb2.h};}
           if(!_img)return;var _sg=_tlithoScreen(u.contourG,_img,null,_uv,_pb.cx,_pb.cy);
           if(_sg){_sg.position.set(0,0,_tz0);partList.push({group:_sg,name:"Letter "+(u.char||"?")+" · screen",flip:false,labs:true,tlitho:true,color:"#FFFFFF"});_built=true;}});
-        // BASE bar — a plinth spanning under all letters (its own dark body). Sits at the letters' bottom edge and
-        // overlaps ~1.5mm so it fuses them into ONE standing sign when co-printed (or acts as a mount track).
-        if(TLITHO.base&&_built){var _bMarg=Math.max(3,_wall+1.5),_bH=(TLITHO.baseH!=null?TLITHO.baseH:8);
-          var _bx0=-_pb.cx-_bMarg,_bx1=(_cursorX-_gap)-_pb.cx+_bMarg,_byTop=(_pb.y0-_pb.cy)+1.5,_byBot=(_pb.y0-_pb.cy)-_bH,_bz0=-_back,_bz1=_lip;
-          var _bgeo=new THREE.BoxGeometry(_bx1-_bx0,_byTop-_byBot,_bz1-_bz0);_bgeo.translate((_bx0+_bx1)/2,(_byBot+_byTop)/2,(_bz0+_bz1)/2);
-          var _bm=new THREE.Mesh(_bgeo,_fmat);_bm.userData.exportColor=_frameCol;var _bgrp=new THREE.Group();_bgrp.add(_bm);_bgrp.position.set(0,0,_tz0);
-          partList.push({group:_bgrp,name:"Base",flip:false,labs:true,tlitho:true,color:_frameCol});}
+        // DESK BASE — driven by the Mounting tab's "Desk base" option (its shape + size), fitted to the whole word:
+        // a stand the letters sit on. Only built when that mounting toggle is on; sized to at least span the name.
+        if(_built&&_mnt&&_mnt.base&&_mnt.base.on&&typeof _baseProfilePaths==="function"){try{
+          var _mb=_mnt.base,_wordW=(_cursorX-_gap),_bw=Math.max(+_mb.w||90,_wordW+12),_bd=Math.max(20,+_mb.d||58),_bt=Math.max(4,+_mb.t||10);
+          var _bshapes=shapesFromPaths(_baseProfilePaths(_mb.shape||"round",_bw,_bd));
+          if(_bshapes&&_bshapes.length){var _bgeo=new THREE.ExtrudeGeometry(_bshapes,{depth:_bt,bevelEnabled:false,curveSegments:8});
+            var _bgrp=new THREE.Group();var _bm=new THREE.Mesh(_bgeo,_fmat);_bm.userData.exportColor=_frameCol;_bgrp.add(_bm);
+            _bgrp.rotation.x=-Math.PI/2;   // lay the profile flat: width in X, depth in Z, thickness in Y
+            var _wby=(_pb.y0-_pb.cy)-(_mb.raise||0);   // letters' bottom (raise lifts them out of the base)
+            _bgrp.position.set(0,_wby-_bt+2,_tz0+(_lip-_back)/2);   // base top ~2mm into the letters, centred on their depth
+            partList.push({group:_bgrp,name:"Desk base",flip:false,labs:true,tlitho:true,color:_frameCol});}
+        }catch(e){}}
         if(_built)window.__labsStandalone=true;
       }
     }}catch(e){}
