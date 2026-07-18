@@ -799,7 +799,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickest (black) — <b id="tlitho_maxl">3.0</b> mm</span><input type="range" id="tlitho_max" min="1.5" max="3.0" step="0.1" value="3" oninput="tlithoThick('max',this.value)"></div>
       <div class="toggle-row"><span class="lbl">Raised frame + solid backplate</span><div class="tg on" id="tg_tlitho_frame" onclick="tlithoFrameTgl()"><div class="k"></div></div></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Backplate thickness — <b id="tlitho_backl">2</b> mm</span><input type="range" id="tlitho_back" min="1" max="8" step="0.5" value="2" oninput="tlithoBack(this.value)"></div>
-      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Letter spacing (gap) — <b id="tlitho_spl">8</b> mm</span><input type="range" id="tlitho_sp" min="0" max="25" step="1" value="8" oninput="tlithoSpacing(this.value)"></div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Letter spacing (gap) — <b id="tlitho_spl">10</b> mm</span><input type="range" id="tlitho_sp" min="0" max="25" step="1" value="10" oninput="tlithoSpacing(this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Contrast / gamma — <b id="tlitho_conl">1.0</b>×</span><input type="range" id="tlitho_con" min="0.5" max="2.5" step="0.05" value="1" oninput="tlithoContrast(this.value)"></div>
       <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_tlitho_inv" onclick="tlithoInvert()"><div class="k"></div></div></div>
       <div class="hint">Lithophanes are always <b>white</b> — the photo reads through thickness when the lamp is on. Turn the lamp on to preview the glow. Each letter is watertight and exports cleanly to your .3mf pipeline.</div>
@@ -1846,7 +1846,7 @@ var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
 var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5,cavity:30};
 // Text Lithophane: photo relief mapped onto glyph front faces. mode span|perletter, assembly separate|fused.
-var TLITHO={text:"LOVE",mode:"span",assembly:"separate",img:null,src:null,perImgs:{},height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,back:2,spacing:8};
+var TLITHO={text:"LOVE",mode:"span",assembly:"separate",img:null,src:null,perImgs:{},height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,back:2,spacing:10};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
@@ -3938,24 +3938,21 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         function _tlithoMesh(geo){var mt=lithophaneMaterial(),mh=new THREE.Mesh(geo,mt);mh.userData.lithoUL=mt.userData.uLit;mh.userData.lithoTint=mt.userData.uTint;return mh;}
         var _lip=TLITHO.maxT+1.0,_wall=TLITHO.wall,_back=TLITHO.back,_frameCol="#2B2B2B";   // dark frame (black filament), white screen
         var _fmat=new THREE.MeshStandardMaterial({color:_frameCol,roughness:0.55,metalness:0});
-        // Build a letter as TWO independent watertight pieces: a hollow FRAME tray (solid backplate + walls) and a
-        // separate lithophane SCREEN plug that drops into it. They are NOT merged, so each prints/colours on its own
-        // filament in Bambu Studio. Returns {frame, screen} groups.
-        function _tlithoUnit(contour,img,sampleFn,uv,cx,cy,litOpts){
-          var frameGrp=null,screenGrp=null,region=contour;
-          if(TLITHO.frame){frameGrp=new THREE.Group();
-            // Mesh A — FRAME: solid backplate (char, z=[-back,0]) + border walls (char−0.4 → char+wall, z=[-back,lip]).
-            try{var _bp=diffToShapes(contour,null,0);if(_bp&&_bp.length){var _bg=new THREE.ExtrudeGeometry(_bp,{depth:_back,bevelEnabled:false,curveSegments:6});_bg.translate(0,0,-_back);_bg.translate(-cx,-cy,0);var _mB=new THREE.Mesh(_bg,_fmat);_mB.userData.exportColor=_frameCol;frameGrp.add(_mB);}}catch(e){}
-            try{var _outer=off(contour,_wall),_innerW=off(contour,-0.4);if(_outer&&_outer.length){var _ws=diffToShapes(_outer,(_innerW&&_innerW.length)?_innerW:contour,0);
-              if(_ws&&_ws.length){var _wg=new THREE.ExtrudeGeometry(_ws,{depth:_back+_lip,bevelEnabled:false,curveSegments:6});_wg.translate(0,0,-_back);_wg.translate(-cx,-cy,0);var _mW=new THREE.Mesh(_wg,_fmat);_mW.userData.exportColor=_frameCol;frameGrp.add(_mW);}}}catch(e){}
-            if(!frameGrp.children.length)frameGrp=null;
-            try{var _lr=off(contour,-(0.4+0.3));if(_lr&&_lr.length)region=_lr;}catch(e){}   // screen plug fits inside the walls with a 0.3mm clearance
-          }
-          // Mesh B — SCREEN plug: dense relief (z 0.8..3.0) closed to a flat back at z=0. Sits flush on the frame.
-          var lg=buildGlyphLithophane(region,img,Object.assign({},_tOpt,litOpts||{},{uvRect:uv,sampleFn:sampleFn||null}));
-          if(lg){lg.translate(-cx,-cy,0);var _ms=_tlithoMesh(lg);_ms.userData.exportColor="#FFFFFF";screenGrp=new THREE.Group();screenGrp.add(_ms);}
-          return {frame:frameGrp,screen:screenGrp};
+        // Mesh A — FRAME tray: solid backplate (char, z=[-back,0]) + border walls (char−0.4 → char+wall, z=[-back,lip]).
+        function _tlithoFrame(contour,cx,cy){
+          if(!TLITHO.frame)return null;var g=new THREE.Group();
+          try{var _bp=diffToShapes(contour,null,0);if(_bp&&_bp.length){var _bg=new THREE.ExtrudeGeometry(_bp,{depth:_back,bevelEnabled:false,curveSegments:6});_bg.translate(0,0,-_back);_bg.translate(-cx,-cy,0);var _mB=new THREE.Mesh(_bg,_fmat);_mB.userData.exportColor=_frameCol;g.add(_mB);}}catch(e){}
+          try{var _outer=off(contour,_wall),_innerW=off(contour,-0.4);if(_outer&&_outer.length){var _ws=diffToShapes(_outer,(_innerW&&_innerW.length)?_innerW:contour,0);
+            if(_ws&&_ws.length){var _wg=new THREE.ExtrudeGeometry(_ws,{depth:_back+_lip,bevelEnabled:false,curveSegments:6});_wg.translate(0,0,-_back);_wg.translate(-cx,-cy,0);var _mW=new THREE.Mesh(_wg,_fmat);_mW.userData.exportColor=_frameCol;g.add(_mW);}}}catch(e){}
+          return g.children.length?g:null;
         }
+        // Mesh B — SCREEN plug: dense relief (z 0.8..3.0) closed to a flat back at z=0, sized to drop into the tray.
+        function _tlithoScreen(contour,img,sampleFn,uv,cx,cy,litOpts){
+          var region=contour;if(TLITHO.frame){try{var _lr=off(contour,-(0.4+0.3));if(_lr&&_lr.length)region=_lr;}catch(e){}}
+          var lg=buildGlyphLithophane(region,img,Object.assign({},_tOpt,litOpts||{},{uvRect:uv,sampleFn:sampleFn||null}));
+          if(!lg)return null;lg.translate(-cx,-cy,0);var _ms=_tlithoMesh(lg);_ms.userData.exportColor="#FFFFFF";var g=new THREE.Group();g.add(_ms);return g;
+        }
+        function _tlithoUnit(contour,img,sampleFn,uv,cx,cy,litOpts){return {frame:_tlithoFrame(contour,cx,cy),screen:_tlithoScreen(contour,img,sampleFn,uv,cx,cy,litOpts)};}
         // Push a unit as up to TWO independent parts (frame + screen) so they export as separate colourable bodies.
         function _pushUnit(u,baseName){
           if(u.frame){u.frame.position.set(0,0,_tz0);partList.push({group:u.frame,name:baseName+" · frame",flip:false,labs:true,tlitho:true,color:_frameCol});_built=true;}
@@ -3978,18 +3975,24 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           var _sfn=(TLITHO.mode==="span")?null:_tlithoPiecewise(_shLetters,TLITHO.perImgs,TLITHO.invert,TLITHO.gamma,TLITHO.contrast,TLITHO.minT,_trange);
           _pushUnit(_tlithoUnit(_uni,(TLITHO.mode==="span")?TLITHO.img:null,_sfn,_wuv,_wb.cx,_wb.cy,{capCells:760}),"Text lightbox");
         }else{
-          // SEPARATE: 100% independent letters. Lay each out by the width of its EXPANDED FRAME (char+wall) plus a
-          // hard letter-spacing gap, so adjacent frames never touch — a clear physical gap between every letter.
-          var _gap=(TLITHO.spacing!=null?TLITHO.spacing:8),_cursor=0,_placed=[];
-          _tletters.forEach(function(L){var _fp=L.paths;try{var _e=off(L.paths,_wall);if(_e&&_e.length)_fp=_e;}catch(e){}
-            var _fbb=_tlithoBox([{paths:_fp}]),_sX=Math.round((_cursor-_fbb.x0)*S);
-            _placed.push({paths:L.paths.map(function(p){return p.map(function(pt){return {X:pt.X+_sX,Y:pt.Y};});}),char:L.char});
-            _cursor+=_fbb.w+_gap;});
-          var _pb=_tlithoBox(_placed),_puv={x0:_pb.x0,y0:_pb.y0,w:_pb.w,h:_pb.h};
-          _placed.forEach(function(L,li){var _img,_uv;
-            if(TLITHO.mode==="span"){_img=TLITHO.img;_uv=_puv;}
-            else{var _pe=TLITHO.perImgs[li];if(!_pe)return;_img=_pe.img;var _bb=_tlithoBox([L]);_uv={x0:_bb.x0,y0:_bb.y0,w:_bb.w,h:_bb.h};}
-            if(!_img)return;_pushUnit(_tlithoUnit(L.paths,_img,null,_uv,_pb.cx,_pb.cy),"Letter "+(L.char||"?"));});   // each letter → separate frame + screen parts
+          // SEPARATE: 100% independent letters, zero overlap. PASS 1 — build each letter's real FRAME mesh and
+          // measure its true width with THREE.Box3, then advance the cursor by (frameWidth + gap). PASS 2 — place
+          // the measured frame + build the screen at that position. Gap is a hard physical whitespace between frames.
+          var _gap=(TLITHO.spacing!=null?TLITHO.spacing:8),_cursorX=0,_lay=[];
+          _tletters.forEach(function(L){var _fg=_tlithoFrame(L.paths,0,0),_w,_mnx;
+            if(_fg){_fg.updateMatrixWorld(true);var _bb=new THREE.Box3().setFromObject(_fg);_w=_bb.max.x-_bb.min.x;_mnx=_bb.min.x;}
+            else{var _b2=_tlithoBox([L]);_w=_b2.w;_mnx=_b2.x0;}
+            var _offX=_cursorX-_mnx;
+            _lay.push({fg:_fg,offX:_offX,contourG:L.paths.map(function(p){return p.map(function(pt){return {X:pt.X+Math.round(_offX*S),Y:pt.Y};});}),char:L.char});
+            _cursorX+=_w+_gap;});
+          var _pb=_tlithoBox(_lay.map(function(u){return {paths:u.contourG};}));
+          _lay.forEach(function(u,li){
+            if(u.fg){u.fg.position.set(u.offX-_pb.cx,-_pb.cy,_tz0);partList.push({group:u.fg,name:"Letter "+(u.char||"?")+" · frame",flip:false,labs:true,tlitho:true,color:_frameCol});_built=true;}
+            var _img,_uv;
+            if(TLITHO.mode==="span"){_img=TLITHO.img;_uv={x0:_pb.x0,y0:_pb.y0,w:_pb.w,h:_pb.h};}
+            else{var _pe=TLITHO.perImgs[li];if(!_pe)return;_img=_pe.img;var _bb2=_tlithoBox([{paths:u.contourG}]);_uv={x0:_bb2.x0,y0:_bb2.y0,w:_bb2.w,h:_bb2.h};}
+            if(!_img)return;var _sg=_tlithoScreen(u.contourG,_img,null,_uv,_pb.cx,_pb.cy);
+            if(_sg){_sg.position.set(0,0,_tz0);partList.push({group:_sg,name:"Letter "+(u.char||"?")+" · screen",flip:false,labs:true,tlitho:true,color:"#FFFFFF"});_built=true;}});
         }
         if(_built)window.__labsStandalone=true;
       }
