@@ -799,6 +799,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickest (black) — <b id="tlitho_maxl">3.0</b> mm</span><input type="range" id="tlitho_max" min="1.5" max="3.0" step="0.1" value="3" oninput="tlithoThick('max',this.value)"></div>
       <div class="toggle-row"><span class="lbl">Raised frame + solid backplate</span><div class="tg on" id="tg_tlitho_frame" onclick="tlithoFrameTgl()"><div class="k"></div></div></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Backplate thickness — <b id="tlitho_backl">2</b> mm</span><input type="range" id="tlitho_back" min="1" max="8" step="0.5" value="2" oninput="tlithoBack(this.value)"></div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Letter spacing (gap) — <b id="tlitho_spl">8</b> mm</span><input type="range" id="tlitho_sp" min="0" max="25" step="1" value="8" oninput="tlithoSpacing(this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Contrast / gamma — <b id="tlitho_conl">1.0</b>×</span><input type="range" id="tlitho_con" min="0.5" max="2.5" step="0.05" value="1" oninput="tlithoContrast(this.value)"></div>
       <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_tlitho_inv" onclick="tlithoInvert()"><div class="k"></div></div></div>
       <div class="hint">Lithophanes are always <b>white</b> — the photo reads through thickness when the lamp is on. Turn the lamp on to preview the glow. Each letter is watertight and exports cleanly to your .3mf pipeline.</div>
@@ -1845,7 +1846,7 @@ var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
 var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5,cavity:30};
 // Text Lithophane: photo relief mapped onto glyph front faces. mode span|perletter, assembly separate|fused.
-var TLITHO={text:"LOVE",mode:"span",assembly:"separate",img:null,src:null,perImgs:{},height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,back:2};
+var TLITHO={text:"LOVE",mode:"span",assembly:"separate",img:null,src:null,perImgs:{},height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,back:2,spacing:8};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
@@ -1969,18 +1970,15 @@ function buildTextFrame(contour,opts){
 // Lay out the text with the font's own advance widths and return each glyph's outline+holes as Clipper paths
 // (in shared layout coords) plus its character, so images can span the whole name or map per-letter.
 function _tlithoLetters(font,text,size){
-  // Loop through EACH character: generate that glyph's own shapes and place it by the font's advance width. This
-  // groups multi-part glyphs (the dot of an i/j, accents) into ONE letter and keeps every letter a distinct body.
-  var str=String(text),out=[],fd=font.data||{},res=fd.resolution||1000,scale=size/res,penX=0;
-  function toXY(pt,ox){return {X:Math.round((pt.x+ox)*S),Y:Math.round(pt.y*S)};}
-  function adv(ch){var g=fd.glyphs&&fd.glyphs[ch];return (g&&g.ha?g.ha:res*0.6)*scale;}
-  for(var ci=0;ci<str.length;ci++){var ch=str[ci];
-    if(!ch.trim()){penX+=adv(ch)||res*0.4*scale;continue;}
+  // Loop through EACH character and return its OWN glyph shapes at local origin (multi-part glyphs like the dot of
+  // an i/j or accents grouped into ONE letter). Placement/kerning is decided by the caller from the EXPANDED frame
+  // extents so letters never crash into each other.
+  var str=String(text),out=[];function toXY(pt){return {X:Math.round(pt.x*S),Y:Math.round(pt.y*S)};}
+  for(var ci=0;ci<str.length;ci++){var ch=str[ci];if(!ch.trim())continue;
     var shapes;try{shapes=font.generateShapes(ch,size);}catch(e){shapes=null;}
-    if(shapes&&shapes.length){var paths=[];shapes.forEach(function(sh){var p=sh.getPoints(8).map(function(pt){return toXY(pt,penX);});if(p.length>2)paths.push(p);
-      (sh.holes||[]).forEach(function(h){var hp=h.getPoints(8).map(function(pt){return toXY(pt,penX);});if(hp.length>2)paths.push(hp);});});
-      if(paths.length)out.push({paths:paths,char:ch});}
-    penX+=adv(ch);}
+    if(shapes&&shapes.length){var paths=[];shapes.forEach(function(sh){var p=sh.getPoints(8).map(toXY);if(p.length>2)paths.push(p);
+      (sh.holes||[]).forEach(function(h){var hp=h.getPoints(8).map(toXY);if(hp.length>2)paths.push(hp);});});
+      if(paths.length)out.push({paths:paths,char:ch});}}
   return out;
 }
 function _tlithoBox(paths){var mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;paths.forEach(function(arr){(arr.paths||arr).forEach(function(p){p.forEach(function(pt){var x=pt.X/S,y=pt.Y/S;if(x<mnx)mnx=x;if(x>mxx)mxx=x;if(y<mny)mny=y;if(y>mxy)mxy=y;});});});return {x0:mnx,y0:mny,w:mxx-mnx,h:mxy-mny,cx:(mnx+mxx)/2,cy:(mny+mxy)/2};}
@@ -1999,6 +1997,7 @@ function tlithoHeight(v){TLITHO.height=Math.max(20,Math.min(80,+v||40));var l=do
 function tlithoThick(which,v){v=+v;if(which==="min")TLITHO.minT=Math.max(0.4,Math.min(1.6,v||0.8));else TLITHO.maxT=Math.max(1.5,Math.min(3.0,v||3));if(TLITHO.maxT<TLITHO.minT+0.3)TLITHO.maxT=TLITHO.minT+0.3;var a=document.getElementById("tlitho_minl"),b=document.getElementById("tlitho_maxl");if(a)a.textContent=TLITHO.minT.toFixed(1);if(b)b.textContent=TLITHO.maxT.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoFrameTgl(){TLITHO.frame=!TLITHO.frame;var t=document.getElementById("tg_tlitho_frame");if(t)t.classList.toggle("on",TLITHO.frame);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoBack(v){TLITHO.back=Math.max(1,Math.min(8,+v||2));var l=document.getElementById("tlitho_backl");if(l)l.textContent=TLITHO.back.toFixed(1).replace(/\.0$/,"");if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoSpacing(v){TLITHO.spacing=Math.max(0,Math.min(25,+v||8));var l=document.getElementById("tlitho_spl");if(l)l.textContent=Math.round(TLITHO.spacing);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoContrast(v){TLITHO.contrast=Math.max(0.5,Math.min(2.5,+v||1));var l=document.getElementById("tlitho_conl");if(l)l.textContent=TLITHO.contrast.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoInvert(){TLITHO.invert=!TLITHO.invert;var t=document.getElementById("tg_tlitho_inv");if(t)t.classList.toggle("on",TLITHO.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoQuality(v){TLITHO.quality=(v==="draft"||v==="fine")?v:"standard";if(typeof scheduleBuild==="function")scheduleBuild();}
@@ -3928,7 +3927,9 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     try{var _tlGate=(typeof featState!=="function")||featState("tlitho")!=="hidden";
     var _tlHasImg=(TLITHO.mode==="span")?!!TLITHO.img:(Object.keys(TLITHO.perImgs).length>0);
     if(_tlGate&&TLITHO.text&&TLITHO.text.trim()&&_tlHasImg&&typeof buildGlyphLithophane==="function"){
-      var _tfont=await loadFont(selFont.url),_tletters=_tlithoLetters(_tfont,TLITHO.text,TLITHO.height);
+      // Force a heavy BLOCK font (bold) for legibility, not a thin/script display font.
+      var _tfUrl=selFont.url;try{var _bf=(typeof FONTS!=="undefined"&&FONTS.filter(function(f){return /bold/i.test(f.url);})[0]);if(_bf)_tfUrl=_bf.url;}catch(e){}
+      var _tfont=await loadFont(_tfUrl),_tletters=_tlithoLetters(_tfont,TLITHO.text,TLITHO.height);
       if(_tletters.length){
         var _tnb=_tlithoBox(_tletters),_tz0=(TT||1)+0.05,_trange=Math.max(0.001,TLITHO.maxT-TLITHO.minT);
         var _qCell=({draft:0.4,standard:0.2,fine:0.13}[TLITHO.quality]||0.2);   // uniform grid cell size (mm) → clean edges below nozzle resolution
@@ -3971,11 +3972,18 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           var _fg=_tlithoUnit(_uni,(TLITHO.mode==="span")?TLITHO.img:null,_sfn,_wuv,_wb.cx,_wb.cy,{capCells:760});
           if(_fg){_fg.position.set(0,0,_tz0);partList.push({group:_fg,name:"Text lightbox",flip:false,labs:true,tlitho:true,color:"#FFFFFF"});_built=true;}
         }else{
-          // SEPARATE: each glyph is its own text-shaped lightbox (frame + recessed screen) — best for AMS per-letter.
-          _tletters.forEach(function(L,li){var _img,_uv,_sfn2=null;
-            if(TLITHO.mode==="span"){_img=TLITHO.img;_uv=_wordUV;}
+          // SEPARATE: 100% independent letters. Lay each out by the width of its EXPANDED FRAME (char+wall) plus a
+          // hard letter-spacing gap, so adjacent frames never touch — a clear physical gap between every letter.
+          var _gap=(TLITHO.spacing!=null?TLITHO.spacing:8),_cursor=0,_placed=[];
+          _tletters.forEach(function(L){var _fp=L.paths;try{var _e=off(L.paths,_wall);if(_e&&_e.length)_fp=_e;}catch(e){}
+            var _fbb=_tlithoBox([{paths:_fp}]),_sX=Math.round((_cursor-_fbb.x0)*S);
+            _placed.push({paths:L.paths.map(function(p){return p.map(function(pt){return {X:pt.X+_sX,Y:pt.Y};});}),char:L.char});
+            _cursor+=_fbb.w+_gap;});
+          var _pb=_tlithoBox(_placed),_puv={x0:_pb.x0,y0:_pb.y0,w:_pb.w,h:_pb.h};
+          _placed.forEach(function(L,li){var _img,_uv;
+            if(TLITHO.mode==="span"){_img=TLITHO.img;_uv=_puv;}
             else{var _pe=TLITHO.perImgs[li];if(!_pe)return;_img=_pe.img;var _bb=_tlithoBox([L]);_uv={x0:_bb.x0,y0:_bb.y0,w:_bb.w,h:_bb.h};}
-            if(!_img)return;var _lg=_tlithoUnit(L.paths,_img,null,_uv,_tnb.cx,_tnb.cy);
+            if(!_img)return;var _lg=_tlithoUnit(L.paths,_img,null,_uv,_pb.cx,_pb.cy);   // each letter its own independent group
             if(_lg){_lg.position.set(0,0,_tz0);partList.push({group:_lg,name:"Letter "+(L.char||"?"),flip:false,labs:true,tlitho:true,color:"#FFFFFF"});_built=true;}});
         }
         if(_built)window.__labsStandalone=true;
