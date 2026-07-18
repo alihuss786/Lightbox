@@ -788,7 +788,6 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Text</span><input type="text" id="tlitho_text" maxlength="24" value="LOVE" placeholder="e.g. a name" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:16px system-ui,sans-serif;box-sizing:border-box" oninput="tlithoText(this.value)"></div>
       <div class="row"><span class="lbl">Image mode</span><select id="tlitho_mode" class="psel" style="width:auto" onchange="tlithoMode(this.value)"><option value="span">🖼 One image across the name</option><option value="perletter">🔤 A photo per letter</option></select></div>
       <div class="hint">Want a stand? Turn on <b>🧱 Desk base</b> in the <b>Mounting</b> tab — it builds a base sized to the whole name that the letters sit on.</div>
-      <div class="row"><span class="lbl">Edge quality</span><select id="tlitho_q" class="psel" style="width:auto" onchange="tlithoQuality(this.value)"><option value="draft">Draft (fast)</option><option value="standard" selected>Standard</option><option value="fine">Fine (crisp edges)</option></select></div>
       <div id="tlitho_span" style="display:flex;flex-direction:column;gap:8px">
         <label class="upfont" style="cursor:pointer">⬆ Upload the image<input type="file" id="tlitho_span_file" accept="image/*" hidden onchange="tlithoSpanUpload(this)"></label>
         <div class="row"><span class="lbl">Preview</span><div id="tlitho_span_thumb" style="width:88px;height:88px;border-radius:10px;border:1px solid var(--line);background:#0a0b0e center/cover no-repeat;align-self:flex-start"></div></div>
@@ -797,9 +796,6 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Letter height — <b id="tlitho_hl">40</b> mm</span><input type="range" id="tlitho_h" min="20" max="80" step="2" value="40" oninput="tlithoHeight(this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thinnest (white) — <b id="tlitho_minl">0.8</b> mm</span><input type="range" id="tlitho_min" min="0.4" max="2" step="0.1" value="0.8" oninput="tlithoThick('min',this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickest (black) — <b id="tlitho_maxl">3.0</b> mm</span><input type="range" id="tlitho_max" min="1.5" max="3.0" step="0.1" value="3" oninput="tlithoThick('max',this.value)"></div>
-      <div class="toggle-row"><span class="lbl">Raised frame + solid backplate</span><div class="tg on" id="tg_tlitho_frame" onclick="tlithoFrameTgl()"><div class="k"></div></div></div>
-      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Backplate thickness — <b id="tlitho_backl">2</b> mm</span><input type="range" id="tlitho_back" min="1" max="8" step="0.5" value="2" oninput="tlithoBack(this.value)"></div>
-      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Letter spacing (gap) — <b id="tlitho_spl">10</b> mm</span><input type="range" id="tlitho_sp" min="0" max="25" step="1" value="10" oninput="tlithoSpacing(this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Contrast / gamma — <b id="tlitho_conl">1.0</b>×</span><input type="range" id="tlitho_con" min="0.5" max="2.5" step="0.05" value="1" oninput="tlithoContrast(this.value)"></div>
       <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_tlitho_inv" onclick="tlithoInvert()"><div class="k"></div></div></div>
       <div class="hint">Lithophanes are always <b>white</b> — the photo reads through thickness when the lamp is on. Turn the lamp on to preview the glow. Each letter is watertight and exports cleanly to your .3mf pipeline.</div>
@@ -3863,9 +3859,14 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // so the base letter/name/logo lightbox is hidden in the render preview (see applyLabsLight).
     window.__labsStandalone=(typeof LABS2!=="undefined"&&((LABS2.wordfill.on&&LABS2.wordfill.shape&&LABS2.wordfill.shape!=="mine")||(LABS2.shadow.on&&LABS2.shadow.scene)));
     try{var _l2Gate=(typeof featState!=="function")||featState("labs2")!=="hidden";if(_l2Gate&&typeof buildLabs2==="function"&&(LABS2.shadow.on||LABS2.wordfill.on)){var _lab2=await buildLabs2(filled,cx,cy,TT);if(_lab2&&_lab2.length)_lab2.forEach(function(p){partList.push(p);});}}catch(e){}
+    // Only ONE standalone photo generator owns the scene at a time: the currently-open generator tab, else the last
+    // one used. Stops e.g. the Text Lithophane persisting after you switch back to the normal Lithophane tab.
+    try{var _GENS=["litho1","shadowtrace","tlitho"],_oa=document.querySelector(".controls .acc.open"),_ofeat=_oa?_oa.getAttribute("data-feat"):null;if(_ofeat&&_GENS.indexOf(_ofeat)>=0)window.__activeGen=_ofeat;}catch(e){}
+    var _actGen=(window.__activeGen&&["litho1","shadowtrace","tlitho"].indexOf(window.__activeGen)>=0)?window.__activeGen:null;
+    function _genOK(f){return !_actGen||_actGen===f;}
     // Lithophane 1 — a native, watertight lithophane solid sized to the lid cutout. It IS the whole front piece,
     // so (like a standalone Labs scene) it prints on its own plate and hides the base box in the preview.
-    try{var _l1Gate=(typeof featState!=="function")||featState("litho1")!=="hidden";if(_l1Gate&&LITHO1.on&&LITHO1.img&&typeof buildLithophaneGeometry==="function"){
+    try{var _l1Gate=(typeof featState!=="function")||featState("litho1")!=="hidden";if(_l1Gate&&_genOK("litho1")&&LITHO1.on&&LITHO1.img&&typeof buildLithophaneGeometry==="function"){
       // Match the uploaded image's ASPECT RATIO (contain-fit within the lid footprint) so it is never stretched.
       var _iw=LITHO1.img.naturalWidth||LITHO1.img.width||1,_ih=LITHO1.img.naturalHeight||LITHO1.img.height||1,_ar=_iw/_ih;
       var _aw=Math.max(20,LW),_ah=Math.max(20,LH),_lW=_aw,_lH=_aw/_ar,_z0=(TT||1)+0.05,_boxMax=LITHO1.maxT;if(_lH>_ah){_lH=_ah;_lW=_ah*_ar;}
@@ -3902,7 +3903,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // with internal comb rails sized to the layer count that physically holds the plates. Exports as separate
     // unmerged bodies (drop-in for Bambu "Auto Orient / Lay on Face").
     try{var _stGate=(typeof featState!=="function")||featState("shadowtrace")!=="hidden";
-    if(_stGate&&SHTRACE.on&&SHTRACE.img&&typeof buildShadowTrace==="function"){
+    if(_stGate&&_genOK("shadowtrace")&&SHTRACE.on&&SHTRACE.img&&typeof buildShadowTrace==="function"){
       var _st=buildShadowTrace(SHTRACE.img,{widthMm:SHTRACE.widthMm,thickness:SHTRACE.thickness,smooth:SHTRACE.smooth,frame:SHTRACE.frame});
       var _sn=_st.length,_sz0=(TT||1)+0.05,_slotZ=null;
       if(_sn&&typeof buildShadowBoxEnclosure==="function"){
@@ -3925,7 +3926,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // into ONE connected text-shaped solid (like the Goku reference). White (lithophane) + backlit preview.
     try{var _tlGate=(typeof featState!=="function")||featState("tlitho")!=="hidden";
     var _tlHasImg=(TLITHO.mode==="span")?!!TLITHO.img:(Object.keys(TLITHO.perImgs).length>0);
-    if(_tlGate&&TLITHO.text&&TLITHO.text.trim()&&_tlHasImg&&typeof buildGlyphLithophane==="function"){
+    if(_tlGate&&_genOK("tlitho")&&TLITHO.text&&TLITHO.text.trim()&&_tlHasImg&&typeof buildGlyphLithophane==="function"){
       // Force a heavy BLOCK font (bold) for legibility, not a thin/script display font.
       var _tfUrl=selFont.url;try{var _bf=(typeof FONTS!=="undefined"&&FONTS.filter(function(f){return /bold/i.test(f.url);})[0]);if(_bf)_tfUrl=_bf.url;}catch(e){}
       var _tfont=await loadFont(_tfUrl),_tletters=_tlithoLetters(_tfont,TLITHO.text,TLITHO.height);
