@@ -358,7 +358,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:none;border-ra
 .controls .acc-b{padding:2px 4px 20px !important}
 .pl-tabs{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:12px;border-bottom:1px solid var(--hair)}
 .pl-tabs::-webkit-scrollbar{display:none}
-.pl-tab{flex:0 0 auto;background:none;border:none;color:var(--txt2);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:9px 11px;cursor:pointer;white-space:nowrap;position:relative;transition:color .15s}
+.pl-tab{flex:0 0 auto;background:none;border:none;color:var(--txt2);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:9px 11px;cursor:pointer;white-space:nowrap;position:relative;transition:color .15s;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;outline:none}
+.pl-tab:focus,.pl-tab:focus-visible{outline:none;box-shadow:none}
 .pl-tab:hover{color:var(--txt)}
 .pl-tab.active{color:var(--acc)}
 .pl-tab.active::after{content:"";position:absolute;left:11px;right:11px;bottom:-1px;height:2px;background:var(--acc);border-radius:2px}
@@ -494,8 +495,8 @@ input[type=text]:focus,input[type=number]:focus{border-color:var(--acc)}
 #themeBtn:hover{border-color:var(--acc)}
 #themeBtn:active{transform:scale(.93)}
 .pl-tab .ptic{display:none!important}
-.sheet-hint{display:none}   /* the mobile bottom-sheet "swipe up" hint — shown only in the phone media query */
 .pl-randbtn{display:none}   /* the labelled Randomise button lives only in the phone sheet header */
+.sheet-grab{display:none}   /* the sheet grab-handle lives only in the phone sheet */
 /* Plates mode shows only the plate preview — hide the design controls panel
    and pull the mode/export bar to the top-left so it isn't stranded mid-screen */
 body.plates-mode .controls{display:none!important}
@@ -704,33 +705,25 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
   }
   .controls>*{pointer-events:auto}
   .controls::before{display:none!important}
-  /* content (everything except the nav + hint) collapses when the sheet is closed */
+  /* real grab-handle strip at the very top of the sheet — swipe it DOWN (or tap) to close the open menu */
+  .sheet-grab{order:0;flex:0 0 auto;display:none;align-items:center;justify-content:center;height:26px;margin:0;cursor:grab;touch-action:none;pointer-events:auto}
+  .sheet-grab::before{content:"";width:46px;height:5px;border-radius:3px;background:var(--line2);opacity:.9}
+  .controls.sheet-open .sheet-grab{display:flex}
+  /* content collapses when the sheet is closed */
   .controls>.pl-head,.controls>.acc{order:1;flex:0 0 auto;padding-left:16px;padding-right:16px;
     transition:max-height .44s cubic-bezier(.22,1,.36,1),opacity .3s ease,transform .44s cubic-bezier(.22,1,.36,1),padding .3s ease}
-  .controls>.pl-head{padding-top:14px;padding-bottom:6px}
+  .controls>.pl-head{padding-top:8px;padding-bottom:6px}
   .controls:not(.sheet-open)>.pl-head,.controls:not(.sheet-open)>.acc{
     max-height:0!important;opacity:0;overflow:hidden;padding-top:0!important;padding-bottom:0!important;
     margin-top:0!important;margin-bottom:0!important;transform:translateY(14px);pointer-events:none}
   .controls.sheet-open{background:var(--card)!important;border-top:1px solid var(--cardline)!important;
-    border-radius:22px 22px 0 0;box-shadow:0 -26px 64px -30px rgba(0,0,0,.6)!important;pointer-events:auto;padding-top:8px!important}
-  .controls.sheet-open::before{display:block!important;content:""!important;width:44px;height:5px;border-radius:3px;background:var(--line2);margin:2px auto 8px!important;opacity:.85;order:0;flex:0 0 auto}
+    border-radius:22px 22px 0 0;box-shadow:0 -26px 64px -30px rgba(0,0,0,.6)!important;pointer-events:auto;padding-top:4px!important}
   .controls.sheet-open>.pl-head{max-height:64px;opacity:1;transform:none;flex:0 0 auto;padding-top:2px}
-  /* the open panel scrolls INTERNALLY (capped height) so the nav stays visible and content is never cut off
-     (the global .acc{overflow:visible!important} is overridden here). --shH is the live visible height (JS). */
-  /* PEEK — tapping a tab opens the sheet part-way (top bar + upper 3D stay visible); slide up for the rest */
-  .controls.sheet-open>.acc.open{flex:0 0 auto;opacity:1;transform:none;overflow-y:auto!important;-webkit-overflow-scrolling:touch;padding-bottom:14px;max-height:calc(var(--shH,100vh) * 0.36)}
-  /* FULL — after sliding up; reserve enough for the header + nav (incl. safe-area) + top bar so the nav stays visible */
-  .controls.sheet-open.sheet-full>.acc.open{max-height:calc(var(--shH,100vh) - 330px)}
+  /* the open menu scrolls INTERNALLY (capped so the nav + top bar stay visible; overrides the global
+     .acc{overflow:visible!important}). --shH is the live visible height (JS). */
+  .controls.sheet-open>.acc.open{flex:0 0 auto;opacity:1;transform:none;overflow-y:auto!important;-webkit-overflow-scrolling:touch;padding-bottom:14px;max-height:calc(var(--shH,100vh) - 280px)}
   /* the pill nav, pinned at the very bottom, always visible */
   .controls .pl-tabs{order:9;flex:0 0 auto;margin:8px 10px calc(9px + env(safe-area-inset-bottom));position:relative;z-index:3}
-  /* flashing "slide up for more" hint — visible while the sheet is at PEEK, gone once it's fully open */
-  .controls .sheet-hint{order:8;flex:0 0 auto;pointer-events:auto;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;
-    height:0;opacity:0;overflow:hidden;color:var(--acc);font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;
-    transition:height .3s ease,opacity .3s ease}
-  .controls.sheet-open:not(.sheet-full) .sheet-hint{height:26px;opacity:1;animation:hintFlash 1.05s ease-in-out infinite}
-  .controls .sheet-hint .harrow{font-size:17px;line-height:1;display:inline-block;animation:hintBounce 1.05s ease-in-out infinite}
-  @keyframes hintBounce{0%,100%{transform:translateY(2px)}50%{transform:translateY(-5px)}}
-  @keyframes hintFlash{0%,100%{opacity:.5}50%{opacity:1}}
 }
 </style>
 </head>
@@ -1553,22 +1546,17 @@ function toggleLight(){if((window.__explodeAmt||0)>0.001)return;lightOn=!lightOn
   if(userTap)plSheetOpen();   // a real tap opens the menu (slides up) + flashes the ^ hint
   try{scheduleBuild();}catch(e){}}   // switching tabs snaps the preview to the tab you're now on
 // Three-stage mobile sheet: CLOSED → PEEK (part-way, ^ hint flashing) → FULL. Tapping a tab opens to PEEK.
-function plSheetOpen(){var w=document.querySelector(".controls");if(!w)return;w.classList.add("sheet-open");w.classList.remove("sheet-full");try{w.scrollTop=0;}catch(e){}}
-function plSheetFull(){var w=document.querySelector(".controls");if(w&&w.classList.contains("sheet-open"))w.classList.add("sheet-full");}
-function plSheetPeek(){var w=document.querySelector(".controls");if(w)w.classList.remove("sheet-full");}
-function plSheetClose(){var w=document.querySelector(".controls");if(w){w.classList.remove("sheet-open");w.classList.remove("sheet-full");}}
-// Swipe the nav bar (or the hint) up to expand / down to collapse the sheet, one stage at a time.
+function plSheetOpen(){var w=document.querySelector(".controls");if(!w)return;w.classList.add("sheet-open");try{w.scrollTop=0;}catch(e){}}
+function plSheetClose(){var w=document.querySelector(".controls");if(w)w.classList.remove("sheet-open");}
+function plSheetFull(){plSheetOpen();}function plSheetPeek(){}   // legacy no-ops (single open state now)
+// Swipe DOWN on the grab-handle / header / nav to close the open menu; swipe up on the nav opens it.
 function plSheetSwipe(bar){if(!bar||bar.__swipe)return;bar.__swipe=1;var y0=null;
   function start(e){y0=(e.touches?e.touches[0]:e).clientY;}
-  function move(e){if(y0==null)return;var dy=(e.touches?e.touches[0]:e).clientY-y0;var w=document.querySelector(".controls");if(!w)return;
-    var open=w.classList.contains("sheet-open"),full=w.classList.contains("sheet-full");
-    if(dy<-26){if(!open){plSheetOpen();y0=null;}else if(!full){plSheetFull();y0=null;}}
-    else if(dy>26){if(full){plSheetPeek();y0=null;}else if(open){plSheetClose();y0=null;}}}
+  function move(e){if(y0==null)return;var dy=(e.touches?e.touches[0]:e).clientY-y0;var w=document.querySelector(".controls");if(!w)return;var open=w.classList.contains("sheet-open");
+    if(dy>24&&open){plSheetClose();y0=null;}else if(dy<-24&&!open){plSheetOpen();y0=null;}}
   function end(){y0=null;}
   function bind(el){if(!el)return;el.addEventListener("touchstart",start,{passive:true});el.addEventListener("touchmove",move,{passive:true});el.addEventListener("touchend",end,{passive:true});}
-  bind(bar);bind(document.querySelector(".controls .sheet-hint"));bind(document.querySelector(".controls .pl-head"));
-  // Tapping the grab-handle strip at the very top of the sheet steps it down (full→peek→closed).
-  var wrap=document.querySelector(".controls");if(wrap&&!wrap.__handleTap){wrap.__handleTap=1;wrap.addEventListener("click",function(e){var w=document.querySelector(".controls");if(!w.classList.contains("sheet-open"))return;if(e.target!==w)return;/* only the bare grab-handle strip, never a bubbled child click */var r=w.getBoundingClientRect();if(e.clientY-r.top>34)return;if(w.classList.contains("sheet-full"))plSheetPeek();else plSheetClose();});}}
+  bind(bar);bind(document.querySelector(".controls .pl-head"));bind(document.querySelector(".controls .sheet-grab"));}
 // Keep --shH synced to the LIVE visible viewport height so the bottom sheet caps correctly on every device
 // (100vh/100dvh mis-measure with the browser chrome; window.innerHeight is the reliable visible height).
 function plSetVH(){try{document.documentElement.style.setProperty("--shH",window.innerHeight+"px");}catch(e){}}
@@ -1579,8 +1567,8 @@ function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wr
     var _ico=(typeof TABICON!=="undefined"&&_df&&TABICON[_df])||(name.match(/[\u{1F000}-\u{1FAFF}←-➿⬀-⯿]/u)||[])[0]||"◉";   // per-tab glyph (map → any emoji already in the header → dot)
     var _lbl=name.replace(/[\u{1F000}-\u{1FAFF}←-➿⬀-⯿️]/gu,"").trim()||name;   // label with the emoji stripped
     t.innerHTML='<span class="ptic">'+_ico+'</span><span class="ptlbl">'+_lbl+'</span>';t.setAttribute("data-i",i);t.setAttribute("aria-label",_lbl);t.onclick=function(){plTab(i,true);};bar.appendChild(t);});[].slice.call(bar.querySelectorAll(".pl-soon")).forEach(function(x){bar.appendChild(x);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}
-  // flashing "slide up" hint that appears just above the nav when the sheet opens (mobile only)
-  if(!wrap.querySelector(".sheet-hint")){var hint=document.createElement("div");hint.className="sheet-hint";hint.innerHTML='<span class="harrow">⌃</span><span>slide up for more</span>';hint.onclick=function(){plSheetFull();};wrap.insertBefore(hint,bar);}
+  // real grab-handle strip at the very top of the sheet (swipe down / tap to close)
+  if(!wrap.querySelector(".sheet-grab")){var grab=document.createElement("div");grab.className="sheet-grab";grab.setAttribute("role","button");grab.setAttribute("aria-label","Close menu");grab.onclick=function(){plSheetClose();};wrap.insertBefore(grab,wrap.firstChild);}
   try{plSheetSwipe(bar);}catch(e){}
   // give the sheet header a proper labelled Randomise button (the bare dice looked lost on its own)
   try{var _ph=wrap.querySelector(".pl-head");if(_ph&&!_ph.querySelector(".pl-randbtn")){var _rb=document.createElement("button");_rb.className="pl-randbtn";_rb.innerHTML='<span class="rdice">🎲</span> Randomise colours';_rb.onclick=function(){plRandom();};_ph.insertBefore(_rb,_ph.firstChild);}}catch(e){}
