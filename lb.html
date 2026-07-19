@@ -495,6 +495,7 @@ input[type=text]:focus,input[type=number]:focus{border-color:var(--acc)}
 #themeBtn:active{transform:scale(.93)}
 .pl-tab .ptic{display:none!important}
 .sheet-hint{display:none}   /* the mobile bottom-sheet "swipe up" hint — shown only in the phone media query */
+.pl-randbtn{display:none}   /* the labelled Randomise button lives only in the phone sheet header */
 /* Plates mode shows only the plate preview — hide the design controls panel
    and pull the mode/export bar to the top-left so it isn't stranded mid-screen */
 body.plates-mode .controls{display:none!important}
@@ -686,8 +687,15 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
   /* ===== BOTTOM-SHEET NAV: the pill bar lives at the very bottom; the menu content stays CLOSED until a tab is
      tapped, then slides up. A flashing ^ hint invites sliding up. ===== */
   .topbar{z-index:46!important}        /* Render / Plates / Export stay ABOVE the sheet so they're always tappable */
-  .controls .pl-title{display:none!important}   /* removed the "Studio" selector from the sheet header (keeps the randomiser) */
-  .controls.sheet-open>.pl-head{justify-content:flex-end}
+  /* the 3D stage fills the screen down to the nav (no dead black band below the old 48vh canvas) */
+  .canvas-wrap{height:calc(var(--shH,100vh) - 56px)!important}
+  .controls .pl-title{display:none!important}   /* removed the "Studio" selector from the sheet header */
+  .controls .pl-dice{display:none!important}    /* replaced by a labelled Randomise button (see .pl-randbtn) */
+  .controls.sheet-open>.pl-head{justify-content:stretch;gap:0}
+  .pl-randbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:9px;padding:11px 14px;border-radius:14px;
+    border:1px solid var(--cardline);background:var(--soft);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer}
+  .pl-randbtn:active{transform:scale(.98)}
+  .pl-randbtn .rdice{font-size:17px;line-height:1}
   .controls{
     position:fixed!important;left:0;right:0;bottom:0;top:auto!important;z-index:41;
     margin:0!important;padding:0!important;display:flex;flex-direction:column;max-height:calc(var(--shH,100vh) - 100px);
@@ -1574,6 +1582,8 @@ function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wr
   // flashing "slide up" hint that appears just above the nav when the sheet opens (mobile only)
   if(!wrap.querySelector(".sheet-hint")){var hint=document.createElement("div");hint.className="sheet-hint";hint.innerHTML='<span class="harrow">⌃</span><span>slide up for more</span>';hint.onclick=function(){plSheetFull();};wrap.insertBefore(hint,bar);}
   try{plSheetSwipe(bar);}catch(e){}
+  // give the sheet header a proper labelled Randomise button (the bare dice looked lost on its own)
+  try{var _ph=wrap.querySelector(".pl-head");if(_ph&&!_ph.querySelector(".pl-randbtn")){var _rb=document.createElement("button");_rb.className="pl-randbtn";_rb.innerHTML='<span class="rdice">🎲</span> Randomise colours';_rb.onclick=function(){plRandom();};_ph.insertBefore(_rb,_ph.firstChild);}}catch(e){}
   var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0,false);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
 function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Letter"],name:["\u270e","Name"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"],logo:["\u25a3","Logo"],lithophane:["\u25d0","Lithophane"],labs:["\u2728","Labs"],labs2:["\u2728","Labs 2"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
