@@ -632,9 +632,15 @@ body.ar-open #acct{display:none!important}
   .fbtn.sel,.nbtn.sel,.pcard.sel,.texcard.sel{border-color:var(--acc)!important;background:var(--accdim)!important}
   .texcard.sel .texname{color:var(--acc)}
 
-  /* wider texture grid like the reference */
-  .texgrid{grid-template-columns:repeat(4,1fr)!important;gap:8px}
-  .texname{font-size:9px}
+  /* Uniform chooser grids: minmax(0,1fr) forces every column to the SAME width (plain 1fr lets a long
+     name — "Basketweave", "Triceratops" — widen its column and shove the last one off the edge).
+     grid-auto-rows:1fr + height:100% makes every card the same height too. */
+  .texgrid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px;grid-auto-rows:1fr}
+  .texcard{height:100%;justify-content:flex-start}
+  .texname{font-size:9px;overflow-wrap:break-word;word-break:break-word}
+  .catalog-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px;grid-auto-rows:1fr}
+  .cat-item{height:100%;justify-content:flex-start}
+  .cat-nm{overflow-wrap:break-word;word-break:break-word;text-align:center;line-height:1.2}
 
   /* top toolbar: render/plates + export — top-left corner, matched to the nav bar's height, menu tucks under it */
   .topbar{
