@@ -578,21 +578,39 @@ body.ar-open #acct{display:none!important}
   .controls .pl-dice{width:48px;height:48px;flex:none;border-radius:14px;background:var(--soft)!important;border:1px solid var(--cardline)!important;color:var(--acc);font-size:19px;box-shadow:none}
   .controls .pl-dice:hover{border-color:var(--acc)!important}
 
-  /* horizontal green text tabs */
+  /* TOP NAV — the same glowing icon-pill nav as mobile, floated across the top of the stage.
+     A dark pill of silhouette icons; the ACTIVE tab lights up with a downward light-beam + glowing
+     underline and expands to reveal its label (on-theme for a lightbox). */
   .controls .pl-tabs{
-    position:static;transform:none;display:flex;flex-direction:row;gap:1px;margin:2px 16px 4px;padding:0;
-    background:none;box-shadow:none;border:none;border-bottom:1px solid var(--cardline);border-radius:0;
-    overflow-x:auto;overflow-y:visible;-webkit-backdrop-filter:none;backdrop-filter:none;
+    position:fixed;top:16px;left:calc(50% + 188px);transform:translateX(-50%);z-index:46;
+    display:flex;flex-direction:row;flex-wrap:nowrap;gap:3px;width:max-content;max-width:calc(100vw - 720px);
+    margin:0;padding:9px 14px 15px;overflow-x:auto;overflow-y:visible;scroll-behavior:smooth;scrollbar-width:none;
+    background:linear-gradient(180deg,rgba(27,31,40,.97),rgba(13,15,21,.98));
+    border:1px solid rgba(255,255,255,.07);border-radius:20px;border-bottom:1px solid rgba(255,255,255,.07);
+    box-shadow:0 14px 34px -18px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.05);
+    -webkit-backdrop-filter:none;backdrop-filter:none;
   }
+  .controls .pl-tabs::-webkit-scrollbar{display:none}
   .controls .pl-tab{
-    width:auto;height:auto;flex:0 0 auto;flex-direction:row;border-radius:0;background:none;border:none;
-    padding:10px 11px;color:var(--txt2);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
-    position:relative;transition:color .15s;
+    flex:0 0 auto;position:relative;display:flex;flex-direction:row;align-items:center;justify-content:flex-start;overflow:visible;
+    width:46px;height:40px;padding:0;border-radius:12px;background:none;border:none;color:#cbd4de;opacity:.42;
+    text-transform:none;letter-spacing:.01em;
+    transition:width .42s cubic-bezier(.22,1,.36,1),opacity .3s ease,color .3s ease;
   }
-  .controls .pl-tab .ptlbl{display:inline;font-size:11px;font-weight:700;letter-spacing:.05em}
-  .controls .pl-tab:hover{background:none;color:var(--txt)}
-  .controls .pl-tab.active{background:none;color:var(--acc)}
-  .controls .pl-tab.active::after{content:"";display:block;position:absolute;left:9px;right:9px;bottom:-1px;height:2.5px;background:var(--acc);border-radius:3px}
+  .controls .pl-tab .ptic{display:flex!important;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:34px;font-size:20px;line-height:1;
+    transition:filter .3s ease,transform .3s cubic-bezier(.22,1,.36,1)}
+  .controls .pl-tab .ptic svg{width:23px;height:23px;display:block}
+  .controls .pl-tab .ptlbl{display:block;opacity:0;max-width:0;white-space:nowrap;overflow:hidden;transform:translateX(-6px);
+    font-size:12.5px;font-weight:700;letter-spacing:.01em;text-transform:none;color:#eaf6ff;
+    transition:opacity .25s ease,max-width .42s cubic-bezier(.22,1,.36,1),transform .35s ease}
+  .controls .pl-tab:hover{background:none;color:#e6eef6}
+  .controls .pl-tab.active{width:auto;opacity:1;color:#fff;background:none}
+  .controls .pl-tab.active .ptlbl{opacity:1;max-width:170px;transform:translateX(0);padding-right:14px;text-shadow:0 0 10px rgba(190,240,255,.4)}
+  .controls .pl-tab.active .ptic{transform:translateY(-1px);filter:drop-shadow(0 0 8px rgba(205,244,255,.95)) drop-shadow(0 1px 14px rgba(120,215,255,.55))}
+  .controls .pl-tab.active::before{content:"";position:absolute;left:23px;bottom:-6px;transform:translateX(-50%);width:36px;height:24px;pointer-events:none;
+    background:radial-gradient(ellipse 55% 100% at 50% 0%,rgba(205,244,255,.9),rgba(120,215,255,.32) 44%,transparent 72%);filter:blur(2px)}
+  .controls .pl-tab.active::after{content:"";display:block;position:absolute;left:23px;right:auto;bottom:-7px;transform:translateX(-50%);width:22px;height:3px;border-radius:3px;background:#f0fbff;
+    box-shadow:0 0 10px 2px rgba(205,244,255,.95),0 0 22px 7px rgba(120,215,255,.5)}
 
   /* content padding + flat sections */
   .controls .acc{margin:0;background:transparent!important;border:none!important;box-shadow:none!important}
@@ -608,9 +626,9 @@ body.ar-open #acct{display:none!important}
   .texgrid{grid-template-columns:repeat(4,1fr)!important;gap:8px}
   .texname{font-size:9px}
 
-  /* top toolbar: render/plates + export, just right of the panel */
+  /* top toolbar: render/plates + export, tucked below the floating top nav, just right of the panel */
   .topbar{
-    top:20px;left:392px;gap:10px;align-items:center;padding:6px 8px;
+    top:74px;left:392px;gap:10px;align-items:center;padding:6px 8px;
     background:var(--card);border:1px solid var(--cardline);border-radius:14px;box-shadow:0 10px 26px -16px rgba(0,0,0,.3);
     -webkit-backdrop-filter:none;backdrop-filter:none;
   }
