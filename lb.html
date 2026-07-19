@@ -656,6 +656,7 @@ body.ar-open #acct{display:none!important}
     transition:width .42s cubic-bezier(.22,1,.36,1),opacity .3s ease,color .3s ease}
   .controls .pl-tab .ptic{display:flex!important;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:34px;font-size:20px;line-height:1;
     transition:filter .3s ease,transform .3s cubic-bezier(.22,1,.36,1)}
+  .controls .pl-tab .ptic svg{width:23px;height:23px;display:block}
   .controls .pl-tab .ptlbl{display:block;opacity:0;max-width:0;white-space:nowrap;overflow:hidden;transform:translateX(-6px);
     font-size:12.5px;font-weight:700;color:#eaf6ff;transition:opacity .25s ease,max-width .42s cubic-bezier(.22,1,.36,1),transform .35s ease}
   .controls .pl-tab.active{width:auto;opacity:1;color:#fff}
@@ -1603,10 +1604,30 @@ document.addEventListener("change",_fileGuardHit,true);     // when a file comes
 window.addEventListener("focus",function(){if(_fileBusy())_holdSheet();});   // when the page regains focus after the picker
 // Per-tab icons for the mobile expanding-pill nav (data-feat → emoji glyph).
 var TABICON={templates:"✨",textures:"🌐",lithophane:"🖼️",litho1:"🖼️",shadowtrace:"🌓",tlitho:"🔤",labs:"⚗️",labs2:"🌌",letter:"🔠",name:"✍️",logo:"🔺",models:"🧸",mounting:"🧱",testbase:"🧪",dimensions:"📐",assembly:"🧩",colour:"🎨",structure:"🧱",export:"⬇️"};
+// Monochrome line-silhouette icons (single-colour, inherit currentColor so they dim/brighten + glow with the active beam). data-feat → inner SVG markup.
+var TABSVG={
+  templates:'<rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/>',
+  textures:'<rect x="3.2" y="3.2" width="17.6" height="17.6" rx="2.4"/><path d="M3.2 9h17.6M3.2 15h17.6M9 3.2v17.6M15 3.2v17.6"/>',
+  lithophane:'<rect x="3" y="4.5" width="18" height="15" rx="2.2"/><circle cx="8.5" cy="9.5" r="1.7"/><path d="M4 17l4.5-4.5 3.5 3.5 3-3 4 4"/>',
+  litho1:'<rect x="3" y="4.5" width="18" height="15" rx="2.2"/><circle cx="8.5" cy="9.5" r="1.7"/><path d="M4 17l4.5-4.5 3.5 3.5 3-3 4 4"/>',
+  shadowtrace:'<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/>',
+  tlitho:'<path d="M5.5 6h13"/><path d="M12 6v12.5"/>',
+  letter:'<path d="M6 19.5l5.2-15h1.6l5.2 15"/><path d="M8 14h8"/>',
+  name:'<path d="M15 4.5l4.5 4.5L9.5 19l-5 1 1-5z"/><path d="M13.5 6l4.5 4.5"/>',
+  logo:'<path d="M12 3l2.5 5.6 6.1.5-4.6 4 1.4 6-5.4-3.2L6.6 19l1.4-6-4.6-4 6.1-.5z"/>',
+  models:'<path d="M12 3l8 4.6v8.8L12 21l-8-4.6V7.6z"/><path d="M12 3v18M4 7.6l8 4.6 8-4.6"/>',
+  mounting:'<circle cx="12" cy="8.5" r="3.6"/><path d="M10.6 11.4L9 19.5h6l-1.6-8.1"/>',
+  dimensions:'<rect x="3" y="9" width="18" height="6" rx="1.4"/><path d="M7.5 9v3M11 9v4M14.5 9v3M18 9v4"/>',
+  assembly:'<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  labs:'<path d="M9 3v6.5L4.5 18a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L15 9.5V3"/><path d="M8 3h8"/>',
+  labs2:'<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="9" ry="3.6"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(60 12 12)"/>',
+  mounting_kh:'',testbase:'<path d="M9 3v6.5L4.5 18a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L15 9.5V3"/><path d="M8 3h8"/>'
+};
 function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export)$/i.test(name))return;var _df=acc.getAttribute("data-feat");if(_df&&featState(_df)==="hidden")return;var t=document.createElement("button");t.className="pl-tab"+(acc.classList.contains("feat-soon")?" pl-soon":"");
     var _ico=(typeof TABICON!=="undefined"&&_df&&TABICON[_df])||(name.match(/[\u{1F000}-\u{1FAFF}←-➿⬀-⯿]/u)||[])[0]||"◉";   // per-tab glyph (map → any emoji already in the header → dot)
     var _lbl=name.replace(/[\u{1F000}-\u{1FAFF}←-➿⬀-⯿️]/gu,"").trim()||name;   // label with the emoji stripped
-    t.innerHTML='<span class="ptic">'+_ico+'</span><span class="ptlbl">'+_lbl+'</span>';t.setAttribute("data-i",i);t.setAttribute("aria-label",_lbl);t.onclick=function(){plTab(i,true);};bar.appendChild(t);});[].slice.call(bar.querySelectorAll(".pl-soon")).forEach(function(x){bar.appendChild(x);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}
+    var _svg=(typeof TABSVG!=="undefined"&&_df&&TABSVG[_df])?('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+TABSVG[_df]+'</svg>'):_ico;
+    t.innerHTML='<span class="ptic">'+_svg+'</span><span class="ptlbl">'+_lbl+'</span>';t.setAttribute("data-i",i);t.setAttribute("aria-label",_lbl);t.onclick=function(){plTab(i,true);};bar.appendChild(t);});[].slice.call(bar.querySelectorAll(".pl-soon")).forEach(function(x){bar.appendChild(x);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}
   // real grab-handle strip at the very top of the sheet (swipe down / tap to close)
   if(!wrap.querySelector(".sheet-grab")){var grab=document.createElement("div");grab.className="sheet-grab";grab.setAttribute("role","button");grab.setAttribute("aria-label","Close menu");grab.onclick=function(){plSheetClose();};wrap.insertBefore(grab,wrap.firstChild);}
   try{plSheetSwipe(bar);}catch(e){}
