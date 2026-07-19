@@ -642,24 +642,32 @@ body.ar-open #acct{display:none!important}
   .controls::before{content:""!important;display:block!important;width:40px;height:5px;border-radius:3px;background:var(--line2);margin:2px auto 12px!important;padding:0!important;opacity:.85}
   /* EXPANDING PILL NAV — a glassy rounded bar of icons; the active tab smoothly grows to reveal its label.
      Inspired by the reference: overflow-hidden pills, cubic-bezier width, a white active pill and a cyan glow. */
-  .controls .pl-tabs{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;overflow-y:hidden;border-bottom:none;
-    margin:0 0 14px;padding:7px 9px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;scrollbar-width:none;
-    background:linear-gradient(180deg,rgba(22,28,38,.94),rgba(12,15,21,.94));
-    border:1px solid rgba(120,225,255,.16);border-radius:999px;
-    box-shadow:0 0 32px -10px rgba(0,214,255,.30),inset 0 1px 0 rgba(255,255,255,.06)}
+  /* NAV — a dark pill of icons; the ACTIVE one lights up with a downward BEAM of light + a glowing underline
+     (on-theme for a lightbox). Inactive icons sit dim. The active tab expands to show its label. */
+  .controls .pl-tabs{display:flex;flex-wrap:nowrap;gap:3px;overflow-x:auto;overflow-y:hidden;border-bottom:none;
+    margin:0 0 14px;padding:9px 14px 15px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+    background:linear-gradient(180deg,rgba(27,31,40,.97),rgba(13,15,21,.98));
+    border:1px solid rgba(255,255,255,.07);border-radius:20px;
+    box-shadow:0 14px 34px -18px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.05)}
   .controls .pl-tabs::-webkit-scrollbar{display:none}
-  .controls .pl-tab{flex:0 0 auto;display:flex;align-items:center;justify-content:flex-start;gap:0;overflow:hidden;
-    width:44px;height:44px;min-height:44px;padding:0;border-radius:999px;background:transparent;border:1px solid transparent;
-    color:var(--txt2);text-transform:none;letter-spacing:.01em;
-    transition:width .42s cubic-bezier(.22,1,.36,1),background .3s ease,box-shadow .3s ease,color .2s ease,border-color .3s ease}
-  .controls .pl-tab .ptic{display:flex!important;align-items:center;justify-content:center;flex:0 0 44px;width:44px;height:44px;font-size:19px;line-height:1}
+  .controls .pl-tab{flex:0 0 auto;position:relative;display:flex;align-items:center;justify-content:flex-start;overflow:visible;
+    width:46px;height:40px;padding:0;border-radius:12px;background:transparent;border:none;color:#cbd4de;opacity:.42;
+    text-transform:none;letter-spacing:.01em;
+    transition:width .42s cubic-bezier(.22,1,.36,1),opacity .3s ease,color .3s ease}
+  .controls .pl-tab .ptic{display:flex!important;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:34px;font-size:20px;line-height:1;
+    transition:filter .3s ease,transform .3s cubic-bezier(.22,1,.36,1)}
   .controls .pl-tab .ptlbl{display:block;opacity:0;max-width:0;white-space:nowrap;overflow:hidden;transform:translateX(-6px);
-    font-size:12.5px;font-weight:700;transition:opacity .25s ease,max-width .42s cubic-bezier(.22,1,.36,1),transform .35s ease}
-  .controls .pl-tab.active{width:auto;max-width:none;background:#fff;color:#0c1017;border-color:rgba(255,255,255,.55);
-    box-shadow:0 0 26px -4px rgba(0,214,255,.45)}
-  .controls .pl-tab.active .ptlbl{opacity:1;max-width:160px;transform:translateX(0);padding-right:15px}
-  .controls .pl-tab:not(.active):active{background:rgba(255,255,255,.10)}
-  .controls .pl-tab.active::after{display:none}
+    font-size:12.5px;font-weight:700;color:#eaf6ff;transition:opacity .25s ease,max-width .42s cubic-bezier(.22,1,.36,1),transform .35s ease}
+  .controls .pl-tab.active{width:auto;opacity:1;color:#fff}
+  .controls .pl-tab.active .ptlbl{opacity:1;max-width:150px;transform:translateX(0);padding-right:14px;text-shadow:0 0 10px rgba(190,240,255,.4)}
+  .controls .pl-tab.active .ptic{transform:translateY(-1px);filter:drop-shadow(0 0 8px rgba(205,244,255,.95)) drop-shadow(0 1px 14px rgba(120,215,255,.55))}
+  /* the beam of light shining down from the active icon */
+  .controls .pl-tab.active::before{content:"";position:absolute;left:23px;bottom:-6px;transform:translateX(-50%);width:36px;height:24px;pointer-events:none;
+    background:radial-gradient(ellipse 55% 100% at 50% 0%,rgba(205,244,255,.9),rgba(120,215,255,.32) 44%,transparent 72%);filter:blur(2px)}
+  /* the glowing underline bar */
+  .controls .pl-tab.active::after{content:"";position:absolute;left:23px;bottom:-7px;transform:translateX(-50%);width:22px;height:3px;border-radius:3px;background:#f0fbff;
+    box-shadow:0 0 10px 2px rgba(205,244,255,.95),0 0 22px 7px rgba(120,215,255,.5)}
+  .controls .pl-tab:not(.active):active{opacity:.8}
   .fbtn,.nbtn,.cat-item,.pcard,.texcard,.tlayer,.mchip{background:var(--soft)!important;border:1px solid var(--cardline)!important}
   .fbtn.sel,.nbtn.sel,.pcard.sel,.texcard.sel{border-color:var(--acc)!important;background:var(--accdim)!important}
 }
