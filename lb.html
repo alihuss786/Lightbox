@@ -494,6 +494,7 @@ input[type=text]:focus,input[type=number]:focus{border-color:var(--acc)}
 #themeBtn:hover{border-color:var(--acc)}
 #themeBtn:active{transform:scale(.93)}
 .pl-tab .ptic{display:none!important}
+.sheet-hint{display:none}   /* the mobile bottom-sheet "swipe up" hint — shown only in the phone media query */
 /* Plates mode shows only the plate preview — hide the design controls panel
    and pull the mode/export bar to the top-left so it isn't stranded mid-screen */
 body.plates-mode .controls{display:none!important}
@@ -681,6 +682,40 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
   body.plates-mode #myOrdersBtn,body.plates-mode #merchantOrdersBtn,body.plates-mode #ownerJobsBtn,body.plates-mode #merchantKioskBtn,body.plates-mode #merchantSetBtn,body.plates-mode #merchantStockBtn,body.plates-mode #merchantAnalyticsBtn{display:none!important}
   .prcard{flex:1 1 calc(33.333% - 6px);align-items:center;justify-content:center;padding:12px 8px;text-align:center}
   .prcard .prnm{font-size:13px}
+
+  /* ===== BOTTOM-SHEET NAV: the pill bar lives at the very bottom; the menu content stays CLOSED until a tab is
+     tapped, then slides up. A flashing ^ hint invites sliding up. ===== */
+  .controls{
+    position:fixed!important;left:0;right:0;bottom:0;top:auto!important;z-index:41;
+    margin:0!important;padding:0!important;display:flex;flex-direction:column;max-height:90vh;
+    border-radius:0;background:transparent!important;border:none!important;box-shadow:none!important;
+    overflow:visible;pointer-events:none;transition:background .3s ease;
+  }
+  .controls>*{pointer-events:auto}
+  .controls::before{display:none!important}
+  /* content (everything except the nav + hint) collapses when the sheet is closed */
+  .controls>.pl-head,.controls>.acc{order:1;padding-left:16px;padding-right:16px;
+    transition:max-height .44s cubic-bezier(.22,1,.36,1),opacity .3s ease,transform .44s cubic-bezier(.22,1,.36,1),padding .3s ease}
+  .controls>.pl-head{padding-top:14px;padding-bottom:6px}
+  .controls:not(.sheet-open)>.pl-head,.controls:not(.sheet-open)>.acc{
+    max-height:0!important;opacity:0;overflow:hidden;padding-top:0!important;padding-bottom:0!important;
+    margin-top:0!important;margin-bottom:0!important;transform:translateY(14px);pointer-events:none}
+  .controls.sheet-open{background:var(--card)!important;border-top:1px solid var(--cardline)!important;
+    border-radius:22px 22px 0 0;box-shadow:0 -26px 64px -30px rgba(0,0,0,.6)!important;pointer-events:auto;padding-top:8px!important}
+  .controls.sheet-open::before{display:block!important;content:""!important;width:40px;height:5px;border-radius:3px;background:var(--line2);margin:2px auto 8px!important;opacity:.85;order:0}
+  .controls.sheet-open>.pl-head{max-height:96px;opacity:1;transform:none}
+  .controls.sheet-open>.acc.open{max-height:calc(90vh - 210px);opacity:1;transform:none;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:14px}
+  /* the pill nav, pinned at the very bottom, always visible */
+  .controls .pl-tabs{order:9;flex:0 0 auto;margin:8px 10px calc(9px + env(safe-area-inset-bottom));position:relative;z-index:3}
+  /* flashing slide-up hint shown for a moment after a tab tap */
+  .controls .sheet-hint{order:8;flex:0 0 auto;pointer-events:none;display:flex;align-items:center;justify-content:center;gap:7px;
+    height:0;opacity:0;overflow:hidden;color:var(--acc);font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+    transition:height .3s ease,opacity .3s ease}
+  .controls .sheet-hint.show{height:26px;opacity:1}
+  .controls .sheet-hint .harrow{font-size:17px;line-height:1;display:inline-block;animation:hintBounce 1.05s ease-in-out infinite}
+  .controls .sheet-hint.show{animation:hintFlash 1.05s ease-in-out infinite}
+  @keyframes hintBounce{0%,100%{transform:translateY(2px)}50%{transform:translateY(-5px)}}
+  @keyframes hintFlash{0%,100%{opacity:.45}50%{opacity:1}}
 }
 </style>
 </head>
@@ -1492,13 +1527,36 @@ try{injectTabColours();}catch(e){}
 
 function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");const lt=document.documentElement.getAttribute("data-theme")==="light";const onBg=lt?"#ffffff":"rgba(255,255,255,.12)";const onCol=lt?"#1d1d1f":"#fff";const offCol=lt?"#8a8a8f":"rgba(255,255,255,.55)";const onSh=lt?"0 1px 4px rgba(0,0,0,.12)":"none";R.style.background=r?onBg:"transparent";R.style.color=r?onCol:offCol;R.style.boxShadow=r?onSh:"none";P.style.background=!r?onBg:"transparent";P.style.color=!r?onCol:offCol;P.style.boxShadow=!r?onSh:"none";}
 function setMode(m){mode=m;zoom=1;try{document.body.classList.toggle("plates-mode",m==="plates");}catch(e){}paintSeg();g("platelist").style.display=m==="plates"?"flex":"none";g("printerbox").style.display=m==="plates"?"flex":"none";g("zoomhint").style.display="block";clearTimeout(zhT);zhT=setTimeout(()=>g("zoomhint").style.display="none",1900);if(m==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}buildModel();buildSummary();}
-function toggleLight(){if((window.__explodeAmt||0)>0.001)return;lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plTab(i){var wrap=document.querySelector(".controls");if(!wrap)return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));accs.forEach(function(a,j){a.classList.toggle("open",j===i);});maybeExitNameMode();var tabs=[].slice.call(wrap.querySelectorAll(".pl-tab"));tabs.forEach(function(t,j){t.classList.toggle("active",j===i);});var at=tabs[i];if(at&&at.scrollIntoView){try{at.scrollIntoView({inline:"nearest",block:"nearest"});}catch(e){}}try{wrap.scrollTop=0;}catch(e){}try{scheduleBuild();}catch(e){}}   // switching tabs snaps the preview to the tab you're now on
+function toggleLight(){if((window.__explodeAmt||0)>0.001)return;lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plTab(i,userTap){var wrap=document.querySelector(".controls");if(!wrap)return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));var tabs=[].slice.call(wrap.querySelectorAll(".pl-tab"));
+  // i is the ACCORDION index; tabs are keyed by data-i (hidden accordions have no tab), so match on data-i — not
+  // the tab's position in the bar — otherwise the wrong tab highlights and the close-toggle misfires.
+  var meTab=tabs.filter(function(t){return +t.getAttribute("data-i")===i;})[0];
+  // Mobile bottom-sheet: a real tap on the ALREADY-active tab closes the menu; any other tap opens it.
+  if(userTap&&meTab&&meTab.classList.contains("active")&&wrap.classList.contains("sheet-open")){plSheetClose();return;}
+  accs.forEach(function(a,j){a.classList.toggle("open",j===i);});maybeExitNameMode();tabs.forEach(function(t){t.classList.toggle("active",+t.getAttribute("data-i")===i);});
+  if(meTab&&meTab.scrollIntoView){try{meTab.scrollIntoView({inline:"nearest",block:"nearest"});}catch(e){}}try{wrap.scrollTop=0;}catch(e){}
+  if(userTap)plSheetOpen();   // a real tap opens the menu (slides up) + flashes the ^ hint
+  try{scheduleBuild();}catch(e){}}   // switching tabs snaps the preview to the tab you're now on
+function plSheetOpen(){var w=document.querySelector(".controls");if(!w)return;var first=!w.classList.contains("sheet-open");w.classList.add("sheet-open");try{w.scrollTop=0;}catch(e){}if(first)plFlashHint();}
+function plSheetClose(){var w=document.querySelector(".controls");if(w)w.classList.remove("sheet-open");}
+function plFlashHint(){var h=document.querySelector(".controls .sheet-hint");if(!h)return;h.classList.add("show");clearTimeout(window.__hintT);window.__hintT=setTimeout(function(){h.classList.remove("show");},2800);}
+// Swipe the nav bar up to open the menu / down to close it (mobile bottom-sheet gesture).
+function plSheetSwipe(bar){if(!bar||bar.__swipe)return;bar.__swipe=1;var y0=null,t0=0;
+  bar.addEventListener("touchstart",function(e){y0=e.touches[0].clientY;t0=Date.now();},{passive:true});
+  bar.addEventListener("touchmove",function(e){if(y0==null)return;var dy=e.touches[0].clientY-y0;var w=document.querySelector(".controls");if(!w)return;
+    if(dy<-26&&!w.classList.contains("sheet-open")){plSheetOpen();y0=null;}
+    else if(dy>26&&w.classList.contains("sheet-open")){plSheetClose();y0=null;}},{passive:true});
+  bar.addEventListener("touchend",function(){y0=null;},{passive:true});}
 // Per-tab icons for the mobile expanding-pill nav (data-feat → emoji glyph).
 var TABICON={templates:"✨",textures:"🌐",lithophane:"🖼️",litho1:"🖼️",shadowtrace:"🌓",tlitho:"🔤",labs:"⚗️",labs2:"🌌",letter:"🔠",name:"✍️",logo:"🔺",models:"🧸",mounting:"🧱",testbase:"🧪",dimensions:"📐",assembly:"🧩",colour:"🎨",structure:"🧱",export:"⬇️"};
 function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export)$/i.test(name))return;var _df=acc.getAttribute("data-feat");if(_df&&featState(_df)==="hidden")return;var t=document.createElement("button");t.className="pl-tab"+(acc.classList.contains("feat-soon")?" pl-soon":"");
     var _ico=(typeof TABICON!=="undefined"&&_df&&TABICON[_df])||(name.match(/[\u{1F000}-\u{1FAFF}←-➿⬀-⯿]/u)||[])[0]||"◉";   // per-tab glyph (map → any emoji already in the header → dot)
     var _lbl=name.replace(/[\u{1F000}-\u{1FAFF}←-➿⬀-⯿️]/gu,"").trim()||name;   // label with the emoji stripped
-    t.innerHTML='<span class="ptic">'+_ico+'</span><span class="ptlbl">'+_lbl+'</span>';t.setAttribute("data-i",i);t.setAttribute("aria-label",_lbl);t.onclick=function(){plTab(i);};bar.appendChild(t);});[].slice.call(bar.querySelectorAll(".pl-soon")).forEach(function(x){bar.appendChild(x);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
+    t.innerHTML='<span class="ptic">'+_ico+'</span><span class="ptlbl">'+_lbl+'</span>';t.setAttribute("data-i",i);t.setAttribute("aria-label",_lbl);t.onclick=function(){plTab(i,true);};bar.appendChild(t);});[].slice.call(bar.querySelectorAll(".pl-soon")).forEach(function(x){bar.appendChild(x);});var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling){wrap.insertBefore(bar,head.nextSibling);}else{wrap.insertBefore(bar,wrap.firstChild);}
+  // flashing "slide up" hint that appears just above the nav when the sheet opens (mobile only)
+  if(!wrap.querySelector(".sheet-hint")){var hint=document.createElement("div");hint.className="sheet-hint";hint.innerHTML='<span class="harrow">⌃</span><span>swipe to browse</span>';wrap.insertBefore(hint,bar);}
+  try{plSheetSwipe(bar);}catch(e){}
+  var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0,false);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
 function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Letter"],name:["\u270e","Name"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"],logo:["\u25a3","Logo"],lithophane:["\u25d0","Lithophane"],labs:["\u2728","Labs"],labs2:["\u2728","Labs 2"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
 // ---- Mounting tab: toggle a feature, reveal its controls, keep the slider labels live, and rebuild ----
