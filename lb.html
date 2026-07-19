@@ -1231,7 +1231,7 @@ const _dimReset=document.createElement("button");_dimReset.type="button";_dimRes
 _dimReset.onclick=function(){DIMS.forEach(function(d){if(_BASIC[d.id])return;var R=g(d.id+"R"),N=g(d.id);if(R)R.value=d.val;if(N)N.value=(UNIT==="cm"?tidy(d.val/10):d.val);});if(typeof rebuild==="function")rebuild();};
 _dimAdv.appendChild(_dimReset);_dimAdv.style.display="none";   // advanced starts collapsed
 // Size controls also drive the Text Lithophane: changing Letter height / Wall thickness here resizes the letters.
-["lh","lhR","wall","wallR"].forEach(function(id){var el=g(id);if(el)el.addEventListener("input",function(){try{syncTlithoFromDims();}catch(e){}});});
+["lh","lhR","wall","wallR","bd","bdR"].forEach(function(id){var el=g(id);if(el)el.addEventListener("input",function(){try{syncTlithoFromDims();}catch(e){}});});
 
 let images=[],selImg=-1,models=[],selModel=-1,uid=1,t1=null,mode="render",lightOn=true,diffOn=false,selPlate=0,DIM=null;
 // Dynamic, independent text layers on the lid. Each: {id, str, size(mm), x, y}. selText = active layer.
@@ -2013,8 +2013,8 @@ function tlithoHeight(v){TLITHO.height=Math.max(20,Math.min(400,+v||40));var l=d
   try{var N=document.getElementById("lh"),R=document.getElementById("lhR"),h=TLITHO.height;if(N)N.value=(typeof UNIT!=="undefined"&&UNIT==="cm")?tidy(h/10):h;if(R)R.value=(typeof UNIT!=="undefined"&&UNIT==="cm")?Math.round(h*10):Math.max(+R.min,Math.min(+R.max,h));}catch(e){}
   if(typeof scheduleBuild==="function")scheduleBuild();}
 // The Text Lithophane shares the global Size controls: Letter height (lh) sets the letter height, Wall thickness
-// (wall) sets the border wall, so changing them in the Size tab also resizes the lithophane letters.
-function syncTlithoFromDims(){try{var h=(typeof mmOf==="function")?mmOf("lh"):0;if(h>0){TLITHO.height=Math.max(20,Math.min(400,h));var sl=document.getElementById("tlitho_h"),lbl=document.getElementById("tlitho_hl");if(sl)sl.value=Math.max(+sl.min,Math.min(+sl.max,TLITHO.height));if(lbl)lbl.textContent=Math.round(TLITHO.height);}var w=(typeof mmOf==="function")?mmOf("wall"):0;if(w>0)TLITHO.wall=w;}catch(e){}}
+// (wall) sets the border wall, and Light box depth (bd) sets how deep the solid letter is behind the relief.
+function syncTlithoFromDims(){try{var h=(typeof mmOf==="function")?mmOf("lh"):0;if(h>0){TLITHO.height=Math.max(20,Math.min(400,h));var sl=document.getElementById("tlitho_h"),lbl=document.getElementById("tlitho_hl");if(sl)sl.value=Math.max(+sl.min,Math.min(+sl.max,TLITHO.height));if(lbl)lbl.textContent=Math.round(TLITHO.height);}var w=(typeof mmOf==="function")?mmOf("wall"):0;if(w>0)TLITHO.wall=w;var d=(typeof mmOf==="function")?mmOf("bd"):0;if(d>0)TLITHO.back=Math.max(1,d);}catch(e){}}
 function tlithoThick(which,v){v=+v;if(which==="min")TLITHO.minT=Math.max(0.4,Math.min(1.6,v||0.8));else TLITHO.maxT=Math.max(1.5,Math.min(3.0,v||3));if(TLITHO.maxT<TLITHO.minT+0.3)TLITHO.maxT=TLITHO.minT+0.3;var a=document.getElementById("tlitho_minl"),b=document.getElementById("tlitho_maxl");if(a)a.textContent=TLITHO.minT.toFixed(1);if(b)b.textContent=TLITHO.maxT.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoFrameTgl(){TLITHO.frame=!TLITHO.frame;var t=document.getElementById("tg_tlitho_frame");if(t)t.classList.toggle("on",TLITHO.frame);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoBack(v){TLITHO.back=Math.max(1,Math.min(8,+v||2));var l=document.getElementById("tlitho_backl");if(l)l.textContent=TLITHO.back.toFixed(1).replace(/\.0$/,"");if(typeof scheduleBuild==="function")scheduleBuild();}
