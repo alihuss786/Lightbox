@@ -787,6 +787,9 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="hint">Turn a name into <b>glowing photo-relief letters</b>: the exact lithophane depth math (dark = thick, light = thin) is projected onto the front face of each 3D letter, built as a <b>watertight</b> solid. Spans one image across the whole name, or maps a separate photo to each letter.</div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Text</span><input type="text" id="tlitho_text" maxlength="24" value="LOVE" placeholder="e.g. a name" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:16px system-ui,sans-serif;box-sizing:border-box" oninput="tlithoText(this.value)"></div>
       <div class="row"><span class="lbl">Image mode</span><select id="tlitho_mode" class="psel" style="width:auto" onchange="tlithoMode(this.value)"><option value="span">🖼 One image across the name</option><option value="perletter">🔤 A photo per letter</option></select></div>
+      <button class="upfont" style="cursor:pointer" onclick="g('tlitho_font_file').click()">⬆ Upload a font (.ttf / .otf)</button>
+      <input type="file" id="tlitho_font_file" accept=".ttf,.otf,font/ttf,font/otf,application/font-sfnt" style="display:none" onchange="onTlithoFontUpload(this)">
+      <div class="hint" id="tlitho_fontHint">Default is a bold block font — upload your own .ttf / .otf to override it.</div>
       <div class="hint">Want a stand? Turn on <b>🧱 Desk base</b> in the <b>Mounting</b> tab — it builds a base sized to the whole name that the letters sit on.</div>
       <div id="tlitho_span" style="display:flex;flex-direction:column;gap:8px">
         <label class="upfont" style="cursor:pointer">⬆ Upload the image<input type="file" id="tlitho_span_file" accept="image/*" hidden onchange="tlithoSpanUpload(this)"></label>
@@ -1077,7 +1080,7 @@ let UNIT="mm";
    "soon" shows a greyed Coming-soon tab whose real controls are removed. The config is frozen and read only
    through featState() from this closure, so it cannot be flipped from the console. Default everything to
    "on" -> no change until launch. ===== */
-const _FEATURES=Object.freeze({textures:"on",name:"on",logo:"on",templates:"on",ar:"on",lithophane:"hidden",labs:"hidden",labs2:"hidden"});
+const _FEATURES=Object.freeze({textures:"on",name:"on",logo:"on",templates:"on",ar:"on",lithophane:"hidden",labs:"hidden",labs2:"hidden",testbase:"hidden"});
 try{window.__siteConfig=JSON.parse(localStorage.getItem("sl_cfg")||"null");}catch(e){window.__siteConfig=null;}
 try{window.__cachedTier=localStorage.getItem("sl_tier")||null;}catch(e){window.__cachedTier=null;}
 try{window.__viewAsTier=sessionStorage.getItem("sl_viewas")||null;}catch(e){window.__viewAsTier=null;}
@@ -1845,7 +1848,7 @@ var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
 var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5,cavity:30};
 // Text Lithophane: photo relief mapped onto glyph front faces. mode span|perletter, assembly separate|fused.
-var TLITHO={text:"LOVE",mode:"span",img:null,src:null,perImgs:{},height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,back:2,spacing:10};
+var TLITHO={text:"LOVE",mode:"span",img:null,src:null,perImgs:{},height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,back:2,spacing:10,font:null};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
@@ -1980,6 +1983,18 @@ function _tlithoLetters(font,text,size){
       if(paths.length)out.push({paths:paths,char:ch});}}
   return out;
 }
+// Same, but for an UPLOADED (opentype) font: build each glyph's outline via opentype and normalise so the cap
+// height matches `size` mm, so custom .ttf/.otf fonts lay out like the built-in ones.
+function _tlithoLettersOT(otf,text,size){
+  var str=String(text),out=[],osz=size/0.72;   // opentype size is em; cap height ≈ 0.72·em
+  for(var ci=0;ci<str.length;ci++){var ch=str[ci];if(!ch.trim())continue;
+    var paths=null;try{paths=nameSubjOT(otf,ch,osz);}catch(e){paths=null;}   // Clipper paths at origin (Y already up)
+    if(paths&&paths.length){paths=paths.filter(function(p){return p&&p.length>2;});if(paths.length)out.push({paths:paths,char:ch});}}
+  // normalise: scale every letter so the whole word is exactly `size` mm tall (cap glyphs), left edge at ~0
+  var mny=1e18,mxy=-1e18,mnx=1e18;out.forEach(function(L){L.paths.forEach(function(p){p.forEach(function(pt){if(pt.Y<mny)mny=pt.Y;if(pt.Y>mxy)mxy=pt.Y;if(pt.X<mnx)mnx=pt.X;});});});
+  var h=(mxy-mny)/S;if(h>0.5){var sc=size/h;out.forEach(function(L){L.paths=L.paths.map(function(p){return p.map(function(pt){return {X:Math.round((pt.X-mnx)*sc),Y:Math.round((pt.Y-mny)*sc)};});});});}
+  return out;
+}
 function _tlithoBox(paths){var mnx=1e18,mny=1e18,mxx=-1e18,mxy=-1e18;paths.forEach(function(arr){(arr.paths||arr).forEach(function(p){p.forEach(function(pt){var x=pt.X/S,y=pt.Y/S;if(x<mnx)mnx=x;if(x>mxx)mxx=x;if(y<mny)mny=y;if(y>mxy)mxy=y;});});});return {x0:mnx,y0:mny,w:mxx-mnx,h:mxy-mny,cx:(mnx+mxx)/2,cy:(mny+mxy)/2};}
 // Piecewise sampler for the CONNECTED word in per-letter mode: each letter's own photo maps to its own glyph box,
 // so one continuous word mesh still shows a different image on each letter.
@@ -1998,6 +2013,12 @@ function tlithoBack(v){TLITHO.back=Math.max(1,Math.min(8,+v||2));var l=document.
 function tlithoSpacing(v){TLITHO.spacing=Math.max(0,Math.min(25,+v||8));var l=document.getElementById("tlitho_spl");if(l)l.textContent=Math.round(TLITHO.spacing);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoContrast(v){TLITHO.contrast=Math.max(0.5,Math.min(2.5,+v||1));var l=document.getElementById("tlitho_conl");if(l)l.textContent=TLITHO.contrast.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoInvert(){TLITHO.invert=!TLITHO.invert;var t=document.getElementById("tg_tlitho_inv");if(t)t.classList.toggle("on",TLITHO.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
+function onTlithoFontUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;var rd=new FileReader();
+  rd.onload=function(ev){try{var otf=opentype.parse(ev.target.result);var nm=(f.name.replace(/\.(ttf|otf)$/i,"").trim().slice(0,18))||"Custom",id="tlf-"+Date.now();otCache[id]=otf;TLITHO.font={url:id,name:nm};
+    var h=document.getElementById("tlitho_fontHint");if(h)h.innerHTML='Using <b>'+nm.replace(/</g,"&lt;")+'</b>. <a href="#" onclick="tlithoFontClear();return false" style="color:var(--acc)">Reset to default</a>.';
+    if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){if(typeof uiAlert==="function")uiAlert("Could not read that font. Please upload a standard .ttf or .otf file.");}};
+  rd.onerror=function(){if(typeof uiAlert==="function")uiAlert("Could not read that file.");};rd.readAsArrayBuffer(f);input.value="";}
+function tlithoFontClear(){TLITHO.font=null;var h=document.getElementById("tlitho_fontHint");if(h)h.innerHTML="Default is a bold block font — upload your own .ttf / .otf to override it.";if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoQuality(v){TLITHO.quality=(v==="draft"||v==="fine")?v:"standard";if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoSpanUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();img.onload=function(){TLITHO.img=img;TLITHO.src=img.src;var th=document.getElementById("tlitho_span_thumb");if(th)th.style.backgroundImage="url("+img.src+")";if(typeof scheduleBuild==="function")scheduleBuild();};img.src=URL.createObjectURL(f);}
 function tlithoPerUpload(i,input){var f=input&&input.files&&input.files[0];if(!f)return;var img=new Image();img.onload=function(){TLITHO.perImgs[i]={img:img,src:img.src};tlithoRenderLetters();if(typeof scheduleBuild==="function")scheduleBuild();};img.src=URL.createObjectURL(f);}
@@ -3322,7 +3343,7 @@ function _mountRead(){
   return {
     wall:{on:on("tg_mntWall"), x:nv("mntWallX",0), y:nv("mntWallY",0), count:Math.max(1,Math.min(4,nv("mntWallCount",1))), space:nv("mntWallSpace",55)},
     power:{on:on("tg_mntPow"), shape:sv("mntPowShape","usbc"), x:nv("mntPowX",0), y:nv("mntPowY",0)},
-    base:{on:on("tg_mntBase"), shape:sv("mntBaseShape","round"), w:nv("mntBaseW",90), d:nv("mntBaseD",58), t:nv("mntBaseT",10), raise:nv("mntBaseRaise",0), text:((document.getElementById("mntBaseText")||{}).value||"").trim()},
+    base:{on:on("tg_mntBase"), shape:sv("mntBaseShape","round"), tex:sv("mntBaseTex","none"), w:nv("mntBaseW",90), d:nv("mntBaseD",58), t:nv("mntBaseT",10), raise:nv("mntBaseRaise",0), text:((document.getElementById("mntBaseText")||{}).value||"").trim()},
     testbase:{on:on("tg_tbBase"), shape:sv("tbBaseShape","round"), tex:sv("tbBaseTex","isocube"), w:nv("tbBaseW",90), d:nv("tbBaseD",58), t:nv("tbBaseT",6), raise:nv("tbBaseRaise",0)}
   };
 }
@@ -3852,7 +3873,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       var _baseSil=filled;try{var _ls=off(filled,clearance+capW);if(_ls&&_ls.length)_baseSil=_ls;}catch(e){}
       var _btp=null;if(_mnt.base.text){try{var _bo=await loadOT((typeof baseFontUrl==="function")?baseFontUrl():selNameFont.url);_btp=nameSubjOT(_bo,_mnt.base.text,100);}catch(e){_btp=null;}}   // front nameplate glyph outlines (custom base font if uploaded, else the Name font)
       var _bsink=Math.max(0,-(_mnt.base.raise||0));   // pushing the model DOWN (negative raise = base rises around it) deepens the socket to match
-      var _bres=buildCradleBase(_baseSil,cx,cy,depth,_mnt.base.w,_mnt.base.d,_mnt.base.t,_mnt.base.shape,TT,null,false,_btp,_bsink);   // TT = lid front-cap protrusion; widens the pocket front-to-back to the LID depth, not the back box
+      var _bres=buildCradleBase(_baseSil,cx,cy,depth,_mnt.base.w,_mnt.base.d,_mnt.base.t,_mnt.base.shape,TT,_mnt.base.tex||null,true,_btp,_bsink);   // textured cradle (the old TestBase behaviour, now the standard Mounting base); TT = lid front-cap protrusion
       if(_bres&&_bres.geo){var _bgrp=new THREE.Group();_bgrp.add(new THREE.Mesh(_bres.geo,MATS.body));if(_bres.txtGeo)_bgrp.add(new THREE.Mesh(_bres.txtGeo,MATS.basetext));_bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mnt.base.raise||0),-depth/2);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.body});}}
     // TestBase (experimental) — same cradle, but the texture runs to the edge and wraps down the sides (edgeWrap).
     if(_mnt&&_mnt.testbase&&_mnt.testbase.on&&filled&&filled.length){
@@ -3933,9 +3954,11 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     try{var _tlGate=(typeof featState!=="function")||featState("tlitho")!=="hidden";
     var _tlHasImg=(TLITHO.mode==="span")?!!TLITHO.img:(Object.keys(TLITHO.perImgs).length>0);
     if(_tlGate&&_genOK("tlitho")&&TLITHO.text&&TLITHO.text.trim()&&_tlHasImg&&typeof buildGlyphLithophane==="function"){
-      // Force a heavy BLOCK font (bold) for legibility, not a thin/script display font.
-      var _tfUrl=selFont.url;try{var _bf=(typeof FONTS!=="undefined"&&FONTS.filter(function(f){return /bold/i.test(f.url);})[0]);if(_bf)_tfUrl=_bf.url;}catch(e){}
-      var _tfont=await loadFont(_tfUrl),_tletters=_tlithoLetters(_tfont,TLITHO.text,TLITHO.height);
+      // Font: an uploaded .ttf/.otf (opentype) if the user chose one, else a heavy built-in BLOCK font (bold).
+      var _tletters=null;
+      if(TLITHO.font&&TLITHO.font.url){try{var _otf=await loadOT(TLITHO.font.url);_tletters=_tlithoLettersOT(_otf,TLITHO.text,TLITHO.height);}catch(e){_tletters=null;}}
+      if(!_tletters||!_tletters.length){var _tfUrl=selFont.url;try{var _bf=(typeof FONTS!=="undefined"&&FONTS.filter(function(f){return /bold/i.test(f.url);})[0]);if(_bf)_tfUrl=_bf.url;}catch(e){}
+        var _tfont=await loadFont(_tfUrl);_tletters=_tlithoLetters(_tfont,TLITHO.text,TLITHO.height);}
       if(_tletters.length){
         var _tnb=_tlithoBox(_tletters),_tz0=(TT||1)+0.05,_trange=Math.max(0.001,TLITHO.maxT-TLITHO.minT);
         var _qCell=({draft:0.4,standard:0.2,fine:0.13}[TLITHO.quality]||0.2);   // uniform grid cell size (mm) → clean edges below nozzle resolution
@@ -3982,16 +4005,17 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           else{var _pe=TLITHO.perImgs[li];if(!_pe)return;_img=_pe.img;var _bb2=_tlithoBox([{paths:u.contourG}]);_uv={x0:_bb2.x0,y0:_bb2.y0,w:_bb2.w,h:_bb2.h};}
           if(!_img)return;var _sg=_tlithoScreen(u.contourG,_img,null,_uv,_pb.cx,_pb.cy);
           if(_sg){_sg.position.set(0,0,_tz0);partList.push({group:_sg,name:"Letter "+(u.char||"?")+" · screen",flip:false,labs:true,tlitho:true,color:"#FFFFFF"});_built=true;}});
-        // DESK BASE — driven by the Mounting tab's "Desk base" option (its shape + size), fitted to the whole word:
-        // a stand the letters sit on. Only built when that mounting toggle is on; sized to at least span the name.
-        if(_built&&_mnt&&_mnt.base&&_mnt.base.on&&typeof _baseProfilePaths==="function"){try{
-          var _mb=_mnt.base,_wordW=(_cursorX-_gap),_bw=Math.max(+_mb.w||90,_wordW+12),_bd=Math.max(20,+_mb.d||58),_bt=Math.max(4,+_mb.t||10);
-          var _bshapes=shapesFromPaths(_baseProfilePaths(_mb.shape||"round",_bw,_bd));
-          if(_bshapes&&_bshapes.length){var _bgeo=new THREE.ExtrudeGeometry(_bshapes,{depth:_bt,bevelEnabled:false,curveSegments:8});
-            var _bgrp=new THREE.Group();var _bm=new THREE.Mesh(_bgeo,_fmat);_bm.userData.exportColor=_frameCol;_bgrp.add(_bm);
-            _bgrp.rotation.x=-Math.PI/2;   // lay the profile flat: width in X, depth in Z, thickness in Y
-            var _wby=(_pb.y0-_pb.cy)-(_mb.raise||0);   // letters' bottom (raise lifts them out of the base)
-            _bgrp.position.set(0,_wby-_bt+2,_tz0+(_lip-_back)/2);   // base top ~2mm into the letters, centred on their depth
+        // DESK BASE — the Mounting tab's "Desk base" (its shape/size/texture), fitted to the whole word. Uses the
+        // shared cradle builder so the letters drop into a POCKET contoured to their bottoms (not just sit on top),
+        // with the same textured foot the old TestBase had. Only built when the mounting toggle is on.
+        if(_built&&_mnt&&_mnt.base&&_mnt.base.on&&typeof buildCradleBase==="function"){try{
+          var _mb=_mnt.base,_wsil=[];
+          _lay.forEach(function(u){var _fp;try{_fp=off(u.contourG,_wall);}catch(e){_fp=null;}(( _fp&&_fp.length)?_fp:u.contourG).forEach(function(p){if(p&&p.length>2)_wsil.push(p);});});
+          var _wsu;try{_wsu=union2(_wsil,[]);}catch(e){_wsu=_wsil;}if(!_wsu||!_wsu.length)_wsu=_wsil;
+          var _wordW=(_cursorX-_gap),_bw=Math.max(+_mb.w||90,_wordW+12),_bd=Math.max(20,+_mb.d||58),_bt=Math.max(4,+_mb.t||10),_bsink=Math.max(0,-(_mb.raise||0));
+          var _bres=buildCradleBase(_wsu,_pb.cx,_pb.cy,_back+_lip,_bw,_bd,_bt,_mb.shape||"round",_lip,_mb.tex||null,true,null,_bsink);
+          if(_bres&&_bres.geo){var _bgrp=new THREE.Group();var _bm=new THREE.Mesh(_bres.geo,_fmat);_bm.userData.exportColor=_frameCol;_bgrp.add(_bm);
+            _bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mb.raise||0),_tz0+(_lip-_back)/2);   // seat the pocket at the letters' bottom, centred on their depth
             partList.push({group:_bgrp,name:"Desk base",flip:false,labs:true,tlitho:true,color:_frameCol});}
         }catch(e){}}
         if(_built)window.__labsStandalone=true;
