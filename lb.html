@@ -686,9 +686,11 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
   /* ===== BOTTOM-SHEET NAV: the pill bar lives at the very bottom; the menu content stays CLOSED until a tab is
      tapped, then slides up. A flashing ^ hint invites sliding up. ===== */
   .topbar{z-index:46!important}        /* Render / Plates / Export stay ABOVE the sheet so they're always tappable */
+  .controls .pl-title{display:none!important}   /* removed the "Studio" selector from the sheet header (keeps the randomiser) */
+  .controls.sheet-open>.pl-head{justify-content:flex-end}
   .controls{
     position:fixed!important;left:0;right:0;bottom:0;top:auto!important;z-index:41;
-    margin:0!important;padding:0!important;display:flex;flex-direction:column;max-height:calc(100vh - 104px);max-height:calc(100dvh - 104px);
+    margin:0!important;padding:0!important;display:flex;flex-direction:column;max-height:calc(var(--shH,100vh) - 100px);
     border-radius:0;background:transparent!important;border:none!important;box-shadow:none!important;
     overflow:visible;pointer-events:none;transition:background .3s ease,height .42s cubic-bezier(.22,1,.36,1);
   }
@@ -703,13 +705,14 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
     margin-top:0!important;margin-bottom:0!important;transform:translateY(14px);pointer-events:none}
   .controls.sheet-open{background:var(--card)!important;border-top:1px solid var(--cardline)!important;
     border-radius:22px 22px 0 0;box-shadow:0 -26px 64px -30px rgba(0,0,0,.6)!important;pointer-events:auto;padding-top:8px!important}
-  .controls.sheet-open::before{display:block!important;content:""!important;width:40px;height:5px;border-radius:3px;background:var(--line2);margin:2px auto 8px!important;opacity:.85;order:0;flex:0 0 auto}
-  .controls.sheet-open>.pl-head{max-height:96px;opacity:1;transform:none}
-  /* the open panel scrolls INTERNALLY (fixed cap) so its content is never cut off behind the nav. */
+  .controls.sheet-open::before{display:block!important;content:""!important;width:44px;height:5px;border-radius:3px;background:var(--line2);margin:2px auto 8px!important;opacity:.85;order:0;flex:0 0 auto}
+  .controls.sheet-open>.pl-head{max-height:64px;opacity:1;transform:none;flex:0 0 auto;padding-top:2px}
+  /* the open panel scrolls INTERNALLY (capped height) so the nav stays visible and content is never cut off
+     (the global .acc{overflow:visible!important} is overridden here). --shH is the live visible height (JS). */
   /* PEEK — tapping a tab opens the sheet part-way (top bar + upper 3D stay visible); slide up for the rest */
-  .controls.sheet-open>.acc.open{opacity:1;transform:none;overflow-y:auto!important;-webkit-overflow-scrolling:touch;padding-bottom:14px;max-height:34vh}
-  /* FULL — after sliding up; still capped so the Render/Plates/Export bar stays visible + tappable */
-  .controls.sheet-open.sheet-full>.acc.open{max-height:calc(100vh - 300px);max-height:calc(100dvh - 300px)}
+  .controls.sheet-open>.acc.open{flex:0 0 auto;opacity:1;transform:none;overflow-y:auto!important;-webkit-overflow-scrolling:touch;padding-bottom:14px;max-height:calc(var(--shH,100vh) * 0.36)}
+  /* FULL — after sliding up; reserve enough for the header + nav (incl. safe-area) + top bar so the nav stays visible */
+  .controls.sheet-open.sheet-full>.acc.open{max-height:calc(var(--shH,100vh) - 330px)}
   /* the pill nav, pinned at the very bottom, always visible */
   .controls .pl-tabs{order:9;flex:0 0 auto;margin:8px 10px calc(9px + env(safe-area-inset-bottom));position:relative;z-index:3}
   /* flashing "slide up for more" hint — visible while the sheet is at PEEK, gone once it's fully open */
@@ -1554,8 +1557,14 @@ function plSheetSwipe(bar){if(!bar||bar.__swipe)return;bar.__swipe=1;var y0=null
     if(dy<-26){if(!open){plSheetOpen();y0=null;}else if(!full){plSheetFull();y0=null;}}
     else if(dy>26){if(full){plSheetPeek();y0=null;}else if(open){plSheetClose();y0=null;}}}
   function end(){y0=null;}
-  bar.addEventListener("touchstart",start,{passive:true});bar.addEventListener("touchmove",move,{passive:true});bar.addEventListener("touchend",end,{passive:true});
-  var hint=document.querySelector(".controls .sheet-hint");if(hint){hint.addEventListener("touchstart",start,{passive:true});hint.addEventListener("touchmove",move,{passive:true});hint.addEventListener("touchend",end,{passive:true});}}
+  function bind(el){if(!el)return;el.addEventListener("touchstart",start,{passive:true});el.addEventListener("touchmove",move,{passive:true});el.addEventListener("touchend",end,{passive:true});}
+  bind(bar);bind(document.querySelector(".controls .sheet-hint"));bind(document.querySelector(".controls .pl-head"));
+  // Tapping the grab-handle strip at the very top of the sheet steps it down (full→peek→closed).
+  var wrap=document.querySelector(".controls");if(wrap&&!wrap.__handleTap){wrap.__handleTap=1;wrap.addEventListener("click",function(e){var w=document.querySelector(".controls");if(!w.classList.contains("sheet-open"))return;if(e.target!==w)return;/* only the bare grab-handle strip, never a bubbled child click */var r=w.getBoundingClientRect();if(e.clientY-r.top>34)return;if(w.classList.contains("sheet-full"))plSheetPeek();else plSheetClose();});}}
+// Keep --shH synced to the LIVE visible viewport height so the bottom sheet caps correctly on every device
+// (100vh/100dvh mis-measure with the browser chrome; window.innerHeight is the reliable visible height).
+function plSetVH(){try{document.documentElement.style.setProperty("--shH",window.innerHeight+"px");}catch(e){}}
+plSetVH();window.addEventListener("resize",plSetVH);window.addEventListener("orientationchange",plSetVH);
 // Per-tab icons for the mobile expanding-pill nav (data-feat → emoji glyph).
 var TABICON={templates:"✨",textures:"🌐",lithophane:"🖼️",litho1:"🖼️",shadowtrace:"🌓",tlitho:"🔤",labs:"⚗️",labs2:"🌌",letter:"🔠",name:"✍️",logo:"🔺",models:"🧸",mounting:"🧱",testbase:"🧪",dimensions:"📐",assembly:"🧩",colour:"🎨",structure:"🧱",export:"⬇️"};
 function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export)$/i.test(name))return;var _df=acc.getAttribute("data-feat");if(_df&&featState(_df)==="hidden")return;var t=document.createElement("button");t.className="pl-tab"+(acc.classList.contains("feat-soon")?" pl-soon":"");
