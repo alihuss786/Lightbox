@@ -716,12 +716,14 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
   .controls:not(.sheet-open)>.pl-head,.controls:not(.sheet-open)>.acc{
     max-height:0!important;opacity:0;overflow:hidden;padding-top:0!important;padding-bottom:0!important;
     margin-top:0!important;margin-bottom:0!important;transform:translateY(14px);pointer-events:none}
+  /* FIXED open height — the sheet is always the same size when open, so revealing the photo controls (or any
+     content change) only scrolls the INSIDE; the sheet itself never grows/shrinks/moves. --shH = visible height. */
   .controls.sheet-open{background:var(--card)!important;border-top:1px solid var(--cardline)!important;
-    border-radius:22px 22px 0 0;box-shadow:0 -26px 64px -30px rgba(0,0,0,.6)!important;pointer-events:auto;padding-top:4px!important}
+    border-radius:22px 22px 0 0;box-shadow:0 -26px 64px -30px rgba(0,0,0,.6)!important;pointer-events:auto;padding-top:4px!important;
+    height:calc(var(--shH,100vh) - 96px)}
   .controls.sheet-open>.pl-head{max-height:64px;opacity:1;transform:none;flex:0 0 auto;padding-top:2px}
-  /* the open menu scrolls INTERNALLY (capped so the nav + top bar stay visible; overrides the global
-     .acc{overflow:visible!important}). --shH is the live visible height (JS). */
-  .controls.sheet-open>.acc.open{flex:0 0 auto;opacity:1;transform:none;overflow-y:auto!important;-webkit-overflow-scrolling:touch;padding-bottom:14px;max-height:calc(var(--shH,100vh) - 280px)}
+  /* the panel FILLS the remaining space and scrolls internally (overrides the global .acc{overflow:visible!important}) */
+  .controls.sheet-open>.acc.open{flex:1 1 auto;min-height:0;max-height:none;opacity:1;transform:none;overflow-y:auto!important;-webkit-overflow-scrolling:touch;padding-bottom:14px}
   /* the pill nav, pinned at the very bottom, always visible */
   .controls .pl-tabs{order:9;flex:0 0 auto;margin:8px 10px calc(9px + env(safe-area-inset-bottom));position:relative;z-index:3}
 }
