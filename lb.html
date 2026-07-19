@@ -1125,6 +1125,18 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       </div>
     </div>
   </div>
+  <div class="acc" data-feat="sigtouch">
+    <div class="acc-h" onclick="accT(this)">Signature Touch ✨ <i class="chev">⌄</i></div>
+    <div class="acc-b">
+      <div class="hint">The finishing flourish — wrap your design in a raised <b>frame</b> on the front and back faces, like a picture frame around the glow. Design your box first, then add the frame here and pick its colour.</div>
+      <div class="toggle-row"><span class="lbl">🖼️ Add signature frame</span><div class="tg" id="tg_sig" onclick="sigToggle()"><div class="k"></div></div></div>
+      <div id="sigCtl" style="display:none;flex-direction:column;gap:13px;margin-top:4px">
+        <div class="sw-grid"><div class="sw-item"><span class="sw" data-role="border" onclick="openPal('border',event)"></span><span class="swl">Frame colour</span></div></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Frame width — <b id="sigWLbl">5</b> mm</span><input type="range" id="sigW" min="2" max="14" step="0.5" value="5" oninput="sigLabel()" onchange="sigRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Frame depth (how proud) — <b id="sigDLbl">3</b> mm</span><input type="range" id="sigD" min="1" max="8" step="0.5" value="3" oninput="sigLabel()" onchange="sigRebuild()"></div>
+      </div>
+    </div>
+  </div>
   <div class="acc">
     <div class="acc-h" onclick="accT(this)">Structure <i class="chev">⌄</i></div>
     <div class="acc-b">
@@ -1352,7 +1364,13 @@ _dimAdv.appendChild(_dimReset);_dimAdv.style.display="none";   // advanced start
 let images=[],selImg=-1,models=[],selModel=-1,uid=1,t1=null,mode="render",lightOn=true,diffOn=false,selPlate=0,DIM=null;
 // Dynamic, independent text layers on the lid. Each: {id, str, size(mm), x, y}. selText = active layer.
 let texts=[{id:uid++,str:"Aiyla",size:22,x:0,y:0,color:"#FFFFFF",bold:0}],selText=0;
-const COLORS={front:"#E2663B",name:"#FFFFFF",image:"#FFFFFF",model:"#E8C99B",body:"#C9542C",basetext:"#F4E9DC",base:"#C9542C"};
+const COLORS={front:"#E2663B",name:"#FFFFFF",image:"#FFFFFF",model:"#E8C99B",body:"#C9542C",basetext:"#F4E9DC",base:"#C9542C",border:"#111318"};
+// Signature Touch — a raised frame/border wrapped around the design's silhouette on the front + back faces.
+var SIG={on:false,w:5,d:3};
+function sigLabel(){var w=document.getElementById("sigW"),d=document.getElementById("sigD");if(w){SIG.w=+w.value;var wl=document.getElementById("sigWLbl");if(wl)wl.textContent=w.value;}if(d){SIG.d=+d.value;var dl=document.getElementById("sigDLbl");if(dl)dl.textContent=d.value;}}
+function sigToggle(){SIG.on=!SIG.on;var t=document.getElementById("tg_sig");if(t)t.classList.toggle("on",SIG.on);var c=document.getElementById("sigCtl");if(c)c.style.display=SIG.on?"flex":"none";sigRebuild();}
+function sigRebuild(){sigLabel();if(typeof scheduleBuild==="function")scheduleBuild();else if(typeof rebuild==="function")rebuild();}
+window.sigToggle=sigToggle;window.sigRebuild=sigRebuild;window.sigLabel=sigLabel;
 /* ===== Lid surface textures (printable relief, lid front only) ===== */
 var TAU=Math.PI*2;
 function _tsat(v){return v<0?0:v>1?1:v;}
@@ -1572,7 +1590,7 @@ function pickColor(hex,keepFin){if(!palTarget)return;if(typeof palTarget==="stri
 function palHexIn(){let h=g("palHex").value.trim();if(/^#?[0-9a-fA-F]{6}$/.test(h)){if(h[0]!=="#")h="#"+h;const tid=palTextId(palTarget);if(tid!=null){onTextColor(tid,h);const s=g("sw_text_"+tid);if(s)s.style.background=h;return;}const mid=palModelId(palTarget);if(mid!=null){onModelColor(mid,h);return;}COLORS[palTarget]=h;applyColors();applyLight();}}
 document.addEventListener("pointerdown",e=>{const p=g("palette");if(p.classList.contains("show")&&!p.contains(e.target)&&!(e.target.classList&&e.target.classList.contains("sw")))p.classList.remove("show");});
 function refreshSwatches(){document.querySelectorAll(".sw[data-role]").forEach(function(s){var r=s.getAttribute("data-role");if(COLORS[r]!=null)s.style.background=COLORS[r];});texts.forEach(t=>{const s=g("sw_text_"+t.id);if(s)s.style.background=t.color||"#FFFFFF";});}
-function applyColors(){refreshSwatches();if(MATS.front)MATS.front.color.set(COLORS.front);if(MATS.name)MATS.name.color.set(COLORS.name);if(MATS.image)MATS.image.color.set(COLORS.image);if(MATS.body)MATS.body.color.set(COLORS.body);if(MATS.base)MATS.base.color.set(COLORS.base||COLORS.body);if(MATS.model)MATS.model.color.set(COLORS.model);if(MATS.basetext)MATS.basetext.color.set(COLORS.basetext);}
+function applyColors(){refreshSwatches();if(MATS.front)MATS.front.color.set(COLORS.front);if(MATS.name)MATS.name.color.set(COLORS.name);if(MATS.image)MATS.image.color.set(COLORS.image);if(MATS.body)MATS.body.color.set(COLORS.body);if(MATS.base)MATS.base.color.set(COLORS.base||COLORS.body);if(MATS.model)MATS.model.color.set(COLORS.model);if(MATS.basetext)MATS.basetext.color.set(COLORS.basetext);if(MATS.border)MATS.border.color.set(COLORS.border);}
 // Every tab gets its own "Colours" block so each thing is colourable where it lives — no separate Colour tab,
 // no floating bar. Body/edge appears on every tab; the tab-specific parts appear on the tabs that make them.
 function injectTabColours(){
@@ -1650,7 +1668,7 @@ document.addEventListener("click",_fileGuardHit,true);      // when the picker i
 document.addEventListener("change",_fileGuardHit,true);     // when a file comes back
 window.addEventListener("focus",function(){if(_fileBusy())_holdSheet();});   // when the page regains focus after the picker
 // Per-tab icons for the mobile expanding-pill nav (data-feat → emoji glyph).
-var TABICON={templates:"✨",textures:"🌐",lithophane:"🖼️",litho1:"🖼️",shadowtrace:"🌓",tlitho:"🔤",labs:"⚗️",labs2:"🌌",letter:"🔠",name:"✍️",logo:"🔺",models:"🧸",mounting:"🧱",testbase:"🧪",dimensions:"📐",assembly:"🧩",colour:"🎨",structure:"🧱",export:"⬇️"};
+var TABICON={templates:"✨",textures:"🌐",lithophane:"🖼️",litho1:"🖼️",shadowtrace:"🌓",tlitho:"🔤",labs:"⚗️",labs2:"🌌",letter:"🔠",name:"✍️",logo:"🔺",models:"🧸",mounting:"🧱",testbase:"🧪",dimensions:"📐",assembly:"🧩",sigtouch:"✨",colour:"🎨",structure:"🧱",export:"⬇️"};
 // Monochrome line-silhouette icons (single-colour, inherit currentColor so they dim/brighten + glow with the active beam). data-feat → inner SVG markup.
 var TABSVG={
   templates:'<rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/>',
@@ -1666,6 +1684,7 @@ var TABSVG={
   mounting:'<circle cx="12" cy="8.5" r="3.6"/><path d="M10.6 11.4L9 19.5h6l-1.6-8.1"/>',
   dimensions:'<rect x="3" y="9" width="18" height="6" rx="1.4"/><path d="M7.5 9v3M11 9v4M14.5 9v3M18 9v4"/>',
   assembly:'<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  sigtouch:'<rect x="3.5" y="3.5" width="17" height="17" rx="2.2"/><rect x="7.6" y="7.6" width="8.8" height="8.8" rx="1.4"/>',
   labs:'<path d="M9 3v6.5L4.5 18a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L15 9.5V3"/><path d="M8 3h8"/>',
   labs2:'<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="9" ry="3.6"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(60 12 12)"/>',
   mounting_kh:'',testbase:'<path d="M9 3v6.5L4.5 18a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L15 9.5V3"/><path d="M8 3h8"/>'
@@ -3932,6 +3951,7 @@ async function buildModel(){
   MATS.image=new THREE.MeshStandardMaterial({color:COLORS.image,roughness:0.5,metalness:0.0,envMapIntensity:0.35});
   MATS.model=new THREE.MeshStandardMaterial({color:COLORS.model,roughness:0.5,metalness:0.0,envMapIntensity:0.35});
   MATS.basetext=new THREE.MeshStandardMaterial({color:COLORS.basetext,roughness:0.5,metalness:0.0,envMapIntensity:0.35});
+  MATS.border=new THREE.MeshStandardMaterial({color:COLORS.border,side:THREE.DoubleSide,roughness:0.55,metalness:0.0,envMapIntensity:0.3});   // signature frame — opaque, does not glow
   const skirtMat=MATS.front,backMat=MATS.body,floorMat=MATS.front,topMat=MATS.front;
 
   let LW=lh*0.7,LH=lh;
@@ -3991,7 +4011,7 @@ async function buildModel(){
       if(!fGeo){const tg=new THREE.TextGeometry(letter,{font,size:glyphSize*0.96,height:0.6,curveSegments:6,bevelEnabled:false});tg.computeBoundingBox();const fb=tg.boundingBox;tg.translate(-(fb.max.x+fb.min.x)/2,-(fb.max.y+fb.min.y)/2,0);fGeo=tg;}
       glowFace=new THREE.Mesh(fGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.92}));glowFace.name="arSkip";glowFace.position.z=-1.2;glowFace.castShadow=false;glowFace.userData.isGlow=true;bodyGroup.add(glowFace);}
 
-    const capGroup=new THREE.Group();window.__capGroup=capGroup;const nameGroups=[];const imgGroups=[];let stlParts=[];
+    const capGroup=new THREE.Group();window.__capGroup=capGroup;const nameGroups=[];const imgGroups=[];const frameGroups=[];let stlParts=[];
     if(hasClip&&filled){try{
       const A=off(filled,clearance),B=off(filled,clearance+capW);   // logos: lid = EXACT traced silhouette (no cap dilation) so thin line-art gold stays thin, never fattened into a blob. skirt is folded into the single manifold lid mesh.
       // ---- Gather pocket features. Name + images share the name pocket depth; each STL gets its own. ----
@@ -4054,6 +4074,18 @@ async function buildModel(){
 // Lid skirt spans the FULL box depth (same depth as the back box) — a hollow cup with the logo on the
 // front face, matching the body depth.
 buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new THREE.Mesh(s.geo,(nameMode||logoMode)?MATS.name:lidMat);m.position.z=s.z;capGroup.add(m);});
+      // ---- Signature Touch: a raised frame band around the silhouette, on the FRONT (z=TT) and BACK (z=-depth) faces ----
+      if(typeof SIG!=="undefined"&&SIG.on){try{
+        var _sbw=Math.max(1,+SIG.w||5),_sbd=Math.max(0.6,+SIG.d||3);
+        var _sin=off(B,-_sbw);var _sring=(_sin&&_sin.length)?diff(B,_sin):B;   // outer=B, inner=B shrunk by width → a picture-frame band following the shape
+        var _srs=(_sring&&_sring.length)?diffToShapes(_sring,null,0):null;
+        if(_srs&&_srs.length){
+          var _sgf=new THREE.ExtrudeGeometry(_srs,{depth:_sbd,bevelEnabled:false,curveSegments:6});_sgf.translate(-cx,-cy,0);
+          var _sff=new THREE.Group();_sff.add(new THREE.Mesh(_sgf,MATS.border));_sff.position.z=TT;frameGroups.push({group:_sff,name:"Signature frame · front"});
+          var _sgb=new THREE.ExtrudeGeometry(_srs,{depth:_sbd,bevelEnabled:false,curveSegments:6});_sgb.translate(-cx,-cy,0);
+          var _sfb=new THREE.Group();_sfb.add(new THREE.Mesh(_sgb,MATS.border));_sfb.position.z=-depth-_sbd;frameGroups.push({group:_sfb,name:"Signature frame · back"});
+        }
+      }catch(e){}}
       // ---- Flat photo panel: its own watertight, printable part (true flat lithophane; the geometry colour needs) ----
       var photoPanelGroup=null;
       if(_panelPaths){try{
@@ -4080,6 +4112,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // seated flat on the lid — there is no free Z axis. The 2D pad clamps to this.
     window.__GB={hx:Math.max(8,LW/2),hy:Math.max(8,LH/2)};
     const partList=[{group:capGroup,name:"Lid · front",flip:false,isLid:true,color:(nameMode?"#FFFFFF":COLORS.front)},{group:bodyGroup,name:"Body",flip:false,color:COLORS.body}];
+    frameGroups.forEach(function(fg){partList.push({group:fg.group,name:fg.name,flip:false,color:COLORS.border});});   // signature frame parts
     // Secondary pieces (catalog models, images, text/name/logo layers) each carry their OWN colour now, so they
     // are all packable together. Collect them with a footprint + colour, then bin-pack onto as FEW bed-sized
     // plates as possible:
