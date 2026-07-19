@@ -1234,7 +1234,7 @@ _dimAdv.appendChild(_dimReset);_dimAdv.style.display="none";   // advanced start
 let images=[],selImg=-1,models=[],selModel=-1,uid=1,t1=null,mode="render",lightOn=true,diffOn=false,selPlate=0,DIM=null;
 // Dynamic, independent text layers on the lid. Each: {id, str, size(mm), x, y}. selText = active layer.
 let texts=[{id:uid++,str:"Aiyla",size:22,x:0,y:0,color:"#FFFFFF",bold:0}],selText=0;
-const COLORS={front:"#E2663B",name:"#FFFFFF",image:"#FFFFFF",model:"#E8C99B",body:"#C9542C",basetext:"#F4E9DC"};
+const COLORS={front:"#E2663B",name:"#FFFFFF",image:"#FFFFFF",model:"#E8C99B",body:"#C9542C",basetext:"#F4E9DC",base:"#C9542C"};
 /* ===== Lid surface textures (printable relief, lid front only) ===== */
 var TAU=Math.PI*2;
 function _tsat(v){return v<0?0:v>1?1:v;}
@@ -1454,12 +1454,12 @@ function pickColor(hex,keepFin){if(!palTarget)return;if(typeof palTarget==="stri
 function palHexIn(){let h=g("palHex").value.trim();if(/^#?[0-9a-fA-F]{6}$/.test(h)){if(h[0]!=="#")h="#"+h;const tid=palTextId(palTarget);if(tid!=null){onTextColor(tid,h);const s=g("sw_text_"+tid);if(s)s.style.background=h;return;}const mid=palModelId(palTarget);if(mid!=null){onModelColor(mid,h);return;}COLORS[palTarget]=h;applyColors();applyLight();}}
 document.addEventListener("pointerdown",e=>{const p=g("palette");if(p.classList.contains("show")&&!p.contains(e.target)&&!(e.target.classList&&e.target.classList.contains("sw")))p.classList.remove("show");});
 function refreshSwatches(){document.querySelectorAll(".sw[data-role]").forEach(function(s){var r=s.getAttribute("data-role");if(COLORS[r]!=null)s.style.background=COLORS[r];});texts.forEach(t=>{const s=g("sw_text_"+t.id);if(s)s.style.background=t.color||"#FFFFFF";});}
-function applyColors(){refreshSwatches();if(MATS.front)MATS.front.color.set(COLORS.front);if(MATS.name)MATS.name.color.set(COLORS.name);if(MATS.image)MATS.image.color.set(COLORS.image);if(MATS.body)MATS.body.color.set(COLORS.body);if(MATS.model)MATS.model.color.set(COLORS.model);if(MATS.basetext)MATS.basetext.color.set(COLORS.basetext);}
+function applyColors(){refreshSwatches();if(MATS.front)MATS.front.color.set(COLORS.front);if(MATS.name)MATS.name.color.set(COLORS.name);if(MATS.image)MATS.image.color.set(COLORS.image);if(MATS.body)MATS.body.color.set(COLORS.body);if(MATS.base)MATS.base.color.set(COLORS.base||COLORS.body);if(MATS.model)MATS.model.color.set(COLORS.model);if(MATS.basetext)MATS.basetext.color.set(COLORS.basetext);}
 // Every tab gets its own "Colours" block so each thing is colourable where it lives — no separate Colour tab,
 // no floating bar. Body/edge appears on every tab; the tab-specific parts appear on the tabs that make them.
 function injectTabColours(){
-  var MAP={textures:["front","body"],lithophane:["front","body"],letter:["front","body"],name:["front","name","body"],logo:["front","body"],models:["image","model","body"],mounting:["basetext","body"],testbase:["body"],dimensions:["front","body"],assembly:["body"],structure:["body"],templates:["body"]};
-  var LBL={front:"Letter / text",name:"Name background",image:"Image",model:"3D model",body:"Body / edge",basetext:"Base text"};
+  var MAP={textures:["front","body"],lithophane:["front","body"],tlitho:["base","basetext"],letter:["front","body"],name:["front","name","body"],logo:["front","body"],models:["image","model","body"],mounting:["base","basetext","body"],testbase:["body"],dimensions:["front","body"],assembly:["body"],structure:["body"],templates:["body"]};
+  var LBL={front:"Letter / text",name:"Name background",image:"Image",model:"3D model",body:"Body / edge",base:"Base",basetext:"Base text"};
   document.querySelectorAll(".controls .acc[data-feat]").forEach(function(acc){
     var f=acc.getAttribute("data-feat"),roles=MAP[f];if(!roles)return;
     var bodyEl=acc.querySelector(".acc-b");if(!bodyEl||bodyEl.querySelector(".tabcolours"))return;
@@ -3698,6 +3698,7 @@ async function buildModel(){
   // inside of the walls draw solidly — otherwise back-face culling let you see straight through the
   // open front into empty space (the "no bottom/back" bug on the plate view).
   MATS.body=new THREE.MeshStandardMaterial({color:COLORS.body,side:THREE.DoubleSide,roughness:0.62,metalness:0.0,envMapIntensity:0.3});
+  MATS.base=new THREE.MeshStandardMaterial({color:COLORS.base||COLORS.body,side:THREE.DoubleSide,roughness:0.62,metalness:0.0,envMapIntensity:0.3});   // desk-base foot has its OWN colour, independent of the body/back box
   MATS.name=new THREE.MeshStandardMaterial({color:COLORS.name,roughness:0.45,metalness:0.0,envMapIntensity:0.35});
   MATS.image=new THREE.MeshStandardMaterial({color:COLORS.image,roughness:0.5,metalness:0.0,envMapIntensity:0.35});
   MATS.model=new THREE.MeshStandardMaterial({color:COLORS.model,roughness:0.5,metalness:0.0,envMapIntensity:0.35});
@@ -3888,7 +3889,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       var _btp=null;if(_mnt.base.text){try{var _bo=await loadOT((typeof baseFontUrl==="function")?baseFontUrl():selNameFont.url);_btp=nameSubjOT(_bo,_mnt.base.text,100);}catch(e){_btp=null;}}   // front nameplate glyph outlines (custom base font if uploaded, else the Name font)
       var _bsink=Math.max(0,-(_mnt.base.raise||0));   // pushing the model DOWN (negative raise = base rises around it) deepens the socket to match
       var _bres=buildCradleBase(_baseSil,cx,cy,depth,_mnt.base.w,_mnt.base.d,_mnt.base.t,_mnt.base.shape,TT,_mnt.base.tex||null,true,_btp,_bsink);   // textured cradle (the old TestBase behaviour, now the standard Mounting base); TT = lid front-cap protrusion
-      if(_bres&&_bres.geo){var _bgrp=new THREE.Group();_bgrp.add(new THREE.Mesh(_bres.geo,MATS.body));if(_bres.txtGeo)_bgrp.add(new THREE.Mesh(_bres.txtGeo,MATS.basetext));_bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mnt.base.raise||0),-depth/2);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.body});}}
+      if(_bres&&_bres.geo){var _bgrp=new THREE.Group();var _bfm=new THREE.Mesh(_bres.geo,MATS.base);_bfm.userData.exportColor=COLORS.base||COLORS.body;_bgrp.add(_bfm);if(_bres.txtGeo)_bgrp.add(new THREE.Mesh(_bres.txtGeo,MATS.basetext));_bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mnt.base.raise||0),-depth/2);partList.push({group:_bgrp,name:"Desk base",flip:false,isBase:true,color:COLORS.base||COLORS.body});}}
     // TestBase (experimental) — same cradle, but the texture runs to the edge and wraps down the sides (edgeWrap).
     if(_mnt&&_mnt.testbase&&_mnt.testbase.on&&filled&&filled.length){
       var _tsil=filled;try{var _tls=off(filled,clearance+capW);if(_tls&&_tls.length)_tsil=_tls;}catch(e){}
@@ -3905,13 +3906,17 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // Owning the scene: a generator tab (litho1/shadowtrace/tlitho) claims it while open, and keeps it while you're
     // on a NEUTRAL tab (Colour/Size/Mounting/…) so tweaks persist. But the moment you open a tab that owns its OWN
     // primary object — Letter / Name / Logo — every generator must yield so the normal model shows again.
+    // __activeGen holds the generator that currently owns the scene, or null when an owner model (letter/name/logo)
+    // owns it. Opening a generator tab claims ownership; opening letter/name/logo releases it; a NEUTRAL tab
+    // (Colour/Size/Mounting/…) leaves it unchanged so the last choice persists. A generator builds ONLY when it is the
+    // active owner — never on the mere fallback of "nothing is active" — so Text Lithophane can't resurrect itself
+    // after you've moved to Letter and then on to Size.
     try{var _GENS=["litho1","shadowtrace","tlitho"],_OWNERS=["letter","name","logo"],_oa=document.querySelector(".controls .acc.open"),_ofeat=_oa?_oa.getAttribute("data-feat"):null;
       if(_ofeat&&_GENS.indexOf(_ofeat)>=0)window.__activeGen=_ofeat;
       else if(_ofeat&&_OWNERS.indexOf(_ofeat)>=0)window.__activeGen=null;   // back on a normal-model tab → release any generator
-      window.__genSuppress=!!(_ofeat&&_OWNERS.indexOf(_ofeat)>=0);
     }catch(e){}
     var _actGen=(window.__activeGen&&["litho1","shadowtrace","tlitho"].indexOf(window.__activeGen)>=0)?window.__activeGen:null;
-    function _genOK(f){return !window.__genSuppress&&(!_actGen||_actGen===f);}
+    function _genOK(f){return _actGen===f;}
     // Lithophane 1 — a native, watertight lithophane solid sized to the lid cutout. It IS the whole front piece,
     // so (like a standalone Labs scene) it prints on its own plate and hides the base box in the preview.
     try{var _l1Gate=(typeof featState!=="function")||featState("litho1")!=="hidden";if(_l1Gate&&_genOK("litho1")&&LITHO1.on&&LITHO1.img&&typeof buildLithophaneGeometry==="function"){
@@ -4035,12 +4040,18 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           var _mb=_mnt.base,_wsil=[];
           _lay.forEach(function(u){var _fp;try{_fp=off(u.contourG,_wall);}catch(e){_fp=null;}(( _fp&&_fp.length)?_fp:u.contourG).forEach(function(p){if(p&&p.length>2)_wsil.push(p);});});
           var _wsu;try{_wsu=union2(_wsil,[]);}catch(e){_wsu=_wsil;}if(!_wsu||!_wsu.length)_wsu=_wsil;
-          var _wordW=(_cursorX-_gap),_bw=Math.max(+_mb.w||90,_wordW+12),_bd=Math.max(20,+_mb.d||58),_bt=Math.max(4,+_mb.t||10),_bsink=Math.max(0,-(_mb.raise||0));
+          var _wordW=(_cursorX-_gap),_bw=Math.max(+_mb.w||90,_wordW+12),_bd=Math.max(20,+_mb.d||58),_bt=Math.max(4,+_mb.t||10);
+          var _embed=Math.max(3,Math.min(8,TLITHO.height*0.18));   // how deep each letter DROPS INTO the base — a real, visible socket (not a 2mm scratch)
+          var _bsink=_embed+Math.max(0,-(_mb.raise||0));           // deepen the carved socket floor to match the extra embed
           _baseFoot={w:_bw,h:_bd};
-          var _bres=buildCradleBase(_wsu,_pb.cx,_pb.cy,_back+_lip,_bw,_bd,_bt,_mb.shape||"round",_lip,_mb.tex||null,true,null,_bsink);
-          if(_bres&&_bres.geo){var _bgrp=new THREE.Group();var _bm=new THREE.Mesh(_bres.geo,_fmat);_bm.userData.exportColor=_frameCol;_bgrp.add(_bm);
-            _bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mb.raise||0),_tz0+(_lip-_back)/2);   // seat the pocket at the letters' bottom, centred on their depth
-            partList.push({group:_bgrp,name:"Desk base",flip:false,labs:true,tlitho:true,color:_frameCol});}
+          var _btp=null;if(_mb.text){try{var _bo=await loadOT((typeof baseFontUrl==="function")?baseFontUrl():selNameFont.url);_btp=nameSubjOT(_bo,_mb.text,100);}catch(e){_btp=null;}}   // front nameplate on the base foot, same as the normal Mounting base
+          var _baseCol=(typeof COLORS!=="undefined"&&COLORS.base)?COLORS.base:_frameCol;   // base foot has its OWN colour (Colour tab), independent of the letters
+          var _bmat=(typeof MATS!=="undefined"&&MATS.base)?MATS.base:new THREE.MeshStandardMaterial({color:_baseCol,roughness:0.55,metalness:0});
+          var _bres=buildCradleBase(_wsu,_pb.cx,_pb.cy,_back+_lip,_bw,_bd,_bt,_mb.shape||"round",_lip,_mb.tex||null,true,_btp,_bsink);
+          if(_bres&&_bres.geo){var _bgrp=new THREE.Group();var _bm=new THREE.Mesh(_bres.geo,_bmat);_bm.userData.exportColor=_baseCol;_bgrp.add(_bm);
+            if(_bres.txtGeo){var _btm=new THREE.Mesh(_bres.txtGeo,(typeof MATS!=="undefined"&&MATS.basetext)?MATS.basetext:_fmat);_btm.userData.exportColor=(typeof COLORS!=="undefined"&&COLORS.basetext)?COLORS.basetext:"#FFFFFF";_bgrp.add(_btm);}
+            _bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mb.raise||0)+_embed,_tz0+(_lip-_back)/2);   // raise the base by _embed so the letters sit DEEP into the socket, floor deepened to match (see _bsink)
+            partList.push({group:_bgrp,name:"Desk base",flip:false,labs:true,tlitho:true,color:_baseCol});}
         }catch(e){}}
         // Bed-fit warning: every letter frame/screen and the base each export as their OWN plate, so the piece
         // that decides fit is the LARGEST single indivisible part — the widest letter, or the base when present.
@@ -4696,7 +4707,7 @@ function renderTemplates(){var host=document.getElementById("tplGrid");if(!host)
 window.__loadTemplates=renderTemplates;
 function serializeDesign(){var d={v:1};try{
   d.letter=(v("letter")||"A");d.name=(typeof LIDNAME!=="undefined"?LIDNAME:"");d.icon=(typeof LIDICON!=="undefined"?LIDICON:"");d.iconSide=(typeof LIDICONSIDE!=="undefined"?LIDICONSIDE:"left");d.printer=selPrinter;d.unit=UNIT;d.font=(selNameFont&&selNameFont.url)||"";d.texture=window.__lidTexId||"none";d.logoPaths=(featState("logo")==="on"&&LOGO&&LOGO.length)?LOGO:null;
-  d.colors={};["front","name","image","model","body"].forEach(function(k){d.colors[k]=COLORS[k];});
+  d.colors={};["front","name","image","model","body","base","basetext"].forEach(function(k){d.colors[k]=COLORS[k];});
   d.dims={};MEAS.forEach(function(m){if(m[0]!=="imgSize")d.dims[m[0]]=mmOf(m[0]);});
   d.texts=texts.map(function(t){return {str:t.str,size:t.size,x:t.x,y:t.y,color:t.color,bold:t.bold||0,font:t.font||d.font};});
   d.images=images.map(function(im){return {src:im.src,size:im.size,x:im.x,y:im.y,rot:im.rot||0};});
