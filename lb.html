@@ -701,7 +701,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
     position:fixed!important;left:0;right:0;bottom:0;top:auto!important;z-index:41;
     margin:0!important;padding:0!important;display:flex;flex-direction:column;max-height:calc(var(--shH,100vh) - 100px);
     border-radius:0;background:transparent!important;border:none!important;box-shadow:none!important;
-    overflow:visible;pointer-events:none;transition:background .3s ease,height .42s cubic-bezier(.22,1,.36,1);
+    overflow:visible;pointer-events:none;transition:none;   /* card background applies INSTANTLY on open — no see-through fade */
   }
   .controls>*{pointer-events:auto}
   .controls::before{display:none!important}
