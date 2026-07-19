@@ -4074,20 +4074,20 @@ async function buildModel(){
 // Lid skirt spans the FULL box depth (same depth as the back box) — a hollow cup with the logo on the
 // front face, matching the body depth.
 buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new THREE.Mesh(s.geo,(nameMode||logoMode)?MATS.name:lidMat);m.position.z=s.z;capGroup.add(m);});
-      // ---- Signature Touch: ONE frame band that WRAPS the whole outer edge (front lip → down the sides →
-      // back lip), flush with the front (not proud). Outer = silhouette + a hair (so the frame is the visible
-      // side surface, never z-fighting the hidden box wall); inner = silhouette shrunk by the border width
-      // (this is the lip on the front + back). Extruded through the FULL box depth. ----
+      // ---- Signature Touch: a border LIP that traces the silhouette on the FRONT face and wraps a short way
+      // down the outer edge — flush with the front (never proud), and NOT a full-depth side shell. Outer =
+      // silhouette + a hair OUTWARD (so the frame is the visible edge surface, no z-fight with the box wall);
+      // inner = silhouette shrunk by the border width (the visible border on the front). ----
       if(typeof SIG!=="undefined"&&SIG.on){try{
         var _sbw=Math.max(1,+SIG.w||5);
-        var _souter=off(B,0.3)||B;                                   // 0.3mm proud OUTWARD only — wraps the side, stays flush on the front
-        var _sinner=off(B,-_sbw);                                    // front/back lip width
+        var _swrap=5;                                                // how far the frame wraps down the edge (mm) — a rim, not the whole side
+        var _souter=off(B,0.3)||B;
+        var _sinner=off(B,-_sbw);
         var _sring=(_sinner&&_sinner.length)?diff(_souter,_sinner):_souter;
         var _srs=(_sring&&_sring.length)?diffToShapes(_sring,null,0):null;
         if(_srs&&_srs.length){
-          var _sdz=TT+depth+0.05;                                    // back plane (-depth) up to just level with the front (TT) — flush
-          var _sge=new THREE.ExtrudeGeometry(_srs,{depth:_sdz,bevelEnabled:false,curveSegments:6});_sge.translate(-cx,-cy,0);
-          var _sfg=new THREE.Group();_sfg.add(new THREE.Mesh(_sge,MATS.border));_sfg.position.z=-depth;
+          var _sge=new THREE.ExtrudeGeometry(_srs,{depth:_swrap,bevelEnabled:false,curveSegments:6});_sge.translate(-cx,-cy,0);
+          var _sfg=new THREE.Group();_sfg.add(new THREE.Mesh(_sge,MATS.border));_sfg.position.z=TT+0.1-_swrap;   // top flush at the front face, wraps down the edge only
           frameGroups.push({group:_sfg,name:"Signature frame"});
         }
       }catch(e){}}
