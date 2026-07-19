@@ -3990,10 +3990,11 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _built=false;
         // 100% independent letters, zero overlap. PASS 1 — build each letter's real FRAME mesh and measure its true
         // width with THREE.Box3, advance the cursor by (frameWidth + gap). PASS 2 — place frame + build the screen.
-        var _gap=(TLITHO.spacing!=null?TLITHO.spacing:10),_cursorX=0,_lay=[];
-        _tletters.forEach(function(L){var _fg=_tlithoFrame(L.paths,0,0),_w,_mnx;
-          if(_fg){_fg.updateMatrixWorld(true);var _bb=new THREE.Box3().setFromObject(_fg);_w=_bb.max.x-_bb.min.x;_mnx=_bb.min.x;}
-          else{var _b2=_tlithoBox([L]);_w=_b2.w;_mnx=_b2.x0;}
+        var _gap=(TLITHO.spacing!=null?TLITHO.spacing:10),_cursorX=0,_lay=[],_maxLetW=0,_maxLetH=0;
+        _tletters.forEach(function(L){var _fg=_tlithoFrame(L.paths,0,0),_w,_mnx,_h=0;
+          if(_fg){_fg.updateMatrixWorld(true);var _bb=new THREE.Box3().setFromObject(_fg);_w=_bb.max.x-_bb.min.x;_mnx=_bb.min.x;_h=_bb.max.y-_bb.min.y;}
+          else{var _b2=_tlithoBox([L]);_w=_b2.w;_mnx=_b2.x0;_h=_b2.h;}
+          if(_w>_maxLetW)_maxLetW=_w;if(_h>_maxLetH)_maxLetH=_h;
           var _offX=_cursorX-_mnx;
           _lay.push({fg:_fg,offX:_offX,contourG:L.paths.map(function(p){return p.map(function(pt){return {X:pt.X+Math.round(_offX*S),Y:pt.Y};});}),char:L.char});
           _cursorX+=_w+_gap;});
@@ -4008,16 +4009,21 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         // DESK BASE — the Mounting tab's "Desk base" (its shape/size/texture), fitted to the whole word. Uses the
         // shared cradle builder so the letters drop into a POCKET contoured to their bottoms (not just sit on top),
         // with the same textured foot the old TestBase had. Only built when the mounting toggle is on.
+        var _baseFoot=null;
         if(_built&&_mnt&&_mnt.base&&_mnt.base.on&&typeof buildCradleBase==="function"){try{
           var _mb=_mnt.base,_wsil=[];
           _lay.forEach(function(u){var _fp;try{_fp=off(u.contourG,_wall);}catch(e){_fp=null;}(( _fp&&_fp.length)?_fp:u.contourG).forEach(function(p){if(p&&p.length>2)_wsil.push(p);});});
           var _wsu;try{_wsu=union2(_wsil,[]);}catch(e){_wsu=_wsil;}if(!_wsu||!_wsu.length)_wsu=_wsil;
           var _wordW=(_cursorX-_gap),_bw=Math.max(+_mb.w||90,_wordW+12),_bd=Math.max(20,+_mb.d||58),_bt=Math.max(4,+_mb.t||10),_bsink=Math.max(0,-(_mb.raise||0));
+          _baseFoot={w:_bw,h:_bd};
           var _bres=buildCradleBase(_wsu,_pb.cx,_pb.cy,_back+_lip,_bw,_bd,_bt,_mb.shape||"round",_lip,_mb.tex||null,true,null,_bsink);
           if(_bres&&_bres.geo){var _bgrp=new THREE.Group();var _bm=new THREE.Mesh(_bres.geo,_fmat);_bm.userData.exportColor=_frameCol;_bgrp.add(_bm);
             _bgrp.rotation.x=-Math.PI/2;_bgrp.position.set(0,_bres.yWallTop-(_mb.raise||0),_tz0+(_lip-_back)/2);   // seat the pocket at the letters' bottom, centred on their depth
             partList.push({group:_bgrp,name:"Desk base",flip:false,labs:true,tlitho:true,color:_frameCol});}
         }catch(e){}}
+        // Bed-fit warning: every letter frame/screen and the base each export as their OWN plate, so the piece
+        // that decides fit is the LARGEST single indivisible part — the widest letter, or the base when present.
+        if(_built){try{var _fW=_maxLetW,_fH=_maxLetH||TLITHO.height;if(_baseFoot){_fW=Math.max(_fW,_baseFoot.w);_fH=Math.max(_fH,_baseFoot.h);}if(_fW>0&&_fH>0)window.__plateFoot={w:_fW,h:_fH};}catch(e){}}
         if(_built)window.__labsStandalone=true;
       }
     }}catch(e){}
