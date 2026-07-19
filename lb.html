@@ -551,7 +551,7 @@ body.ar-open #acct{display:none!important}
   /* left white control card — block (not flex) so a tall section can't
      squeeze the sticky header / tab row when the panel scrolls */
   .controls{
-    position:fixed;left:20px;top:146px;bottom:20px;width:300px;display:block;
+    position:fixed;left:20px;top:96px;bottom:20px;width:300px;display:block;
     padding:0;gap:0;overflow-y:auto;overflow-x:hidden;z-index:40;
     background:var(--card);border:1px solid var(--cardline);border-radius:22px;
     box-shadow:var(--cardshadow);scrollbar-width:none;
@@ -576,6 +576,15 @@ body.ar-open #acct{display:none!important}
   .controls.pl-collapsed .pl-dice{display:none!important}
   .controls .pl-dice{width:48px;height:48px;flex:none;border-radius:14px;background:var(--soft)!important;border:1px solid var(--cardline)!important;color:var(--acc);font-size:19px;box-shadow:none}
   .controls .pl-dice:hover{border-color:var(--acc)!important}
+  /* Drop the "Studio" selector + bare dice from the header — replace with the mobile labelled Randomise button */
+  .controls .pl-title{display:none!important}
+  .controls .pl-dice{display:none!important}
+  .controls .pl-head{padding:14px 14px 4px}
+  .controls .pl-randbtn{display:flex!important;flex:1;align-items:center;justify-content:center;gap:9px;padding:12px 14px;border-radius:14px;
+    border:1px solid var(--cardline);background:var(--soft);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;transition:border-color .15s,transform .06s}
+  .controls .pl-randbtn:hover{border-color:var(--acc)}
+  .controls .pl-randbtn:active{transform:scale(.98)}
+  .controls .pl-randbtn .rdice{font-size:17px;line-height:1}
 
   /* TOP NAV — the same glowing icon-pill nav as mobile, floated across the top of the stage.
      Lifted out to <body> (see plPlaceNav) so it isn't clipped by the panel's scroll box on iOS Safari.
@@ -583,8 +592,8 @@ body.ar-open #acct{display:none!important}
      without scrolling. The ACTIVE tab lights up with a downward light-beam + glowing underline and
      expands to reveal its label (on-theme for a lightbox). */
   .pl-tabs{
-    position:fixed;top:16px;left:332px;right:140px;margin:0 auto;z-index:46;
-    display:flex;flex-direction:row;flex-wrap:nowrap;gap:3px;width:max-content;max-width:calc(100vw - 472px);
+    position:fixed;top:16px;left:500px;right:140px;margin:0 auto;z-index:46;
+    display:flex;flex-direction:row;flex-wrap:nowrap;gap:3px;width:max-content;max-width:calc(100vw - 640px);
     padding:9px 14px 15px;overflow-x:auto;overflow-y:visible;scroll-behavior:smooth;scrollbar-width:none;
     background:linear-gradient(180deg,rgba(27,31,40,.97),rgba(13,15,21,.98));
     border:1px solid rgba(255,255,255,.07);border-radius:20px;
@@ -627,10 +636,12 @@ body.ar-open #acct{display:none!important}
   .texgrid{grid-template-columns:repeat(4,1fr)!important;gap:8px}
   .texname{font-size:9px}
 
-  /* top toolbar: render/plates + export — sits on top of the left menu column (below the floating nav) */
+  /* top toolbar: render/plates + export — top-left corner, matched to the nav bar's height, menu tucks under it */
   .topbar{
-    top:92px;left:20px;gap:10px;align-items:center;padding:6px 8px;
-    background:var(--card);border:1px solid var(--cardline);border-radius:14px;box-shadow:0 10px 26px -16px rgba(0,0,0,.3);
+    top:16px;left:20px;gap:10px;align-items:center;padding:15px 14px;
+    background:linear-gradient(180deg,rgba(27,31,40,.97),rgba(13,15,21,.98));
+    border:1px solid rgba(255,255,255,.07);border-radius:18px;
+    box-shadow:0 14px 34px -18px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.05);
     -webkit-backdrop-filter:none;backdrop-filter:none;
   }
   .topbar .seg{background:var(--soft)!important;border:1px solid var(--cardline)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
@@ -648,6 +659,14 @@ body.ar-open #acct{display:none!important}
      panel, the top bar and the lamp (never over the controls) */
   .printerbox{top:74px!important;right:22px!important;left:auto!important;bottom:auto!important;width:210px}
   .platelist{top:128px!important;right:22px!important;left:auto!important;bottom:auto!important;width:210px;max-height:calc(100vh - 220px);flex-direction:column;overflow:auto}
+}
+
+/* Narrower desktops / 11" iPads: the top-left toolbar + full icon nav can't share one row without
+   the nav scrolling, so drop the nav to its own full-width second row (still matched in height) and
+   push the menu down to clear it. */
+@media(min-width:980px) and (max-width:1341px){
+  .pl-tabs{left:332px;right:140px;top:92px;max-width:calc(100vw - 472px)}
+  .controls{top:172px}
 }
 
 @media(max-width:979px){
