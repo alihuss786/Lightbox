@@ -551,12 +551,11 @@ body.ar-open #acct{display:none!important}
   /* left white control card — block (not flex) so a tall section can't
      squeeze the sticky header / tab row when the panel scrolls */
   .controls{
-    position:fixed;left:20px;top:20px;bottom:20px;width:356px;display:block;
+    position:fixed;left:20px;top:146px;bottom:20px;width:300px;display:block;
     padding:0;gap:0;overflow-y:auto;overflow-x:hidden;z-index:40;
     background:var(--card);border:1px solid var(--cardline);border-radius:22px;
     box-shadow:var(--cardshadow);scrollbar-width:none;
   }
-  .controls .pl-tabs{flex:none}
   .controls::-webkit-scrollbar{display:none}
   .controls::before{display:none!important}
 
@@ -579,37 +578,39 @@ body.ar-open #acct{display:none!important}
   .controls .pl-dice:hover{border-color:var(--acc)!important}
 
   /* TOP NAV — the same glowing icon-pill nav as mobile, floated across the top of the stage.
-     A dark pill of silhouette icons; the ACTIVE tab lights up with a downward light-beam + glowing
-     underline and expands to reveal its label (on-theme for a lightbox). */
-  .controls .pl-tabs{
-    position:fixed;top:16px;left:calc(50% + 188px);transform:translateX(-50%);z-index:46;
-    display:flex;flex-direction:row;flex-wrap:nowrap;gap:3px;width:max-content;max-width:calc(100vw - 720px);
-    margin:0;padding:9px 14px 15px;overflow-x:auto;overflow-y:visible;scroll-behavior:smooth;scrollbar-width:none;
+     Lifted out to <body> (see plPlaceNav) so it isn't clipped by the panel's scroll box on iOS Safari.
+     Centred in the gap between the left column and the sign-in button, wide enough to show every icon
+     without scrolling. The ACTIVE tab lights up with a downward light-beam + glowing underline and
+     expands to reveal its label (on-theme for a lightbox). */
+  .pl-tabs{
+    position:fixed;top:16px;left:332px;right:140px;margin:0 auto;z-index:46;
+    display:flex;flex-direction:row;flex-wrap:nowrap;gap:3px;width:max-content;max-width:calc(100vw - 472px);
+    padding:9px 14px 15px;overflow-x:auto;overflow-y:visible;scroll-behavior:smooth;scrollbar-width:none;
     background:linear-gradient(180deg,rgba(27,31,40,.97),rgba(13,15,21,.98));
-    border:1px solid rgba(255,255,255,.07);border-radius:20px;border-bottom:1px solid rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.07);border-radius:20px;
     box-shadow:0 14px 34px -18px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.05);
     -webkit-backdrop-filter:none;backdrop-filter:none;
   }
-  .controls .pl-tabs::-webkit-scrollbar{display:none}
-  .controls .pl-tab{
+  .pl-tabs::-webkit-scrollbar{display:none}
+  .pl-tabs .pl-tab{
     flex:0 0 auto;position:relative;display:flex;flex-direction:row;align-items:center;justify-content:flex-start;overflow:visible;
     width:46px;height:40px;padding:0;border-radius:12px;background:none;border:none;color:#cbd4de;opacity:.42;
     text-transform:none;letter-spacing:.01em;
     transition:width .42s cubic-bezier(.22,1,.36,1),opacity .3s ease,color .3s ease;
   }
-  .controls .pl-tab .ptic{display:flex!important;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:34px;font-size:20px;line-height:1;
+  .pl-tabs .pl-tab .ptic{display:flex!important;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:34px;font-size:20px;line-height:1;
     transition:filter .3s ease,transform .3s cubic-bezier(.22,1,.36,1)}
-  .controls .pl-tab .ptic svg{width:23px;height:23px;display:block}
-  .controls .pl-tab .ptlbl{display:block;opacity:0;max-width:0;white-space:nowrap;overflow:hidden;transform:translateX(-6px);
+  .pl-tabs .pl-tab .ptic svg{width:23px;height:23px;display:block}
+  .pl-tabs .pl-tab .ptlbl{display:block;opacity:0;max-width:0;white-space:nowrap;overflow:hidden;transform:translateX(-6px);
     font-size:12.5px;font-weight:700;letter-spacing:.01em;text-transform:none;color:#eaf6ff;
     transition:opacity .25s ease,max-width .42s cubic-bezier(.22,1,.36,1),transform .35s ease}
-  .controls .pl-tab:hover{background:none;color:#e6eef6}
-  .controls .pl-tab.active{width:auto;opacity:1;color:#fff;background:none}
-  .controls .pl-tab.active .ptlbl{opacity:1;max-width:170px;transform:translateX(0);padding-right:14px;text-shadow:0 0 10px rgba(190,240,255,.4)}
-  .controls .pl-tab.active .ptic{transform:translateY(-1px);filter:drop-shadow(0 0 8px rgba(205,244,255,.95)) drop-shadow(0 1px 14px rgba(120,215,255,.55))}
-  .controls .pl-tab.active::before{content:"";position:absolute;left:23px;bottom:-6px;transform:translateX(-50%);width:36px;height:24px;pointer-events:none;
+  .pl-tabs .pl-tab:hover{background:none;color:#e6eef6}
+  .pl-tabs .pl-tab.active{width:auto;opacity:1;color:#fff;background:none}
+  .pl-tabs .pl-tab.active .ptlbl{opacity:1;max-width:170px;transform:translateX(0);padding-right:14px;text-shadow:0 0 10px rgba(190,240,255,.4)}
+  .pl-tabs .pl-tab.active .ptic{transform:translateY(-1px);filter:drop-shadow(0 0 8px rgba(205,244,255,.95)) drop-shadow(0 1px 14px rgba(120,215,255,.55))}
+  .pl-tabs .pl-tab.active::before{content:"";position:absolute;left:23px;bottom:-6px;transform:translateX(-50%);width:36px;height:24px;pointer-events:none;
     background:radial-gradient(ellipse 55% 100% at 50% 0%,rgba(205,244,255,.9),rgba(120,215,255,.32) 44%,transparent 72%);filter:blur(2px)}
-  .controls .pl-tab.active::after{content:"";display:block;position:absolute;left:23px;right:auto;bottom:-7px;transform:translateX(-50%);width:22px;height:3px;border-radius:3px;background:#f0fbff;
+  .pl-tabs .pl-tab.active::after{content:"";display:block;position:absolute;left:23px;right:auto;bottom:-7px;transform:translateX(-50%);width:22px;height:3px;border-radius:3px;background:#f0fbff;
     box-shadow:0 0 10px 2px rgba(205,244,255,.95),0 0 22px 7px rgba(120,215,255,.5)}
 
   /* content padding + flat sections */
@@ -626,9 +627,9 @@ body.ar-open #acct{display:none!important}
   .texgrid{grid-template-columns:repeat(4,1fr)!important;gap:8px}
   .texname{font-size:9px}
 
-  /* top toolbar: render/plates + export, tucked below the floating top nav, just right of the panel */
+  /* top toolbar: render/plates + export — sits on top of the left menu column (below the floating nav) */
   .topbar{
-    top:74px;left:392px;gap:10px;align-items:center;padding:6px 8px;
+    top:92px;left:20px;gap:10px;align-items:center;padding:6px 8px;
     background:var(--card);border:1px solid var(--cardline);border-radius:14px;box-shadow:0 10px 26px -16px rgba(0,0,0,.3);
     -webkit-backdrop-filter:none;backdrop-filter:none;
   }
@@ -1173,7 +1174,7 @@ try{window.__cachedTier=localStorage.getItem("sl_tier")||null;}catch(e){window._
 try{window.__viewAsTier=sessionStorage.getItem("sl_viewas")||null;}catch(e){window.__viewAsTier=null;}
 function featState(k){var cfg=window.__siteConfig||{};var tier=window.__viewAsTier||(window.__license&&window.__license.tier)||window.__cachedTier||null;var v=null;if(tier&&cfg.tiers&&cfg.tiers[tier]&&cfg.tiers[tier][k])v=cfg.tiers[tier][k];if(!v&&cfg.features&&cfg.features[k])v=cfg.features[k];if(!v)v=_FEATURES[k]||"on";return (v==="soon"||v==="hidden")?v:"on";}
 function applyFeatureGates(){try{[].forEach.call(document.querySelectorAll(".controls .acc[data-feat]"),function(acc){var st=featState(acc.getAttribute("data-feat"));acc.style.display=(st==="hidden")?"none":"";var body=acc.querySelector(".acc-b");var ov=body?body.querySelector(".soon-ov"):null;if(st==="soon"){acc.classList.add("feat-soon");if(!ov&&body){ov=document.createElement("div");ov.className="soon-ov soon-card";ov.innerHTML='<div class="soon-badge">Coming soon</div><div class="soon-txt">This feature isn\u2019t available yet \u2014 it\u2019s on the roadmap.</div>';body.insertBefore(ov,body.firstChild);}}else{acc.classList.remove("feat-soon");if(ov)ov.remove();}});}catch(e){}}
-window.__refreshGates=function(){try{applyFeatureGates();}catch(e){}try{var wrap=document.querySelector(".controls");if(wrap){var bar=wrap.querySelector(".pl-tabs");if(bar){bar.parentNode.removeChild(bar);if(typeof plBuildTabs==="function")plBuildTabs();if(typeof immersiveInit==="function")immersiveInit();}}}catch(e){}try{if(window.__arRefresh)window.__arRefresh();}catch(e){}};
+window.__refreshGates=function(){try{applyFeatureGates();}catch(e){}try{var wrap=document.querySelector(".controls");if(wrap){var bar=document.querySelector(".pl-tabs");if(bar){bar.parentNode.removeChild(bar);if(typeof plBuildTabs==="function")plBuildTabs();if(typeof immersiveInit==="function")immersiveInit();}}}catch(e){}try{if(window.__arRefresh)window.__arRefresh();}catch(e){}};
 window.__applySiteConfig=function(cfg){window.__siteConfig=(cfg&&typeof cfg==="object")?cfg:{};try{localStorage.setItem("sl_cfg",JSON.stringify(window.__siteConfig));}catch(e){}if(document.querySelector(".controls .pl-tabs"))window.__refreshGates();};
 const MEAS=[["lh",50,400,1],["bd",40,150,1],["wall",1.5,8,.5],["topT",1,12,.5],["capW",1.5,8,.5],["skirt",3,120,1],["nameDepth",0,30,.5],["nameExt",1,30,.5],["imgSize",10,250,1]];
 function mmOf(id){const raw=+v(id);if(isNaN(raw))return 0;return UNIT==="cm"?raw*10:raw;}
@@ -1564,7 +1565,7 @@ try{injectTabColours();}catch(e){}
 
 function paintSeg(){const r=(mode==="render");const R=g("segR"),P=g("segP");const lt=document.documentElement.getAttribute("data-theme")==="light";const onBg=lt?"#ffffff":"rgba(255,255,255,.12)";const onCol=lt?"#1d1d1f":"#fff";const offCol=lt?"#8a8a8f":"rgba(255,255,255,.55)";const onSh=lt?"0 1px 4px rgba(0,0,0,.12)":"none";R.style.background=r?onBg:"transparent";R.style.color=r?onCol:offCol;R.style.boxShadow=r?onSh:"none";P.style.background=!r?onBg:"transparent";P.style.color=!r?onCol:offCol;P.style.boxShadow=!r?onSh:"none";}
 function setMode(m){mode=m;zoom=1;try{document.body.classList.toggle("plates-mode",m==="plates");}catch(e){}paintSeg();g("platelist").style.display=m==="plates"?"flex":"none";g("printerbox").style.display=m==="plates"?"flex":"none";g("zoomhint").style.display="block";clearTimeout(zhT);zhT=setTimeout(()=>g("zoomhint").style.display="none",1900);if(m==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}buildModel();buildSummary();}
-function toggleLight(){if((window.__explodeAmt||0)>0.001)return;lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plTab(i,userTap){var wrap=document.querySelector(".controls");if(!wrap)return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));var tabs=[].slice.call(wrap.querySelectorAll(".pl-tab"));
+function toggleLight(){if((window.__explodeAmt||0)>0.001)return;lightOn=!lightOn;g("lightPill").classList.toggle("on",lightOn);applyLight();}function plToggle(){var c=document.querySelector(".controls");if(c)c.classList.toggle("pl-collapsed");}function plTab(i,userTap){var wrap=document.querySelector(".controls");if(!wrap)return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));var tabs=[].slice.call(document.querySelectorAll(".pl-tab"));
   // i is the ACCORDION index; tabs are keyed by data-i (hidden accordions have no tab), so match on data-i — not
   // the tab's position in the bar — otherwise the wrong tab highlights and the close-toggle misfires.
   var meTab=tabs.filter(function(t){return +t.getAttribute("data-i")===i;})[0];
@@ -1641,7 +1642,7 @@ var TABSVG={
   labs2:'<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="9" ry="3.6"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(60 12 12)"/>',
   mounting_kh:'',testbase:'<path d="M9 3v6.5L4.5 18a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L15 9.5V3"/><path d="M8 3h8"/>'
 };
-function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export)$/i.test(name))return;var _df=acc.getAttribute("data-feat");if(_df&&featState(_df)==="hidden")return;var t=document.createElement("button");t.className="pl-tab"+(acc.classList.contains("feat-soon")?" pl-soon":"");
+function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||document.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export)$/i.test(name))return;var _df=acc.getAttribute("data-feat");if(_df&&featState(_df)==="hidden")return;var t=document.createElement("button");t.className="pl-tab"+(acc.classList.contains("feat-soon")?" pl-soon":"");
     var _ico=(typeof TABICON!=="undefined"&&_df&&TABICON[_df])||(name.match(/[\u{1F000}-\u{1FAFF}←-➿⬀-⯿]/u)||[])[0]||"◉";   // per-tab glyph (map → any emoji already in the header → dot)
     var _lbl=name.replace(/[\u{1F000}-\u{1FAFF}←-➿⬀-⯿️]/gu,"").trim()||name;   // label with the emoji stripped
     var _svg=(typeof TABSVG!=="undefined"&&_df&&TABSVG[_df])?('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+TABSVG[_df]+'</svg>'):_ico;
@@ -1651,7 +1652,17 @@ function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wr
   try{plSheetSwipe(bar);}catch(e){}
   // give the sheet header a proper labelled Randomise button (the bare dice looked lost on its own)
   try{var _ph=wrap.querySelector(".pl-head");if(_ph&&!_ph.querySelector(".pl-randbtn")){var _rb=document.createElement("button");_rb.className="pl-randbtn";_rb.innerHTML='<span class="rdice">🎲</span> Randomise colours';_rb.onclick=function(){plRandom();};_ph.insertBefore(_rb,_ph.firstChild);}}catch(e){}
-  var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0,false);}function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
+  var openIdx=-1;accs.forEach(function(a,j){if(openIdx<0&&a.classList.contains("open"))openIdx=j;});plTab(openIdx>=0?openIdx:0,false);try{plPlaceNav();}catch(e){}}
+// Desktop floats the nav across the top of the STAGE — but the stage-centred bar sits outside the left panel's
+// box, and iOS Safari CLIPS a position:fixed element to its nearest scrolling ancestor (.controls). So on desktop
+// we lift the bar out to <body>; on mobile it lives back inside the sheet. Re-runs on breakpoint change.
+function plPlaceNav(){try{var bar=document.querySelector(".pl-tabs");var wrap=document.querySelector(".controls");if(!bar||!wrap)return;
+  var desk=window.matchMedia&&window.matchMedia("(min-width:980px)").matches;
+  if(desk){if(bar.parentNode!==document.body)document.body.appendChild(bar);}
+  else if(bar.parentNode!==wrap){var head=wrap.querySelector(".pl-head");if(head&&head.nextSibling)wrap.insertBefore(bar,head.nextSibling);else wrap.appendChild(bar);}
+}catch(e){}}
+if(!window.__plNavMQ){window.__plNavMQ=1;try{var _mq=window.matchMedia("(min-width:980px)");(_mq.addEventListener?_mq.addEventListener("change",plPlaceNav):_mq.addListener(plPlaceNav));}catch(e){try{window.addEventListener("resize",plPlaceNav);}catch(e2){}}}
+function plRandom(){try{var P=["#E2663B","#4C8BF5","#5DCAA5","#F5A623","#B565D8","#E24B7A","#3FB6B0","#D9544E","#6C7BE0","#E8C99B"];var c=P[Math.floor(Math.random()*P.length)];COLORS.front=c;COLORS.body=c;if(typeof applyColors==="function")applyColors();if(typeof applyLight==="function")applyLight();if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}
 function immersiveInit(){try{var ICON={colour:["\u25d1","Colour"],color:["\u25d1","Colour"],textures:["\u25a6","Texture"],texture:["\u25a6","Texture"],letter:["A","Letter"],name:["\u270e","Name"],images:["\u2b21","Models"],image:["\u2b21","Models"],dimensions:["\u2922","Size"],dimension:["\u2922","Size"],logo:["\u25a3","Logo"],lithophane:["\u25d0","Lithophane"],labs:["\u2728","Labs"],labs2:["\u2728","Labs 2"]};var tabs=[].slice.call(document.querySelectorAll(".controls .pl-tab"));tabs.forEach(function(t){if(t.querySelector(".ptlbl"))return;var full=(t.textContent||"").trim();var key=full.toLowerCase();var m=ICON[key];if(!m){for(var k in ICON){if(key.indexOf(k)===0){m=ICON[k];break;}}}var ic=m?m[0]:"\u2022",lb=m?m[1]:full;t.setAttribute("title",full);t.innerHTML="<span class=\"ptic\">"+ic+"</span><span class=\"ptlbl\">"+lb+"</span>";});var titleSpan=document.querySelector(".controls .pl-title span:not(.pl-ic)");function syncHead(){var at=document.querySelector(".pl-tab.active");if(at&&titleSpan)titleSpan.textContent=at.getAttribute("title")||"Studio";}tabs.forEach(function(t){t.addEventListener("click",function(){tabs.forEach(function(x){x.classList.remove("active");});t.classList.add("active");setTimeout(syncHead,0);});});syncHead();var tb=document.querySelector(".topbar");if(tb&&!tb.querySelector(".brandmark")){var bm=document.createElement("div");bm.className="brandmark";bm.innerHTML="<span class=\"bmk\">S</span><span class=\"bmw\"><b>Signature</b><i>Lightboxes</i></span>";tb.insertBefore(bm,tb.firstChild);}}catch(e){}}
 function toggleTg(k){if(k==="diff"){diffOn=!diffOn;g("tg_diff").classList.toggle("on",diffOn);rebuild();}}
 // ---- Mounting tab: toggle a feature, reveal its controls, keep the slider labels live, and rebuild ----
