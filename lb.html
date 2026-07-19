@@ -2845,9 +2845,9 @@ function drawStlPad(){const pad=g("pad_stl"),layer=g("stlLayer");if(!pad||!layer
   pad.addEventListener("pointermove",e=>{if(!dg||selModel<0)return;const c=ctx(e),mo=models[selModel];let nx=Math.round(c.mx+gx),ny=Math.round(c.my+gy);const b=window.__GB;if(b){nx=Math.max(-b.hx,Math.min(b.hx,nx));ny=Math.max(-b.hy,Math.min(b.hy,ny));}mo.x=nx;mo.y=ny;syncModel();drawStlPad();scheduleBuild();});
   window.addEventListener("pointerup",()=>dg=false);})();
 
-const DRX=0.33,DRY=0.5;let renderer,scene,camera,pivot,started=false,rotX=DRX,rotY=DRY,zoom=1,baseDist=600,baseY=0,zhT=null;
-function applyZoom(){if(!camera)return;camera.position.set(0,baseY,baseDist*zoom);camera.lookAt(0,0,0);}
-function resetView(){zoom=1;if(mode==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}applyZoom();}
+const DRX=0.33,DRY=0.5;let renderer,scene,camera,pivot,started=false,rotX=DRX,rotY=DRY,zoom=1,baseDist=600,baseY=0,panX=0,panY=0,zhT=null;
+function applyZoom(){if(!camera)return;camera.position.set(panX,baseY+panY,baseDist*zoom);camera.lookAt(panX,panY,0);}
+function resetView(){zoom=1;panX=0;panY=0;if(mode==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}applyZoom();}
 function sceneBgHex(){return (ENVS[currentEnv]||ENVS.studio).bg;}function floorHex(){return (ENVS[currentEnv]||ENVS.studio).floor;}function applySceneTheme(){try{if(typeof scene!=="undefined"&&scene)scene.background=new THREE.Color(sceneBgHex());if(typeof floorPlane!=="undefined"&&floorPlane&&floorPlane.material)floorPlane.material.color.setHex(floorHex());if(typeof paintSeg==="function")paintSeg();}catch(e){}}(function(){var o=window.__setTheme;window.__setTheme=function(t){if(o)o(t);applySceneTheme();};})();
 function initThree(){const cv=g("cv");if(renderer){resize();return;}const W=cv.parentElement.clientWidth,H=cv.parentElement.clientHeight||330;renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(devicePixelRatio);renderer.setSize(W,H);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;pmrem=new THREE.PMREMGenerator(renderer);try{pmrem.compileEquirectangularShader();}catch(_){}
   scene=new THREE.Scene();scene.background=new THREE.Color(sceneBgHex());camera=new THREE.PerspectiveCamera(40,W/H,0.1,16000);camera.position.set(0,0,560);camera.lookAt(0,0,0);
@@ -2855,15 +2855,23 @@ function initThree(){const cv=g("cv");if(renderer){resize();return;}const W=cv.p
   keyLight=new THREE.DirectionalLight(0xffffff,0.6);keyLight.position.set(300,440,260);keyLight.castShadow=true;keyLight.shadow.mapSize.set(1024,1024);keyLight.shadow.camera.near=10;keyLight.shadow.camera.far=2600;keyLight.shadow.camera.left=-800;keyLight.shadow.camera.right=800;keyLight.shadow.camera.top=800;keyLight.shadow.camera.bottom=-800;keyLight.shadow.bias=-0.0004;keyLight.shadow.radius=4;scene.add(keyLight);
   fillLight=new THREE.DirectionalLight(0xbfd0ff,0.12);fillLight.position.set(-180,80,260);scene.add(fillLight);
   pivot=new THREE.Group();scene.add(pivot);
-  // Unified Pointer-Event orbit/zoom controls with pointer capture — one finger (or mouse drag) rotates the
-  // model, two fingers pinch-zoom, wheel zooms. Pointer capture + touch-action:none keeps drags reliable on
-  // iOS Safari, where the old split mouse/touch listeners could drop mid-drag.
-  let drag=false,px=0,py=0,pinch=false,pStart=0,pZoom=1;
+  // Unified Pointer-Event controls with pointer capture (reliable on iOS Safari; touch-action:none keeps drags
+  // from being hijacked):  ONE finger / left-drag = orbit (spin the box).  TWO fingers = pan (slide the box
+  // across the view) + pinch-zoom together.  Right-drag or Shift+drag = pan on desktop.  Wheel = zoom.
+  let drag=false,pan=false,px=0,py=0,pinch=false,pStart=0,pZoom=1,pmx=0,pmy=0;
   const _ptrs=new Map();
-  const _dist=()=>{const p=[..._ptrs.values()];return p.length<2?0:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);};
-  cv.addEventListener("pointerdown",e=>{try{cv.setPointerCapture(e.pointerId);}catch(_){}_ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});if(_ptrs.size===2){pinch=true;drag=false;pStart=_dist();pZoom=zoom;}else if(_ptrs.size===1){drag=true;px=e.clientX;py=e.clientY;}});
-  cv.addEventListener("pointermove",e=>{if(!_ptrs.has(e.pointerId))return;_ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch&&_ptrs.size>=2){e.preventDefault();const d=_dist();if(pStart>0){zoom=Math.max(0.4,Math.min(3.2,pZoom*pStart/d));applyZoom();}}else if(drag){e.preventDefault();rotY+=(e.clientX-px)*.008;rotX+=(e.clientY-py)*.008;rotX=Math.max(-1.5,Math.min(1.55,rotX));px=e.clientX;py=e.clientY;}});
-  const _pup=e=>{_ptrs.delete(e.pointerId);if(_ptrs.size<2)pinch=false;if(_ptrs.size===0){drag=false;}else{const p=[..._ptrs.values()][0];drag=true;px=p.x;py=p.y;pStart=0;}};
+  const _two=()=>{const p=[..._ptrs.values()];return {d:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y),mx:(p[0].x+p[1].x)/2,my:(p[0].y+p[1].y)/2};};
+  const _pf=()=>(2*baseDist*zoom*0.36397)/(cv.clientHeight||800);   // world units per screen pixel at the model
+  const _clampPan=()=>{panX=Math.max(-560,Math.min(560,panX));panY=Math.max(-560,Math.min(560,panY));};
+  cv.addEventListener("contextmenu",e=>e.preventDefault());
+  cv.addEventListener("pointerdown",e=>{try{cv.setPointerCapture(e.pointerId);}catch(_){}_ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(_ptrs.size===2){const t=_two();pinch=true;drag=false;pan=false;pStart=t.d;pZoom=zoom;pmx=t.mx;pmy=t.my;}
+    else if(_ptrs.size===1){px=e.clientX;py=e.clientY;if(e.pointerType==="mouse"&&(e.button===1||e.button===2||e.shiftKey)){pan=true;drag=false;}else{drag=true;pan=false;}}});
+  cv.addEventListener("pointermove",e=>{if(!_ptrs.has(e.pointerId))return;_ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pinch&&_ptrs.size>=2){e.preventDefault();const t=_two();if(pStart>0)zoom=Math.max(0.4,Math.min(3.2,pZoom*pStart/t.d));const pf=_pf();panX-=(t.mx-pmx)*pf;panY+=(t.my-pmy)*pf;pmx=t.mx;pmy=t.my;_clampPan();applyZoom();}
+    else if(pan){e.preventDefault();const pf=_pf();panX-=(e.clientX-px)*pf;panY+=(e.clientY-py)*pf;px=e.clientX;py=e.clientY;_clampPan();applyZoom();}
+    else if(drag){e.preventDefault();rotY+=(e.clientX-px)*.008;rotX+=(e.clientY-py)*.008;rotX=Math.max(-1.5,Math.min(1.55,rotX));px=e.clientX;py=e.clientY;}});
+  const _pup=e=>{_ptrs.delete(e.pointerId);if(_ptrs.size<2)pinch=false;if(_ptrs.size===0){drag=false;pan=false;}else{const p=[..._ptrs.values()][0];drag=true;pan=false;px=p.x;py=p.y;pStart=0;}};
   cv.addEventListener("pointerup",_pup);cv.addEventListener("pointercancel",_pup);cv.addEventListener("lostpointercapture",_pup);
   cv.addEventListener("wheel",e=>{e.preventDefault();zoom=Math.max(0.4,Math.min(3.2,zoom*(1+(e.deltaY>0?0.1:-0.1))));applyZoom();},{passive:false});
   if(!started){started=true;(function loop(){requestAnimationFrame(loop);if(window.__arPaused)return;_rgbTick();if(pivot)pivot.rotation.set(rotX,rotY,0);renderer.render(scene,camera);updateDimLabels();})();}window.addEventListener("resize",()=>{resize();drawPad();});}
