@@ -1561,6 +1561,9 @@ function plSheetSwipe(bar){if(!bar||bar.__swipe)return;bar.__swipe=1;var y0=null
 // (100vh/100dvh mis-measure with the browser chrome; window.innerHeight is the reliable visible height).
 function plSetVH(){try{document.documentElement.style.setProperty("--shH",window.innerHeight+"px");}catch(e){}}
 plSetVH();window.addEventListener("resize",plSetVH);window.addEventListener("orientationchange",plSetVH);
+// A native file-picker (photo/font upload) steals focus and can collapse the bottom sheet on mobile. When a file
+// is chosen from inside the controls, re-assert the open sheet — immediately and again after the browser settles.
+document.addEventListener("change",function(e){try{var t=e.target;if(t&&t.type==="file"&&t.closest&&t.closest(".controls")){plSheetOpen();setTimeout(plSheetOpen,300);setTimeout(plSheetOpen,800);}}catch(_){}} ,true);
 // Per-tab icons for the mobile expanding-pill nav (data-feat → emoji glyph).
 var TABICON={templates:"✨",textures:"🌐",lithophane:"🖼️",litho1:"🖼️",shadowtrace:"🌓",tlitho:"🔤",labs:"⚗️",labs2:"🌌",letter:"🔠",name:"✍️",logo:"🔺",models:"🧸",mounting:"🧱",testbase:"🧪",dimensions:"📐",assembly:"🧩",colour:"🎨",structure:"🧱",export:"⬇️"};
 function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export)$/i.test(name))return;var _df=acc.getAttribute("data-feat");if(_df&&featState(_df)==="hidden")return;var t=document.createElement("button");t.className="pl-tab"+(acc.classList.contains("feat-soon")?" pl-soon":"");
