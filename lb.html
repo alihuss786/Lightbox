@@ -1567,11 +1567,30 @@ function plSetVH(){try{var h=window.innerHeight;
   if(typeof _fileBusy==="function"&&_fileBusy()){var cur=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--shH"))||h;if(h<cur-4)return;}
   document.documentElement.style.setProperty("--shH",h+"px");}catch(e){}}
 plSetVH();window.addEventListener("resize",plSetVH);window.addEventListener("orientationchange",plSetVH);
-// A native file-picker (photo/font upload) steals focus and can collapse the bottom sheet on mobile. Guard the
-// sheet from the moment a file input is activated until ~2s after a file is chosen, and re-assert it open.
-function _fileGuardHit(e){var t=e&&e.target;if(t&&t.type==="file"&&t.closest&&t.closest(".controls"))window.__fileGuard=Date.now();}
-document.addEventListener("click",_fileGuardHit,true);
-document.addEventListener("change",function(e){try{var t=e.target;if(t&&t.type==="file"&&t.closest&&t.closest(".controls")){window.__fileGuard=Date.now();plSheetOpen();setTimeout(plSheetOpen,350);setTimeout(function(){plSheetOpen();plSetVH();},900);}}catch(_){}} ,true);
+// A native file-picker (photo/font upload) steals focus and toggles the URL bar, which was pushing the bottom
+// sheet down (closing or shrinking it). From the moment a file input is activated, actively HOLD the sheet steady
+// every animation frame for a short window: keep it OPEN and keep --shH from shrinking, so any close/shrink the
+// browser attempts is corrected within one frame and nothing visibly moves.
+// Pin the bottom sheet to the VISIBLE bottom. A fixed bottom:0 element sits at the layout-viewport bottom, so when
+// the mobile URL bar re-appears (e.g. after a photo-picker) it slides behind/below it — that's the "pushed down".
+// visualViewport tells us the visible area; nudge the sheet up by however far it's fallen below it.
+function _vvFix(){try{var w=document.querySelector(".controls");if(!w)return;
+  if(!window.matchMedia||!window.matchMedia("(max-width:640px)").matches){w.style.transform="";return;}   // phone bottom-sheet only
+  var vv=window.visualViewport;if(!vv)return;
+  var off=Math.round((document.documentElement.clientHeight||window.innerHeight)-(vv.offsetTop+vv.height));
+  w.style.transform=(off>1)?("translateY(-"+off+"px)"):"";}catch(_){}}
+if(window.visualViewport){window.visualViewport.addEventListener("resize",_vvFix);window.visualViewport.addEventListener("scroll",_vvFix);}
+_vvFix();
+// A native file-picker steals focus + toggles the URL bar, pushing the sheet down. For a short window after any
+// file interaction, actively HOLD it steady every animation frame: keep it OPEN, keep --shH from shrinking, and
+// keep it pinned to the visible bottom — so any push the browser attempts is corrected within one frame.
+function _holdSheet(){var w=document.querySelector(".controls");if(!w)return;var wantOpen=w.classList.contains("sheet-open");
+  var goodVH=Math.max(window.innerHeight,parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--shH"))||0);window.__fileGuard=Date.now();var t0=Date.now();
+  (function tick(){if(Date.now()-t0>2600)return;try{if(wantOpen&&!w.classList.contains("sheet-open"))w.classList.add("sheet-open");document.documentElement.style.setProperty("--shH",Math.max(window.innerHeight,goodVH)+"px");_vvFix();}catch(_){}requestAnimationFrame(tick);})();}
+function _fileGuardHit(e){var t=e&&e.target;if(t&&t.type==="file"&&t.closest&&t.closest(".controls"))_holdSheet();}
+document.addEventListener("click",_fileGuardHit,true);      // when the picker is opened
+document.addEventListener("change",_fileGuardHit,true);     // when a file comes back
+window.addEventListener("focus",function(){if(_fileBusy())_holdSheet();});   // when the page regains focus after the picker
 // Per-tab icons for the mobile expanding-pill nav (data-feat → emoji glyph).
 var TABICON={templates:"✨",textures:"🌐",lithophane:"🖼️",litho1:"🖼️",shadowtrace:"🌓",tlitho:"🔤",labs:"⚗️",labs2:"🌌",letter:"🔠",name:"✍️",logo:"🔺",models:"🧸",mounting:"🧱",testbase:"🧪",dimensions:"📐",assembly:"🧩",colour:"🎨",structure:"🧱",export:"⬇️"};
 function plBuildTabs(){var wrap=document.querySelector(".controls");if(!wrap||wrap.querySelector(".pl-tabs"))return;var accs=[].slice.call(wrap.querySelectorAll(".acc"));if(!accs.length)return;var bar=document.createElement("div");bar.className="pl-tabs";accs.forEach(function(acc,i){var hd=acc.querySelector(".acc-h");if(!hd)return;var name="";[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)name+=n.textContent;});name=name.trim()||("Tab "+(i+1));if(/^(structure|export)$/i.test(name))return;var _df=acc.getAttribute("data-feat");if(_df&&featState(_df)==="hidden")return;var t=document.createElement("button");t.className="pl-tab"+(acc.classList.contains("feat-soon")?" pl-soon":"");
