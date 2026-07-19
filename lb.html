@@ -794,9 +794,12 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       </div>
       <div id="tlitho_letters" style="display:none;flex-direction:column;gap:8px"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Letter height — <b id="tlitho_hl">40</b> mm</span><input type="range" id="tlitho_h" min="20" max="80" step="2" value="40" oninput="tlithoHeight(this.value)"></div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Letter spacing (gap) — <b id="tlitho_spl">10</b> mm</span><input type="range" id="tlitho_sp" min="0" max="25" step="1" value="10" oninput="tlithoSpacing(this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thinnest (white) — <b id="tlitho_minl">0.8</b> mm</span><input type="range" id="tlitho_min" min="0.4" max="2" step="0.1" value="0.8" oninput="tlithoThick('min',this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thickest (black) — <b id="tlitho_maxl">3.0</b> mm</span><input type="range" id="tlitho_max" min="1.5" max="3.0" step="0.1" value="3" oninput="tlithoThick('max',this.value)"></div>
+      <button class="upfont" style="cursor:pointer" onclick="tlithoAuto()">✨ Auto-balance (one-click)</button>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Contrast / gamma — <b id="tlitho_conl">1.0</b>×</span><input type="range" id="tlitho_con" min="0.5" max="2.5" step="0.05" value="1" oninput="tlithoContrast(this.value)"></div>
+      <div class="hint"><b>Auto-balance</b> reads the photo's histogram and sets a good starting depth in one click — then fine-tune with the slider. Turn the lamp on to preview it live.</div>
       <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_tlitho_inv" onclick="tlithoInvert()"><div class="k"></div></div></div>
       <div class="hint">Lithophanes are always <b>white</b> — the photo reads through thickness when the lamp is on. Turn the lamp on to preview the glow. Each letter is watertight and exports cleanly to your .3mf pipeline.</div>
     </div>
@@ -2255,6 +2258,9 @@ function litho1Auto(){if(!LITHO1.img)return;var a=_lithoAuto(LITHO1.img);LITHO1.
   var sl=document.getElementById("litho1_con");if(sl)sl.value=LITHO1.contrast;var l=document.getElementById("litho1_conl");if(l)l.textContent=LITHO1.contrast.toFixed(2);
   if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Clear(){LITHO1.on=false;LITHO1.img=null;LITHO1.src=null;var c=document.getElementById("litho1_ctl");if(c)c.style.display="none";var th=document.getElementById("litho1_thumb");if(th)th.style.backgroundImage="";if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoAuto(){var img=TLITHO.img||(TLITHO.perImgs[0]&&TLITHO.perImgs[0].img);if(!img||typeof _lithoAuto!=="function")return;var a=_lithoAuto(img);TLITHO.gamma=a.gamma;TLITHO.contrast=a.contrast;
+  var sl=document.getElementById("tlitho_con");if(sl)sl.value=TLITHO.contrast;var l=document.getElementById("tlitho_conl");if(l)l.textContent=TLITHO.contrast.toFixed(2);
+  if(typeof scheduleBuild==="function")scheduleBuild();}
 async function buildLabs2(filled,cx,cy,TT){
   var parts=[];if(typeof THREE==="undefined"||!filled||!filled.length)return parts;
   if(!(LABS2.shadow.on||LABS2.wordfill.on))return parts;
@@ -3936,7 +3942,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _tOpt={minThickness:TLITHO.minT,maxThickness:TLITHO.maxT,invert:TLITHO.invert,contrast:TLITHO.contrast,gamma:TLITHO.gamma,targetCell:_qCell,capCells:520,center:false};
         var _wordUV={x0:_tnb.x0,y0:_tnb.y0,w:_tnb.w,h:_tnb.h};
         function _tlithoMesh(geo){var mt=lithophaneMaterial(),mh=new THREE.Mesh(geo,mt);mh.userData.lithoUL=mt.userData.uLit;mh.userData.lithoTint=mt.userData.uTint;return mh;}
-        var _lip=TLITHO.maxT+1.0,_wall=TLITHO.wall,_back=TLITHO.back,_frameCol="#2B2B2B";   // dark frame (black filament), white screen
+        var _lip=1.5,_wall=TLITHO.wall,_back=TLITHO.back,_frameCol="#2B2B2B";   // thin border; the relief (up to maxT) sits PROUD on the letter face (like the Goku reference), not sunk deep behind a tall lip
         var _fmat=new THREE.MeshStandardMaterial({color:_frameCol,roughness:0.55,metalness:0});
         // Mesh A — FRAME tray: solid backplate (char, z=[-back,0]) + border walls (char−0.4 → char+wall, z=[-back,lip]).
         function _tlithoFrame(contour,cx,cy){
