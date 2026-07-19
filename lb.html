@@ -3509,7 +3509,17 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap,
   // Perturbed groove-opening edge: a ±4µm alternating wobble stops Clipper collapsing the subdivided edge
   // to 4 corners, so the groove hole in the (textured) top cap still lines up with the subdivided side-walls.
   var _pe=0.004;function ymn(i){return -halfFront+((i&1)?_pe:-_pe);}function ymx(i){return halfBack+((i&1)?-_pe:_pe);}
-  var hole=[];for(i0=0;i0<=M;i0++)hole.push(new THREE.Vector2(xs[i0],ymn(i0)));for(i0=M;i0>=0;i0--)hole.push(new THREE.Vector2(xs[i0],ymx(i0)));
+  // Split the groove into per-object SEGMENTS: open a slot only across the x-runs where the model actually dips in
+  // (gd>thr2), so the top stays SOLID + fully textured between separate letters instead of one channel-and-smooth
+  // strip running the whole word. A single blob (one letter / connected name) yields one segment = the old groove.
+  var _sthr=Math.max(0.12,pocketMax*0.15),_segs=[],_run=null;
+  for(i0=0;i0<=M;i0++){var _has=gd[i0]>_sthr;if(_has){if(!_run)_run={a:i0,b:i0};else _run.b=i0;}else if(_run){_segs.push(_run);_run=null;}}
+  if(_run)_segs.push(_run);
+  _segs.forEach(function(sg){sg.a=Math.max(0,sg.a-1);sg.b=Math.min(M,sg.b+1);});   // pad one sample each side for clean end caps
+  _segs=_segs.sort(function(p,q){return p.a-q.a;}).reduce(function(acc,sg){var l=acc[acc.length-1];if(l&&sg.a<=l.b+1){l.b=Math.max(l.b,sg.b);}else acc.push(sg);return acc;},[]).filter(function(sg){return sg.b>sg.a;});
+  if(!_segs.length)_segs=[{a:0,b:M}];   // nothing dips in → keep one shallow groove so the caller's seat plane is unchanged
+  function _segHole(sg){var h=[];for(var i=sg.a;i<=sg.b;i++)h.push(new THREE.Vector2(xs[i],ymn(i)));for(var i=sg.b;i>=sg.a;i--)h.push(new THREE.Vector2(xs[i],ymx(i)));return h;}
+  var _holes=_segs.map(_segHole);
   // clipper->mesh caps/walls that honour holes (PolyTree), so raised texture fuses into the foot as ONE
   // watertight shell instead of separate floating pucks (which the slicer voided + supported).
   function _toShapes(paths){if(!paths||!paths.length)return [];var c=new ClipperLib.Clipper();c.AddPaths(paths,ClipperLib.PolyType.ptSubject,true);var tree=new ClipperLib.PolyTree();c.Execute(ClipperLib.ClipType.ctUnion,tree,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);function V(ct){return ct.map(function(pt){return new THREE.Vector2(pt.X/S,pt.Y/S);});}var out=[];function walk(node){var sh=new THREE.Shape(V(node.Contour()));node.Childs().forEach(function(hn){sh.holes.push(new THREE.Path(V(hn.Contour())));hn.Childs().forEach(walk);});out.push(sh);}tree.Childs().forEach(function(n){walk(n);});return out;}
@@ -3579,8 +3589,8 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap,
   var _seatDrop=0,_tiles=null,_relief=0;
   try{var _bv=(texId!=null)?texId:((document.getElementById("mntBaseTex")||{}).value);var _texObj=(_bv&&_bv!=="none"&&!(typeof BASE_TEX_SKIP!=="undefined"&&BASE_TEX_SKIP[_bv])&&typeof TEXFN!=="undefined"&&TEXFN[_bv]&&TEXFN[_bv].gen)?TEXFN[_bv]:null;
     if(_texObj){
-      var _exX0=mx0-1.2,_exX1=mx1+1.2,_exY0=-halfFront-1.2,_exY1=halfBack+1.2;   // keep-out = the carved groove pocket
-      var _exRect=[[{X:Math.round(_exX0*S),Y:Math.round(_exY0*S)},{X:Math.round(_exX1*S),Y:Math.round(_exY0*S)},{X:Math.round(_exX1*S),Y:Math.round(_exY1*S)},{X:Math.round(_exX0*S),Y:Math.round(_exY1*S)}]];
+      var _exY0=-halfFront-1.2,_exY1=halfBack+1.2;   // keep-out = ONLY the carved groove segments, so gaps between letters keep their texture
+      var _exRect=_segs.map(function(sg){var _a=xs[sg.a]-1.2,_b=xs[sg.b]+1.2;return [{X:Math.round(_a*S),Y:Math.round(_exY0*S)},{X:Math.round(_b*S),Y:Math.round(_exY0*S)},{X:Math.round(_b*S),Y:Math.round(_exY1*S)},{X:Math.round(_a*S),Y:Math.round(_exY1*S)}];});
       var _topReg=diff(prof,_exRect);var _Rin=off(_topReg,-0.3);   // texture runs right to the edge (small hairline border) on both the mounting base and the TestBase
       if(_Rin&&_Rin.length){
         var _mnX=1e9,_mnY=1e9,_mxX=-1e9,_mxY=-1e9;_Rin.forEach(function(pp){pp.forEach(function(q){var X=q.X/S,Y=q.Y/S;if(X<_mnX)_mnX=X;if(X>_mxX)_mxX=X;if(Y<_mnY)_mnY=Y;if(Y>_mxY)_mxY=Y;});});
@@ -3605,13 +3615,13 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap,
     _ts.forEach(function(sh){var ep=sh.extractPoints();var O=_dd(ep.shape||[]),Hs=(ep.holes||[]).map(_dd).filter(function(x){return x.length>=3;});capUpV(O,Hs,zTop+_relief,true);});   // tile tops (z=relief)
     // Top surface is the same canonical raised-tile emboss for both the desk base and the TestBase; the TestBase
     // additionally wraps the pattern down the sides (see the side-emboss call below).
-    capUpV(_capOut,[_dd(hole)].concat(_touter),zTop,true);            // grout top = profile, holes = groove + tiles
+    capUpV(_capOut,_holes.map(_dd).concat(_touter),zTop,true);        // grout top = profile, holes = groove segments + tiles
     _tinner.forEach(function(H){capUpV(H,[],zTop,true);});            // grout islands inside ring/cube tiles
     _touter.forEach(function(L){wallLoop(L,zTop,zTop+_relief,false);});
     _tinner.forEach(function(L){wallLoop(L,zTop,zTop+_relief,true);});
     _seatDrop=_relief;
   }else{
-    var tf=THREE.ShapeUtils.triangulateShape(outer,[hole]),tp=outer.concat(hole);
+    var tf=THREE.ShapeUtils.triangulateShape(outer,_holes),tp=outer.concat.apply(outer,_holes);
     tf.forEach(function(f){var p0=tp[f[0]],p1=tp[f[1]],p2=tp[f[2]];var A=[p0.x,p0.y,zTop],B=[p1.x,p1.y,zTop],C=[p2.x,p2.y,zTop];var cr=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);if(cr>0)tri(A,B,C);else tri(A,C,B);});
   }
   // BOTTOM cap (full profile) at Z=-TT, facing -Z
@@ -3622,14 +3632,18 @@ function buildCradleBase(filled,cx,cy,depth,w,d,t,shape,frontExt,texId,edgeWrap,
   for(i0=0;i0<outer.length;i0++){var pA=outer[i0],pB=outer[(i0+1)%outer.length];
     quad([pA.x,pA.y,zTop],[pB.x,pB.y,zTop],[pB.x,pB.y,zBot],[pA.x,pA.y,zBot]);}
   // if(_ew){_sidePads(zTop,zBot,_res);}   // side texture wrap temporarily disabled — sides stay plain smooth
-  // contoured floor + two side walls (straight top edge, contoured bottom) + two end caps
-  for(i0=0;i0<M;i0++){var x0=xs[i0],x1=xs[i0+1],f0=-gd[i0],f1=-gd[i0+1];
-    quad([x0,ymn(i0),f0],[x1,ymn(i0+1),f1],[x1,ymx(i0+1),f1],[x0,ymx(i0),f0]);                 // floor
-    quad([x0,ymn(i0),zTop],[x1,ymn(i0+1),zTop],[x1,ymn(i0+1),f1],[x0,ymn(i0),f0]);             // side wall y=-halfCh
-    quad([x0,ymx(i0),f0],[x1,ymx(i0+1),f1],[x1,ymx(i0+1),zTop],[x0,ymx(i0),zTop]);             // side wall y=+halfCh
-  }
-  quad([xs[0],ymn(0),zTop],[xs[0],ymx(0),zTop],[xs[0],ymx(0),-gd[0]],[xs[0],ymn(0),-gd[0]]);   // end cap start
-  quad([xs[M],ymx(M),zTop],[xs[M],ymn(M),zTop],[xs[M],ymn(M),-gd[M]],[xs[M],ymx(M),-gd[M]]);   // end cap end
+  // Per-segment: contoured floor + two side walls (straight top edge, contoured bottom) + two end caps. Each groove
+  // segment is its own closed slot, so between letters the top cap is solid and the texture runs straight across.
+  _segs.forEach(function(sg){
+    for(var i=sg.a;i<sg.b;i++){var x0=xs[i],x1=xs[i+1],f0=-gd[i],f1=-gd[i+1];
+      quad([x0,ymn(i),f0],[x1,ymn(i+1),f1],[x1,ymx(i+1),f1],[x0,ymx(i),f0]);                    // floor
+      quad([x0,ymn(i),zTop],[x1,ymn(i+1),zTop],[x1,ymn(i+1),f1],[x0,ymn(i),f0]);                // side wall y=-halfCh
+      quad([x0,ymx(i),f0],[x1,ymx(i+1),f1],[x1,ymx(i+1),zTop],[x0,ymx(i),zTop]);                // side wall y=+halfCh
+    }
+    var _a=sg.a,_b=sg.b;
+    quad([xs[_a],ymn(_a),zTop],[xs[_a],ymx(_a),zTop],[xs[_a],ymx(_a),-gd[_a]],[xs[_a],ymn(_a),-gd[_a]]);   // end cap start
+    quad([xs[_b],ymx(_b),zTop],[xs[_b],ymn(_b),zTop],[xs[_b],ymn(_b),-gd[_b]],[xs[_b],ymx(_b),-gd[_b]]);   // end cap end
+  });
   // FRONT NAMEPLATE: raised text on the front vertical wall (the min-Y face the viewer sees). Each glyph is a closed
   // prism standing proud of the wall (its back sunk into the foot so the two solids fuse); orientOut fixes normals.
   var _tpos=[];   // front nameplate lives in its own vertex buffer so it can carry its own colour
@@ -3888,9 +3902,16 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     try{var _l2Gate=(typeof featState!=="function")||featState("labs2")!=="hidden";if(_l2Gate&&typeof buildLabs2==="function"&&(LABS2.shadow.on||LABS2.wordfill.on)){var _lab2=await buildLabs2(filled,cx,cy,TT);if(_lab2&&_lab2.length)_lab2.forEach(function(p){partList.push(p);});}}catch(e){}
     // Only ONE standalone photo generator owns the scene at a time: the currently-open generator tab, else the last
     // one used. Stops e.g. the Text Lithophane persisting after you switch back to the normal Lithophane tab.
-    try{var _GENS=["litho1","shadowtrace","tlitho"],_oa=document.querySelector(".controls .acc.open"),_ofeat=_oa?_oa.getAttribute("data-feat"):null;if(_ofeat&&_GENS.indexOf(_ofeat)>=0)window.__activeGen=_ofeat;}catch(e){}
+    // Owning the scene: a generator tab (litho1/shadowtrace/tlitho) claims it while open, and keeps it while you're
+    // on a NEUTRAL tab (Colour/Size/Mounting/…) so tweaks persist. But the moment you open a tab that owns its OWN
+    // primary object — Letter / Name / Logo — every generator must yield so the normal model shows again.
+    try{var _GENS=["litho1","shadowtrace","tlitho"],_OWNERS=["letter","name","logo"],_oa=document.querySelector(".controls .acc.open"),_ofeat=_oa?_oa.getAttribute("data-feat"):null;
+      if(_ofeat&&_GENS.indexOf(_ofeat)>=0)window.__activeGen=_ofeat;
+      else if(_ofeat&&_OWNERS.indexOf(_ofeat)>=0)window.__activeGen=null;   // back on a normal-model tab → release any generator
+      window.__genSuppress=!!(_ofeat&&_OWNERS.indexOf(_ofeat)>=0);
+    }catch(e){}
     var _actGen=(window.__activeGen&&["litho1","shadowtrace","tlitho"].indexOf(window.__activeGen)>=0)?window.__activeGen:null;
-    function _genOK(f){return !_actGen||_actGen===f;}
+    function _genOK(f){return !window.__genSuppress&&(!_actGen||_actGen===f);}
     // Lithophane 1 — a native, watertight lithophane solid sized to the lid cutout. It IS the whole front piece,
     // so (like a standalone Labs scene) it prints on its own plate and hides the base box in the preview.
     try{var _l1Gate=(typeof featState!=="function")||featState("litho1")!=="hidden";if(_l1Gate&&_genOK("litho1")&&LITHO1.on&&LITHO1.img&&typeof buildLithophaneGeometry==="function"){
