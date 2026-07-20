@@ -982,7 +982,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
     <div class="acc-h" onclick="accT(this)">Letter <i class="chev">⌄</i></div>
     <div class="acc-b">
       <div class="row"><span class="lbl">Capital letter</span><input type="text" class="letter-big" id="letter" maxlength="1" value="A" oninput="this.value=(this.value.slice(-1)||'').toUpperCase();rebuild()"></div>
-      <div class="row"><span class="lbl">Letter font</span><div class="grid3" id="font-grid"></div></div>
+      <div class="row"><span class="lbl">Letter font</span><div class="grid3 letter-font-grid" id="font-grid"></div></div>
       <button class="upfont" id="upLetterFontBtn" onclick="g('letterFontFile').click()">⬆ Upload Letter Font (.ttf / .otf)</button>
       <input type="file" id="letterFontFile" accept=".ttf,.otf,font/ttf,font/otf,application/font-sfnt" style="display:none" onchange="onLetterFontUpload(this)">
       <div class="row"><span class="lbl">Default cursive font (new text layers)</span><div class="grid3" id="name-grid"></div></div>
@@ -1005,8 +1005,10 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
   <div class="acc" data-feat="name">
     <div class="acc-h" onclick="accT(this)">Name <i class="chev">⌄</i></div>
     <div class="acc-b">
-      <div class="hint">Turn the lid into a name plate — your name sits flat on a solid white glowing background. Uses your selected Letter font.</div>
+      <div class="hint">Turn the lid into a name plate — your name sits flat on a solid white glowing background.</div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Name</span><input type="text" id="lidName" maxlength="24" placeholder="e.g. Leo" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:15px system-ui,sans-serif;box-sizing:border-box" oninput="onNameInput()"></div>
+      <div class="row"><span class="lbl">Font</span><div class="grid3 letter-font-grid" id="font-grid-name"></div></div>
+      <button class="upfont" onclick="g('letterFontFile').click()">⬆ Upload font (.ttf / .otf) — any font works here</button>
       <button class="addtext" onclick="clearName()">Clear name (back to single letter)</button>
       <div class="sub" style="margin-top:16px">Add an icon <span style="font-weight:400;opacity:.55;font-size:11px">optional — sits by the name</span></div>
       <div style="display:flex;gap:6px;margin:6px 0 9px"><button type="button" class="iside sel" id="isideL" onclick="setIconSide('left')">◀ Left of name</button><button type="button" class="iside" id="isideR" onclick="setIconSide('right')">Right of name ▶</button></div>
@@ -1231,7 +1233,8 @@ function uiConfirm(msg,opts){opts=opts||{};return _showModal({title:opts.title||
 function paintUnitSeg(){const mmS=UNIT==="mm";const a=g("u_mm"),b=g("u_cm");if(!a)return;a.style.background=mmS?"#eef0f2":"transparent";a.style.color=mmS?"#16181b":"#fff";b.style.background=!mmS?"#eef0f2":"transparent";b.style.color=!mmS?"#16181b":"#fff";}
 function setUnit(u){if(u===UNIT)return;const store={};MEAS.forEach(m=>{store[m[0]]=mmOf(m[0]);});UNIT=u;const toU=(u==="cm"?0.1:1);MEAS.forEach(([id,mn,mx,st])=>{const el=g(id);if(!el)return;el.value=tidy(store[id]*toU);el.min=mn*toU;el.max=mx*toU;el.step=(u==="cm")?Math.max(0.1,Math.round(st)/10):st;const R=g(id+"R");if(R)R.value=store[id];});document.querySelectorAll(".numbox .u").forEach(s=>s.textContent=u);paintUnitSeg();rebuild();buildSummary();}
 
-function renderFontGrid(){const fg=g("font-grid");if(!fg)return;fg.innerHTML="";FONTS.forEach(f=>{const b=document.createElement("button");b.className="fbtn"+(f===selFont?" sel":"");b.innerHTML=`<div class="fs" style="font-family:${f.css}">Aa</div><div class="fn">${f.name}</div>`+(f.custom?`<button class="nbtn-x" title="Remove custom letter font" onclick="event.stopPropagation();removeLetterFont('${f.url}')">×</button>`:"");b.onclick=()=>{selFont=f;renderFontGrid();if(typeof sigSyncLock==="function")sigSyncLock();rebuild();};fg.appendChild(b);});}
+function renderFontGrid(){var grids=[].slice.call(document.querySelectorAll(".letter-font-grid"));var solo=g("font-grid");if(solo&&grids.indexOf(solo)<0)grids.push(solo);if(!grids.length)return;
+  grids.forEach(function(fg){fg.innerHTML="";FONTS.forEach(f=>{const b=document.createElement("button");b.className="fbtn"+(f===selFont?" sel":"");b.innerHTML=`<div class="fs" style="font-family:${f.css}">Aa</div><div class="fn">${f.name}</div>`+(f.custom?`<button class="nbtn-x" title="Remove custom letter font" onclick="event.stopPropagation();removeLetterFont('${f.url}')">×</button>`:"");b.onclick=()=>{selFont=f;renderFontGrid();if(typeof sigSyncLock==="function")sigSyncLock();rebuild();};fg.appendChild(b);});});}
 renderFontGrid();
 // Build a THREE.Font (the typeface.json shape the letter pipeline expects) directly from an uploaded .ttf/.otf
 // using opentype, so custom fonts work for the big capital letter — not just the cursive text. Each glyph's
@@ -1249,7 +1252,8 @@ function addCustomLetterFont(id,name,buf,apply){
     try{const ff=new FontFace("LF_"+id,buf.slice(0));document.fonts.add(ff);ff.load().catch(()=>{});}catch(_){}
     const entry={name,url:id,css:`'LF_${id}',sans-serif`,custom:true};
     FONTS.push(entry);renderFontGrid();
-    if(apply){selFont=entry;renderFontGrid();rebuild();}
+    try{if(!NAME_FONTS.some(f=>f.url===id)){otCache[id]=otf;NAME_FONTS.push({name,url:id,css:`'LF_${id}',cursive`,custom:true});renderNameGrid();}}catch(_){}   // the same upload is usable everywhere (letter, name, text layers)
+    if(apply){selFont=entry;renderFontGrid();if(typeof sigSyncLock==="function")sigSyncLock();rebuild();}
     return entry;
   }catch(_){return null;}
 }
@@ -1262,7 +1266,9 @@ function onLetterFontUpload(input){const file=input&&input.files&&input.files[0]
   reader.onerror=()=>{showFontLoading(false);uiAlert("Could not read that file.");};
   reader.readAsArrayBuffer(file);input.value="";
 }
-function removeLetterFont(key){const i=FONTS.findIndex(f=>f.url===key);if(i<0)return;const wasSel=FONTS[i]===selFont;FONTS.splice(i,1);delete fontCache[key];dbDelFont(key);if(wasSel)selFont=FONTS[0];renderFontGrid();if(wasSel)rebuild();}
+function removeLetterFont(key){const i=FONTS.findIndex(f=>f.url===key);if(i<0)return;const wasSel=FONTS[i]===selFont;FONTS.splice(i,1);delete fontCache[key];
+  var j=NAME_FONTS.findIndex(f=>f.url===key);if(j>=0){var wasN=NAME_FONTS[j]===selNameFont;NAME_FONTS.splice(j,1);delete otCache[key];if(wasN)selNameFont=NAME_FONTS[0];renderNameGrid();}
+  dbDelFont(key);if(wasSel)selFont=FONTS[0];renderFontGrid();if(typeof sigSyncLock==="function")sigSyncLock();if(wasSel)rebuild();}
 function renderNameGrid(){const ng=g("name-grid");if(!ng)return;ng.innerHTML="";NAME_FONTS.forEach(f=>{const b=document.createElement("button");b.className="nbtn"+(f===selNameFont?" sel":"");b.innerHTML=`<div class="ns" style="font-family:${f.css}">Abc</div><div class="nn">${f.name}</div>`+(f.custom?`<button class="nbtn-x" title="Remove custom font" onclick="event.stopPropagation();removeNameFont('${f.url}')">×</button>`:"");b.onclick=()=>selectNameFont(f);ng.appendChild(b);});}
 // Switching the cursive font must NOT black out the canvas. We parse the new font's vectors asynchronously
 // behind a small loading overlay (the scene keeps showing the CURRENT geometry the whole time), and only once
@@ -1307,6 +1313,7 @@ function addCustomFont(id,name,buf,apply){
     try{const ff=new FontFace(name,buf.slice(0));document.fonts.add(ff);ff.load().catch(()=>{});}catch(_){}
     const entry={name,url:id,css:`'${name}',cursive`,custom:true};
     NAME_FONTS.push(entry);renderNameGrid();
+    try{if(!FONTS.some(f=>f.url===id)){const tf=otToThreeFont(otf,name);fontCache[id]=tf;try{const ff2=new FontFace("LF_"+id,buf.slice(0));document.fonts.add(ff2);ff2.load().catch(()=>{});}catch(_){}FONTS.push({name,url:id,css:`'LF_${id}',sans-serif`,custom:true});renderFontGrid();}}catch(_){}   // usable as a letter/name font too
     if(apply)selectNameFont(entry);
     return entry;
   }catch(_){return null;}
@@ -1324,7 +1331,9 @@ function onFontUpload(input){const file=input&&input.files&&input.files[0];if(!f
   reader.onerror=()=>{showFontLoading(false);uiAlert("Could not read that file.");};
   reader.readAsArrayBuffer(file);input.value="";
 }
-function removeNameFont(key){const i=NAME_FONTS.findIndex(f=>f.url===key);if(i<0)return;const wasSel=NAME_FONTS[i]===selNameFont;NAME_FONTS.splice(i,1);delete otCache[key];dbDelFont(key);if(wasSel)selNameFont=NAME_FONTS[0];renderNameGrid();if(wasSel)rebuild();}
+function removeNameFont(key){const i=NAME_FONTS.findIndex(f=>f.url===key);if(i<0)return;const wasSel=NAME_FONTS[i]===selNameFont;NAME_FONTS.splice(i,1);delete otCache[key];
+  var j=FONTS.findIndex(f=>f.url===key);if(j>=0){var wasL=FONTS[j]===selFont;FONTS.splice(j,1);delete fontCache[key];if(wasL)selFont=FONTS[0];renderFontGrid();if(typeof sigSyncLock==="function")sigSyncLock();if(wasL&&typeof rebuild==="function")rebuild();}
+  dbDelFont(key);if(wasSel)selNameFont=NAME_FONTS[0];renderNameGrid();if(wasSel)rebuild();}
 // Base nameplate font: its own uploadable typeface. null = fall back to the selected Name font at build time.
 let baseTextFont=null;
 function baseFontUrl(){return (baseTextFont&&baseTextFont.url)||selNameFont.url;}
