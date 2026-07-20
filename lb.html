@@ -4108,7 +4108,15 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         // BACK counter frame — a wider flat bezel that reaches further INTO each counter hole (a bigger back
         // triangle frame), so from behind the open hole shows more frame and less lit interior.
         var _bcShapes=null;try{var _bh=diff(fillSolid(_fsrc),_fsrc);
-          if(_bh&&_bh.length){var _bcR=diff(off(_bh,_lw*1.3),off(_bh,-_lw*0.9));_bcShapes=(_bcR&&_bcR.length)?diffToShapes(_bcR,null,0):null;}}catch(e){_bcShapes=null;}   // wide ring: grows OUT into the body (covers the sharp corners incl. the apex peak) and IN a bit (stays hollow)
+          if(_bh&&_bh.length){
+            // Same thin border as the front (opening ≈ the hole, so it's as hollow as the front), but grow the
+            // OUTER edge with MITRE joins so each corner extends outward to a point — covering the lit peak that
+            // pokes out at the apex & bottom corners. Clip to the letter so it never spills past the outline.
+            var _offMi=function(p,d){try{var co=new ClipperLib.ClipperOffset(5,0.25);co.AddPaths(p,ClipperLib.JoinType.jtMiter,ClipperLib.EndType.etClosedPolygon);var s=new ClipperLib.Paths();co.Execute(s,d*S);return s;}catch(e){return off(p,d);}};
+            var _bo=_offMi(_bh,_lw);try{var _bc2=intersect(_bo,fillSolid(_fsrc));if(_bc2&&_bc2.length)_bo=_bc2;}catch(e){}
+            var _binner=off(_bh,-0.8);var _bcR=(_binner&&_binner.length)?diff(_bo,_binner):_bo;
+            _bcShapes=(_bcR&&_bcR.length)?diffToShapes(_bcR,null,0):null;
+          }}catch(e){_bcShapes=null;}
         function _sigArm(shapes,extd){if(!shapes||!shapes.length)return null;var g=new THREE.ExtrudeGeometry(shapes,{depth:extd,bevelEnabled:false,curveSegments:6});g.translate(-cx,-cy,0);return g;}
         if(_lipShapes&&_lipShapes.length){
           // FRONT L-shell: thin bezel on the front face + thin return wrapping BACK down the side by _sfd
