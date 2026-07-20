@@ -4465,7 +4465,10 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       baseY=sz.y*0.10;baseDist=Math.max(sz.x,sz.y)*1.5+sz.z*1.1+150;applyZoom();
       // tag each printed part for the Assembly slider: body pulls back, lid forward, lit layers furthest forward
       window.__explodeParts=partList; window.__explodeD=Math.max(55,(DIM&&DIM.z?DIM.z:45)*1.6);
-      partList.forEach(function(p){var n=(p.name||"");var dir=(p.isLid)?0.5:(p.textPlate)?1.2:(p.modelId||p.isStl||/Image|Photo/i.test(n))?1.2:-0.6;p.group.userData=p.group.userData||{};p.group.userData.__exDir=dir;p.group.userData.__exBaseZ=p.group.position.z;});
+      partList.forEach(function(p){var n=(p.name||"");var dir=(p.isLid)?0.5:(p.textPlate)?1.2:(p.modelId||p.isStl||/Image|Photo/i.test(n))?1.2:-0.6;
+        if(/frame\s*·\s*front/i.test(n))dir=0.5;        // the front frame is part of the front face — peel it forward with the lid, not stay put with the body
+        else if(/frame\s*·\s*back/i.test(n))dir=-0.6;   // the back frame peels back with the body
+        p.group.userData=p.group.userData||{};p.group.userData.__exDir=dir;p.group.userData.__exBaseZ=p.group.position.z;});
     } else {
       window.__explodeParts=[];
       const idx=Math.min(selPlate,partList.length-1);const part=partList[idx];
