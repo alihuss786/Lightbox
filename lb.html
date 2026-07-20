@@ -1129,7 +1129,8 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
     <div class="acc-h" onclick="accT(this)">Signature Touch ✨ <i class="chev">⌄</i></div>
     <div class="acc-b">
       <div class="hint">The finishing flourish — wrap your design in a raised <b>frame</b> on the front and back faces, like a picture frame around the glow. Design your box first, then add the frame here and pick its colour.</div>
-      <div class="toggle-row"><span class="lbl">🖼️ Add signature frame</span><div class="tg" id="tg_sig" onclick="sigToggle()"><div class="k"></div></div></div>
+      <div class="toggle-row" id="sigTogRow"><span class="lbl">🖼️ Add signature frame</span><div class="tg" id="tg_sig" onclick="sigToggle()"><div class="k"></div></div></div>
+      <div id="sigLock" class="hint" style="display:none;color:#e0a94a;border-left:2px solid #e0a94a;padding-left:8px">The signature frame can only be applied on the built-in <b>Sans</b>, <b>Serif</b> or <b>Soft</b> fonts. Switch back to one of those to add a frame.</div>
       <div id="sigCtl" style="display:none;flex-direction:column;gap:13px;margin-top:4px">
         <div class="hint">A border on the <b>front</b> and <b>back</b> faces, both flush (never sticking out). The glowing band shows on the sides between them.</div>
         <div class="sw-grid"><div class="sw-item"><span class="sw" data-role="border" onclick="openPal('border',event)"></span><span class="swl">Frame colour</span></div></div>
@@ -1184,7 +1185,7 @@ window.__hasAMS=false;   // AMS = multi-colour: bake chosen colours into the .3m
 const plateOpacity=0.12;        // build-plate translucency permanently locked at its lowest level
 let __plateMats=[];             // live references to the current plate's materials for instant opacity updates
 function maybeExitNameMode(){try{var wrap=document.querySelector(".controls");if(!wrap)return;var openAcc=wrap.querySelector(".acc.open");if(!openAcc)return;var hd=openAcc.querySelector(".acc-h");var nm="";if(hd)[].forEach.call(hd.childNodes,function(n){if(n.nodeType===3)nm+=n.textContent;});nm=nm.trim().toLowerCase();if((nm==="letter"||nm==="name")&&typeof LOGO!=="undefined"&&LOGO){LOGO=null;window.__logoSvg=null;try{_logoUIsync();}catch(e){}if(typeof rebuild==="function")rebuild();}if(nm==="letter"){if(typeof LIDNAME!=="undefined"&&LIDNAME.trim().length){LIDNAME="";var ta=document.getElementById("lidName");if(ta)ta.value="";if(typeof rebuild==="function")rebuild();}}else if(nm==="name"){if(typeof clearNameTexts==="function")clearNameTexts();}if((nm==="letter"||nm==="name"||nm==="logo")&&window.__designFromTemplate){window.__designFromTemplate=false;var _ch=false;try{if(typeof images!=="undefined"&&images&&images.length){images.length=0;_ch=true;}}catch(e){}try{if(typeof models!=="undefined"&&models&&models.length){models.length=0;_ch=true;}}catch(e){}if(_ch){try{selImg=-1;}catch(e){}try{selModel=-1;}catch(e){}["renderImgList","renderModelList"].forEach(function(fn){try{if(typeof window[fn]==="function")window[fn]();}catch(e){}});try{var _ic=document.getElementById("imgControls");if(_ic)_ic.style.display="none";}catch(e){}try{if(typeof drawPad==="function")drawPad();}catch(e){}try{if(typeof rebuild==="function")rebuild();else if(typeof scheduleBuild==="function")scheduleBuild();}catch(e){}}}}catch(e){}}
-function accT(h){const acc=h.parentElement;const open=acc.classList.contains("open");document.querySelectorAll(".controls .acc.open").forEach(a=>a.classList.remove("open"));if(!open)acc.classList.add("open");maybeExitNameMode();setTimeout(()=>{try{drawPad();}catch(e){}},0);try{scheduleBuild();}catch(e){}}   // opening a tab re-evaluates who owns the scene, so the preview snaps to whatever tab you're now on
+function accT(h){const acc=h.parentElement;const open=acc.classList.contains("open");document.querySelectorAll(".controls .acc.open").forEach(a=>a.classList.remove("open"));if(!open)acc.classList.add("open");maybeExitNameMode();if(typeof sigSyncLock==="function")sigSyncLock();setTimeout(()=>{try{drawPad();}catch(e){}},0);try{scheduleBuild();}catch(e){}}   // opening a tab re-evaluates who owns the scene, so the preview snaps to whatever tab you're now on
 const FB="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/fonts/";
 const FONTS=[{name:"Sans",url:FB+"helvetiker_bold.typeface.json",css:"Arial Black,sans-serif"},{name:"Serif",url:FB+"optimer_bold.typeface.json",css:"Georgia,serif"},{name:"Soft",url:FB+"gentilis_bold.typeface.json",css:"Trebuchet MS,sans-serif"}];
 const EX="https://cdn.jsdelivr.net/npm/@expo-google-fonts/";
@@ -1230,7 +1231,7 @@ function uiConfirm(msg,opts){opts=opts||{};return _showModal({title:opts.title||
 function paintUnitSeg(){const mmS=UNIT==="mm";const a=g("u_mm"),b=g("u_cm");if(!a)return;a.style.background=mmS?"#eef0f2":"transparent";a.style.color=mmS?"#16181b":"#fff";b.style.background=!mmS?"#eef0f2":"transparent";b.style.color=!mmS?"#16181b":"#fff";}
 function setUnit(u){if(u===UNIT)return;const store={};MEAS.forEach(m=>{store[m[0]]=mmOf(m[0]);});UNIT=u;const toU=(u==="cm"?0.1:1);MEAS.forEach(([id,mn,mx,st])=>{const el=g(id);if(!el)return;el.value=tidy(store[id]*toU);el.min=mn*toU;el.max=mx*toU;el.step=(u==="cm")?Math.max(0.1,Math.round(st)/10):st;const R=g(id+"R");if(R)R.value=store[id];});document.querySelectorAll(".numbox .u").forEach(s=>s.textContent=u);paintUnitSeg();rebuild();buildSummary();}
 
-function renderFontGrid(){const fg=g("font-grid");if(!fg)return;fg.innerHTML="";FONTS.forEach(f=>{const b=document.createElement("button");b.className="fbtn"+(f===selFont?" sel":"");b.innerHTML=`<div class="fs" style="font-family:${f.css}">Aa</div><div class="fn">${f.name}</div>`+(f.custom?`<button class="nbtn-x" title="Remove custom letter font" onclick="event.stopPropagation();removeLetterFont('${f.url}')">×</button>`:"");b.onclick=()=>{selFont=f;renderFontGrid();rebuild();};fg.appendChild(b);});}
+function renderFontGrid(){const fg=g("font-grid");if(!fg)return;fg.innerHTML="";FONTS.forEach(f=>{const b=document.createElement("button");b.className="fbtn"+(f===selFont?" sel":"");b.innerHTML=`<div class="fs" style="font-family:${f.css}">Aa</div><div class="fn">${f.name}</div>`+(f.custom?`<button class="nbtn-x" title="Remove custom letter font" onclick="event.stopPropagation();removeLetterFont('${f.url}')">×</button>`:"");b.onclick=()=>{selFont=f;renderFontGrid();if(typeof sigSyncLock==="function")sigSyncLock();rebuild();};fg.appendChild(b);});}
 renderFontGrid();
 // Build a THREE.Font (the typeface.json shape the letter pipeline expects) directly from an uploaded .ttf/.otf
 // using opentype, so custom fonts work for the big capital letter — not just the cursive text. Each glyph's
@@ -1277,6 +1278,7 @@ async function selectNameFont(f){
   if(texts[selText])texts[selText].font=f.url;
   renderTextList();
   document.querySelectorAll("#name-grid .nbtn").forEach((x,i)=>x.classList.toggle("sel",NAME_FONTS[i]===f));
+  if(typeof sigSyncLock==="function")sigSyncLock();
   // Hold the last frame over the canvas, rebuild underneath (font cached -> fast), then reveal on the next
   // frame — the viewport never goes black during the swap.
   freezeCanvas();
@@ -1372,9 +1374,19 @@ var SIG={on:false,w:5,fd:8,bd:8};
 function sigLabel(){var w=document.getElementById("sigW");if(w){SIG.w=+w.value;var wl=document.getElementById("sigWLbl");if(wl)wl.textContent=w.value;}
   var f=document.getElementById("sigFd");if(f){SIG.fd=+f.value;var fl=document.getElementById("sigFdLbl");if(fl)fl.textContent=f.value;}
   var bk=document.getElementById("sigBd");if(bk){SIG.bd=+bk.value;var bl=document.getElementById("sigBdLbl");if(bl)bl.textContent=bk.value;}}
-function sigToggle(){SIG.on=!SIG.on;var t=document.getElementById("tg_sig");if(t)t.classList.toggle("on",SIG.on);var c=document.getElementById("sigCtl");if(c)c.style.display=SIG.on?"flex":"none";sigRebuild();}
+// The signature frame is only offered on the three built-in fonts (Sans/Serif/Soft). A custom uploaded font's
+// silhouette can be arbitrarily thin/spiky, so we lock the frame off and tell the user why.
+function sigFontIsCustom(){try{if(typeof nameMode!=="undefined"&&nameMode)return !!(selNameFont&&selNameFont.custom);return !!(selFont&&selFont.custom);}catch(e){return false;}}
+function sigSyncLock(){var locked=sigFontIsCustom();
+  var t=document.getElementById("tg_sig"),row=document.getElementById("sigTogRow"),lk=document.getElementById("sigLock"),c=document.getElementById("sigCtl");
+  if(locked&&SIG.on){SIG.on=false;if(t)t.classList.remove("on");if(c)c.style.display="none";}
+  if(t)t.style.pointerEvents=locked?"none":"";
+  if(row)row.style.opacity=locked?"0.45":"";
+  if(lk)lk.style.display=locked?"block":"none";
+  return locked;}
+function sigToggle(){if(sigFontIsCustom()){SIG.on=false;sigSyncLock();return;}SIG.on=!SIG.on;var t=document.getElementById("tg_sig");if(t)t.classList.toggle("on",SIG.on);var c=document.getElementById("sigCtl");if(c)c.style.display=SIG.on?"flex":"none";sigRebuild();}
 function sigRebuild(){sigLabel();if(typeof scheduleBuild==="function")scheduleBuild();else if(typeof rebuild==="function")rebuild();}
-window.sigToggle=sigToggle;window.sigRebuild=sigRebuild;window.sigLabel=sigLabel;
+window.sigToggle=sigToggle;window.sigRebuild=sigRebuild;window.sigLabel=sigLabel;window.sigSyncLock=sigSyncLock;
 /* ===== Lid surface textures (printable relief, lid front only) ===== */
 var TAU=Math.PI*2;
 function _tsat(v){return v<0?0:v>1?1:v;}
@@ -3134,6 +3146,23 @@ function nameGlyphSubj(font,text,size){
       (sh.holes||[]).forEach(function(h){out.push(h.getPoints(8).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));});});
     k++;}
   return out;}
+/* Name ink as ONE solid: union each glyph on its own (even-odd keeps that glyph's counters hollow, and is
+   winding-independent so a fresh font parse never fills a counter), THEN non-zero union across glyphs so where
+   cursive/overlapping letters cross they stay SOLID instead of an even-odd cut-out (the white gap on the plate). */
+function nameInkFilled(font,text,size){
+  var lines=String(text).split(/\r?\n/).slice(0,3);var lineH=size*1.15;var glyphs=[];var k=0;
+  for(var li=0;li<lines.length;li++){var line=lines[li];if(!line.trim().length)continue;
+    var shapes=font.generateShapes(line,size);var mnX=1e9,mxX=-1e9;
+    shapes.forEach(function(sh){sh.getPoints(4).forEach(function(pt){if(pt.x<mnX)mnX=pt.x;if(pt.x>mxX)mxX=pt.x;});
+      (sh.holes||[]).forEach(function(h){h.getPoints(4).forEach(function(pt){if(pt.x<mnX)mnX=pt.x;if(pt.x>mxX)mxX=pt.x;});});});
+    var cxL=(mnX+mxX)/2,oY=-k*lineH;
+    shapes.forEach(function(sh){var g=[];g.push(sh.getPoints(8).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));
+      (sh.holes||[]).forEach(function(h){g.push(h.getPoints(8).map(function(pt){return {X:Math.round((pt.x-cxL)*S),Y:Math.round((pt.y+oY)*S)};}));});
+      glyphs.push(g);});
+    k++;}
+  var all=[];glyphs.forEach(function(g){var u=unionEO(g);if(u&&u.length)all=all.concat(u);});   // per-glyph solid-with-holes, correctly oriented
+  var f=unionFilled(all);return (f&&f.length)?f:all;                                             // non-zero union: overlaps fill, un-covered counters stay open
+}
 /* Multi-line name -> a clean rectangular BORDER around the whole name, with the
    letters connected into that border so it prints as ONE piece. The frame is the
    "border around the whole name"; the letters glow (same body+lid logic). */
@@ -3972,7 +4001,7 @@ async function buildModel(){
       /* NAME MODE — the name sits FLAT on a solid white glowing background plate. Single line. */
       var _line=(LIDNAME.split(/\r?\n/)[0]||"").trim()||"Name";
       var _rc=(_line.replace(/\s/g,"")[0])||"A";var _nf0=unionEO(glyphSubj(font,_rc,lh));var _nex0=pathsExtent(_nf0,0,0);if(_nex0.H>1){var _nk=_nex0.H/lh;glyphSize=Math.max(8,lh-capMargin)/_nk;}
-      var _L=unionEO(nameGlyphSubj(font,_line,glyphSize));var _Lc=cleanPaths(_L);if(_Lc&&_Lc.length)_L=_Lc;
+      var _L=nameInkFilled(font,_line,glyphSize);var _Lc=cleanPaths(_L);if(_Lc&&_Lc.length)_L=_Lc;
       var _bg=Math.max(lh*0.07,3);   // white halo scales with letter height -> letters always fuse into ONE piece at any size
       window.__nameGraphicRegions=null;window.__nameGraphicLinework=null;var _sil=_L;
       if(typeof LIDICON!=="undefined"&&LIDICON&&typeof ICONS!=="undefined"&&ICONS[LIDICON]){var _g=_placeGraphic(_L,LIDICON,glyphSize,_bg);_L=_g.ink;_sil=_g.sil;window.__nameGraphicRegions=(_g.regions&&_g.regions.length)?_g.regions:null;window.__nameGraphicLinework=(_g.linework&&_g.linework.length)?_g.linework:null;}
@@ -4082,7 +4111,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       // return that wraps down the side. Front cap wraps back by SIG.fd, back cap forward by SIG.bd. The
       // BACK counter (an A's triangle, an O's bowl…) additionally gets a WIDER flat bezel so from behind the
       // open hole is framed bigger and shows less of its lit interior. ----
-      if(typeof SIG!=="undefined"&&SIG.on){try{
+      if(typeof SIG!=="undefined"&&SIG.on&&!(typeof sigFontIsCustom==="function"&&sigFontIsCustom())){try{   // frame only on the built-in fonts
         var _sbw=Math.max(1,+SIG.w||5);
         var _sfd=Math.max(0.6,Math.min(+SIG.fd||8,depth));           // front cap: how far it wraps down the side
         var _sbd=Math.max(0.6,Math.min(+SIG.bd||8,depth));           // back cap: how far it wraps down the side
