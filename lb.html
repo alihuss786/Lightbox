@@ -2897,7 +2897,11 @@ function applyZoom(){if(!camera)return;camera.position.set(panX,baseY+panY,baseD
 function resetView(){zoom=1;panX=0;panY=0;if(mode==="plates"){rotX=1.22;rotY=0;}else{rotX=DRX;rotY=DRY;}applyZoom();}
 function sceneBgHex(){return (ENVS[currentEnv]||ENVS.studio).bg;}function floorHex(){return (ENVS[currentEnv]||ENVS.studio).floor;}function applySceneTheme(){try{if(typeof scene!=="undefined"&&scene)scene.background=new THREE.Color(sceneBgHex());if(typeof floorPlane!=="undefined"&&floorPlane&&floorPlane.material)floorPlane.material.color.setHex(floorHex());if(typeof paintSeg==="function")paintSeg();}catch(e){}}(function(){var o=window.__setTheme;window.__setTheme=function(t){if(o)o(t);applySceneTheme();};})();
 function initThree(){const cv=g("cv");if(renderer){resize();return;}const W=cv.parentElement.clientWidth,H=cv.parentElement.clientHeight||330;renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(_pixR());renderer.setSize(W,H);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;pmrem=new THREE.PMREMGenerator(renderer);try{pmrem.compileEquirectangularShader();}catch(_){}
-  scene=new THREE.Scene();scene.background=new THREE.Color(sceneBgHex());camera=new THREE.PerspectiveCamera(40,W/H,0.1,16000);camera.position.set(0,0,560);camera.lookAt(0,0,0);
+  // near was 0.1 with far 16000 — a 160000:1 ratio that starved depth precision at the model, so surfaces
+  // 0.1–0.4mm apart (name ink on the plate, frame lip on the face) z-fought into a shimmering/pixelated edge.
+  // Zoom clamps the camera no closer than ~baseDist*0.4 (baseDist floors ~150), so near:10 never clips.
+  camera=new THREE.PerspectiveCamera(40,W/H,10,16000);camera.position.set(0,0,560);camera.lookAt(0,0,0);
+  scene=new THREE.Scene();scene.background=new THREE.Color(sceneBgHex());
   ambLight=new THREE.AmbientLight(0xffffff,0.32);scene.add(ambLight);
   keyLight=new THREE.DirectionalLight(0xffffff,0.6);keyLight.position.set(300,440,260);keyLight.castShadow=true;keyLight.shadow.mapSize.set(1024,1024);keyLight.shadow.camera.near=10;keyLight.shadow.camera.far=2600;keyLight.shadow.camera.left=-800;keyLight.shadow.camera.right=800;keyLight.shadow.camera.top=800;keyLight.shadow.camera.bottom=-800;keyLight.shadow.bias=-0.0004;keyLight.shadow.radius=4;scene.add(keyLight);
   fillLight=new THREE.DirectionalLight(0xbfd0ff,0.12);fillLight.position.set(-180,80,260);scene.add(fillLight);
@@ -4466,8 +4470,8 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       // tag each printed part for the Assembly slider: body pulls back, lid forward, lit layers furthest forward
       window.__explodeParts=partList; window.__explodeD=Math.max(55,(DIM&&DIM.z?DIM.z:45)*1.6);
       partList.forEach(function(p){var n=(p.name||"");var dir=(p.isLid)?0.5:(p.textPlate)?1.2:(p.modelId||p.isStl||/Image|Photo/i.test(n))?1.2:-0.6;
-        if(/frame\s*·\s*front/i.test(n))dir=0.5;        // the front frame is part of the front face — peel it forward with the lid, not stay put with the body
-        else if(/frame\s*·\s*back/i.test(n))dir=-0.6;   // the back frame peels back with the body
+        if(/frame\s*·\s*front/i.test(n))dir=1.15;       // front frame is its own wrap-on piece: peel it AHEAD of the front lid so you can see it caps on
+        else if(/frame\s*·\s*back/i.test(n))dir=-1.25;  // back frame peels behind the body, its own layer
         p.group.userData=p.group.userData||{};p.group.userData.__exDir=dir;p.group.userData.__exBaseZ=p.group.position.z;});
     } else {
       window.__explodeParts=[];
