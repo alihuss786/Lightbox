@@ -603,14 +603,14 @@ body.ar-open #acct{display:none!important}
   .pl-tabs::-webkit-scrollbar{display:none}
   .pl-tabs .pl-tab{
     flex:0 0 auto;position:relative;display:flex;flex-direction:row;align-items:center;justify-content:flex-start;overflow:visible;
-    width:46px;height:40px;padding:0;border-radius:12px;background:none;border:none;color:#cbd4de;opacity:.42;
+    width:auto;height:40px;padding:0;border-radius:12px;background:none;border:none;color:#cbd4de;opacity:.62;
     text-transform:none;letter-spacing:.01em;
     transition:width .42s cubic-bezier(.22,1,.36,1),opacity .3s ease,color .3s ease;
   }
   .pl-tabs .pl-tab .ptic{display:flex!important;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:34px;font-size:20px;line-height:1;
     transition:filter .3s ease,transform .3s cubic-bezier(.22,1,.36,1)}
   .pl-tabs .pl-tab .ptic svg{width:23px;height:23px;display:block}
-  .pl-tabs .pl-tab .ptlbl{display:block;opacity:0;max-width:0;white-space:nowrap;overflow:hidden;transform:translateX(-6px);
+  .pl-tabs .pl-tab .ptlbl{display:block;opacity:1;max-width:200px;white-space:nowrap;overflow:hidden;transform:none;padding-right:12px;
     font-size:12.5px;font-weight:700;letter-spacing:.01em;text-transform:none;color:#eaf6ff;
     transition:opacity .25s ease,max-width .42s cubic-bezier(.22,1,.36,1),transform .35s ease}
   .pl-tabs .pl-tab:hover{background:none;color:#e6eef6}
@@ -2924,7 +2924,7 @@ function initThree(){const cv=g("cv");if(renderer){resize();return;}const W=cv.p
   if(!started){started=true;(function loop(){requestAnimationFrame(loop);if(window.__arPaused)return;_rgbTick();if(pivot)pivot.rotation.set(rotX,rotY,0);renderer.render(scene,camera);updateDimLabels();})();}window.addEventListener("resize",()=>{resize();drawPad();});}
 // Supersample a little so the thin, high-contrast signature-frame band (and other fine edges) don't shimmer/
 // pixelate when the model is small on screen (zoomed out). Capped so high-DPI screens aren't over-rendered.
-function _pixR(){return Math.min((window.devicePixelRatio||1)*1.5,2.5);}
+function _pixR(){return Math.min(Math.max((window.devicePixelRatio||1)*2,2),2.5);}
 function resize(){const cv=g("cv");const W=cv.parentElement.clientWidth,H=cv.parentElement.clientHeight||330;try{renderer.setPixelRatio(_pixR());}catch(e){}renderer.setSize(W,H);camera.aspect=W/H;camera.updateProjectionMatrix();applyZoom();}
 
 function clearPivot(){while(pivot&&pivot.children.length)pivot.remove(pivot.children[0]);}
