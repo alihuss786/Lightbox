@@ -4108,7 +4108,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         // BACK counter frame — a wider flat bezel that reaches further INTO each counter hole (a bigger back
         // triangle frame), so from behind the open hole shows more frame and less lit interior.
         var _bcShapes=null;try{var _bh=diff(fillSolid(_fsrc),_fsrc);
-          if(_bh&&_bh.length){var _bcR=diff(off(_bh,_wall),off(_bh,-_lw*1.4));_bcShapes=(_bcR&&_bcR.length)?diffToShapes(_bcR,null,0):null;}}catch(e){_bcShapes=null;}
+          if(_bh&&_bh.length){var _bcR=diff(off(_bh,_lw*1.3),off(_bh,-_lw*0.9));_bcShapes=(_bcR&&_bcR.length)?diffToShapes(_bcR,null,0):null;}}catch(e){_bcShapes=null;}   // wide ring: grows OUT into the body (covers the sharp corners incl. the apex peak) and IN a bit (stays hollow)
         function _sigArm(shapes,extd){if(!shapes||!shapes.length)return null;var g=new THREE.ExtrudeGeometry(shapes,{depth:extd,bevelEnabled:false,curveSegments:6});g.translate(-cx,-cy,0);return g;}
         if(_lipShapes&&_lipShapes.length){
           // FRONT L-shell: thin bezel on the front face + thin return wrapping BACK down the side by _sfd
