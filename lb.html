@@ -4125,6 +4125,10 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         // Interior counters: a ring lining each hole edge, extruded the FULL box depth (front face → back face).
         var _cShapes=null;try{var _holeReg=diff(_outer,_fsrc);      // the counter regions (solid); empty for letters with no counter
           if(_holeReg&&_holeReg.length){var _cOut=off(_holeReg,_lw),_cIn=off(_holeReg,-1.0);var _cH=(_cIn&&_cIn.length)?diff(_cOut,_cIn):_cOut;_cShapes=(_cH&&_cH.length)?diffToShapes(_cH,null,0):null;}}catch(e){_cShapes=null;}   // round-joined bezel ring lining each counter; inset opening so it caps a sharp apex
+        // Counter BACK-CAP: a flat panel that closes each counter flush at the back face, so from behind the
+        // hole reads as a clean flat shape instead of a see-through tunnel showing its inner walls & a lit ledge.
+        var _capShapes=null;try{var _hr2=(typeof _holeReg!=="undefined")?_holeReg:diff(_outer,_fsrc);
+          if(_hr2&&_hr2.length){var _capF=off(_hr2,0.4);_capShapes=(_capF&&_capF.length)?diffToShapes(_capF,null,0):null;}}catch(e){_capShapes=null;}
         function _sigArm(shapes,extd){if(!shapes||!shapes.length)return null;var g=new THREE.ExtrudeGeometry(shapes,{depth:extd,bevelEnabled:false,curveSegments:6});g.translate(-cx,-cy,0);return g;}
         if(_lipShapes&&_lipShapes.length){
           var _cFull=(TT+0.1)-(-depth-0.1);                         // full box depth for the counter bezel
@@ -4138,6 +4142,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           var _sfb=new THREE.Group();
           var _blg=_sigArm(_lipShapes,_t); if(_blg){var _blm=new THREE.Mesh(_blg,MATS.border);_blm.position.z=-depth-0.1;_sfb.add(_blm);}
           var _bwg=_sigArm(_wallShapes,_sbd);if(_bwg){var _bwm=new THREE.Mesh(_bwg,MATS.border);_bwm.position.z=-depth-0.1;_sfb.add(_bwm);}
+          if(_capShapes&&_capShapes.length){var _capg=_sigArm(_capShapes,Math.max(1.4,_t));if(_capg){var _capm=new THREE.Mesh(_capg,MATS.border);_capm.position.z=-depth-0.1;_sfb.add(_capm);}}  // flush back-cap closes the counter so no tunnel/edges show from behind
           frameGroups.push({group:_sfb,name:"Signature frame · back"});
         }
       }catch(e){}}
