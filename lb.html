@@ -4096,7 +4096,6 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         // ring, an open counter stays open) exactly like it does for letters.
         var _fsrc=B;
         if(logoMode&&window.__logoInk&&window.__logoInk.length){try{var _lo=unionEO(window.__logoInk);if(_lo&&_lo.length){var _loc=cleanPaths(_lo);_fsrc=(_loc&&_loc.length)?_loc:_lo;}}catch(e){}}
-        else{try{var _osolid=fillSolid(_fsrc);if(_osolid&&_osolid.length)_fsrc=_osolid;}catch(e){}}   // letters/names: frame only the OUTER silhouette — interior counters (the A's triangle, an O's bowl) stay clean open cut-outs, so there is no counter frame to misfit at a sharp apex. Logos keep their true holed outline (a ring must stay a ring).
         // ---- Build the frame as a HOLLOW L-shell (thin-walled), not a solid slab: a flat bezel that sits ON
         // the lid face (horizontal arm) + a thin return that wraps down the side (vertical arm). Hollow inside,
         // so it reads as trim wrapping the letter — never a solid chunk. ----
@@ -4107,23 +4106,33 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         // triangle tip), so the lid's sharp tip pokes past the frame's rounded opening — a stray sliver that
         // looks worst from the back. Mitred corners let the bezel follow the tip exactly, so it always fits.
         var _offM=function(paths,delta){try{var co=new ClipperLib.ClipperOffset(2.2,0.25);co.AddPaths(paths,ClipperLib.JoinType.jtMiter,ClipperLib.EndType.etClosedPolygon);var sol=new ClipperLib.Paths();co.Execute(sol,delta*S);return sol;}catch(e){return off(paths,delta);}};
-        var _edgeOut=_offM(_fsrc,_wall)||_fsrc;                      // outer boundary of the frame
+        // The OUTER silhouette drives the wrap-around L-shell (with the glowing side gap). Interior counters
+        // (the A's triangle, an O's bowl) are lined SEPARATELY with a full-depth bezel wall — otherwise the
+        // gap between the front and back caps exposes the lit inner wall at a counter's narrow apex, the stray
+        // wedge that "doesn't fit" from the back. Full depth = a clean framed opening from either face.
+        var _outer=_fsrc;try{var _os=fillSolid(_fsrc);if(_os&&_os.length)_outer=_os;}catch(e){}
+        var _edgeOut=_offM(_outer,_wall)||_outer;                    // outer boundary of the frame
         var _eA=_pArea(_edgeOut);
-        var _lw=_sbw,_lipIn=_offM(_fsrc,-_lw);                       // inner boundary of the flat bezel (on the face)
-        for(var _k=0;_k<6&&(!_lipIn||!_lipIn.length||_pArea(_lipIn)<_eA*0.30);_k++){_lw*=0.6;_lipIn=_offM(_fsrc,-_lw);}  // keep a real hole: shrink the bezel before it can ever fill solid
-        if(!_lipIn||!_lipIn.length)_lipIn=_offM(_fsrc,-Math.max(0.6,_lw));
-        var _wallIn=_offM(_fsrc,_wall-_t);                           // inner boundary of the thin side return
+        var _lw=_sbw,_lipIn=_offM(_outer,-_lw);                      // inner boundary of the flat bezel (on the face)
+        for(var _k=0;_k<6&&(!_lipIn||!_lipIn.length||_pArea(_lipIn)<_eA*0.30);_k++){_lw*=0.6;_lipIn=_offM(_outer,-_lw);}  // keep a real hole: shrink the bezel before it can ever fill solid
+        if(!_lipIn||!_lipIn.length)_lipIn=_offM(_outer,-Math.max(0.6,_lw));
+        var _wallIn=_offM(_outer,_wall-_t);                          // inner boundary of the thin side return
         if(!_wallIn||!_wallIn.length)_wallIn=_lipIn;
         var _lipRing=(_lipIn&&_lipIn.length)?diff(_edgeOut,_lipIn):_edgeOut;      // flat bezel ring (horizontal arm)
         var _wallRing=(_wallIn&&_wallIn.length)?diff(_edgeOut,_wallIn):_edgeOut;  // thin outer band (vertical arm / return)
         var _lipShapes=(_lipRing&&_lipRing.length)?diffToShapes(_lipRing,null,0):null;
         var _wallShapes=(_wallRing&&_wallRing.length)?diffToShapes(_wallRing,null,0):null;
+        // Interior counters: a ring lining each hole edge, extruded the FULL box depth (front face → back face).
+        var _cShapes=null;try{var _holeReg=diff(_outer,_fsrc);      // the counter regions (solid); empty for letters with no counter
+          if(_holeReg&&_holeReg.length){var _cOut=off(_holeReg,_lw),_cIn=off(_holeReg,-1.0);var _cH=(_cIn&&_cIn.length)?diff(_cOut,_cIn):_cOut;_cShapes=(_cH&&_cH.length)?diffToShapes(_cH,null,0):null;}}catch(e){_cShapes=null;}   // round-joined bezel ring lining each counter; inset opening so it caps a sharp apex
         function _sigArm(shapes,extd){if(!shapes||!shapes.length)return null;var g=new THREE.ExtrudeGeometry(shapes,{depth:extd,bevelEnabled:false,curveSegments:6});g.translate(-cx,-cy,0);return g;}
         if(_lipShapes&&_lipShapes.length){
+          var _cFull=(TT+0.1)-(-depth-0.1);                         // full box depth for the counter bezel
           // FRONT L-shell: thin bezel on the front face + thin return wrapping BACK down the side by _sfd
           var _sff=new THREE.Group();
           var _flg=_sigArm(_lipShapes,_t); if(_flg){var _flm=new THREE.Mesh(_flg,MATS.border);_flm.position.z=TT+0.1-_t;_sff.add(_flm);}
           var _fwg=_sigArm(_wallShapes,_sfd);if(_fwg){var _fwm=new THREE.Mesh(_fwg,MATS.border);_fwm.position.z=TT+0.1-_sfd;_sff.add(_fwm);}
+          if(_cShapes&&_cShapes.length){var _cg=_sigArm(_cShapes,_cFull);if(_cg){var _cm=new THREE.Mesh(_cg,MATS.border);_cm.position.z=-depth-0.1;_sff.add(_cm);}}  // full-depth counter bezel rides with the front part
           frameGroups.push({group:_sff,name:"Signature frame · front"});
           // BACK L-shell: thin bezel on the back face + thin return wrapping FORWARD up the side by _sbd
           var _sfb=new THREE.Group();
