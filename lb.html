@@ -4120,6 +4120,13 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
             var _binner=off(_bh,-0.8);var _bcR=(_binner&&_binner.length)?diff(_bo,_binner):_bo;
             _bcShapes=(_bcR&&_bcR.length)?diffToShapes(_bcR,null,0):null;
           }}catch(e){_bcShapes=null;}
+        // BACK sharp-gap fill (letters like V W X Y Z K M N R…): where diagonal strokes meet, the lit body
+        // forms a thin acute spike that pokes past the thin frame from behind. Take the lit-body edge, OPEN it
+        // to drop those spikes, and cover the removed slivers with frame on the back. Guarded so a thin-stroke
+        // letter (where OPEN would eat most of the body) is left alone.
+        var _ncShapes=null;try{var _lb=off(_fsrc,-_lw);
+          if(_lb&&_lb.length){var _g=_lw*0.9;var _op=off(off(_lb,-_g),_g);
+            if(_op&&_op.length&&_pArea(_op)>_pArea(_lb)*0.45){var _spk=diff(_lb,_op);_ncShapes=(_spk&&_spk.length)?diffToShapes(_spk,null,0.6):null;}}}catch(e){_ncShapes=null;}
         function _sigArm(shapes,extd){if(!shapes||!shapes.length)return null;var g=new THREE.ExtrudeGeometry(shapes,{depth:extd,bevelEnabled:false,curveSegments:6});g.translate(-cx,-cy,0);return g;}
         if(_lipShapes&&_lipShapes.length){
           // FRONT L-shell: thin bezel on the front face + thin return wrapping BACK down the side by _sfd
@@ -4133,6 +4140,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           var _blg=_sigArm(_lipShapes,_t); if(_blg){var _blm=new THREE.Mesh(_blg,MATS.border);_blm.position.z=-depth-0.1;_sfb.add(_blm);}
           var _bwg=_sigArm(_wallShapes,_sbd);if(_bwg){var _bwm=new THREE.Mesh(_bwg,MATS.border);_bwm.position.z=-depth-0.1;_sfb.add(_bwm);}
           if(_bcShapes&&_bcShapes.length){var _bcg=_sigArm(_bcShapes,_t);if(_bcg){var _bcm=new THREE.Mesh(_bcg,MATS.border);_bcm.position.z=-depth-0.1;_sfb.add(_bcm);}}   // bigger back triangle frame
+          if(_ncShapes&&_ncShapes.length){var _ncg=_sigArm(_ncShapes,_t);if(_ncg){var _ncm=new THREE.Mesh(_ncg,MATS.border);_ncm.position.z=-depth-0.1;_sfb.add(_ncm);}}   // fill sharp junction gaps on the back
           frameGroups.push({group:_sfb,name:"Signature frame · back"});
         }
       }catch(e){}}
