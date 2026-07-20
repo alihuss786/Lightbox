@@ -4148,7 +4148,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _wallShapes=(_wallRing&&_wallRing.length)?diffToShapes(_wallRing,null,0):null;
         // BACK counter frame — a wider flat bezel that reaches further INTO each counter hole (a bigger back
         // triangle frame), so from behind the open hole shows more frame and less lit interior.
-        var _bcShapes=null;try{var _bh=diff(fillSolid(_fsrc),_fsrc);
+        var _bcShapes=null;try{var _bh=(!nameMode&&!logoMode)?diff(fillSolid(_fsrc),_fsrc):null;   // counter fill is a single-letter feature only
           if(_bh&&_bh.length){
             // Thin border like the front (opening ≈ the hole → as hollow as the front). Extend the OUTER edge
             // with MITRE joins so each corner reaches out to a point that covers the lit peak (apex + bottom
@@ -4168,7 +4168,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _ncShapes=null;try{
           var _mo=function(p,d){try{var co=new ClipperLib.ClipperOffset(20,0.25);co.AddPaths(p,ClipperLib.JoinType.jtMiter,ClipperLib.EndType.etClosedPolygon);var s=new ClipperLib.Paths();co.Execute(s,d*S);return s;}catch(e){return off(p,d);}};
           var _lRnd=off(_fsrc,-_lw),_spk=[];
-          if(_lRnd&&_lRnd.length){
+          if(_lRnd&&_lRnd.length&&!nameMode&&!logoMode){                          // acute-notch fill is single-letter only — on a smooth name/logo plate it just sprays jagged slivers along the wavy edge
             var _lMit=_mo(_fsrc,-_lw);                                             // (1) round-vs-miter sliver: fills moderate acute corners, self-bounded
             if(_lMit&&_lMit.length){var _s1=diff(_lRnd,_lMit);if(_s1&&_s1.length)_spk=_spk.concat(_s1);}
             var _rr2=Math.min(1.6,_lw*0.35);var _op=off(off(_lRnd,-_rr2),_rr2);    // (2) small morphological OPEN: catches any thin lit needle a serif/soft M leaves at a very sharp notch, without eating strokes
