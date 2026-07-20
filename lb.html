@@ -4096,19 +4096,34 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         // ring, an open counter stays open) exactly like it does for letters.
         var _fsrc=B;
         if(logoMode&&window.__logoInk&&window.__logoInk.length){try{var _lo=unionEO(window.__logoInk);if(_lo&&_lo.length){var _loc=cleanPaths(_lo);_fsrc=(_loc&&_loc.length)?_loc:_lo;}}catch(e){}}
-        var _sedge=off(_fsrc,0.8)||_fsrc;                            // outer wall stands ~0.8mm proud of the body side (visible trim, no z-fight)
-        var _eA=_pArea(_sedge);
-        var _lw=_sbw,_sinner=off(_fsrc,-_lw);                        // face-lip inner boundary
-        for(var _k=0;_k<6&&(!_sinner||!_sinner.length||_pArea(_sinner)<_eA*0.30);_k++){_lw*=0.6;_sinner=off(_fsrc,-_lw);}  // keep a real hole: shrink the lip before it can ever fill solid
-        if(!_sinner||!_sinner.length)_sinner=off(_fsrc,-Math.max(0.6,_lw));
-        var _sring=(_sinner&&_sinner.length)?diff(_sedge,_sinner):_sedge;
-        var _srs=(_sring&&_sring.length)?diffToShapes(_sring,null,0):null;
-        if(_srs&&_srs.length){
-          var _sgf=new THREE.ExtrudeGeometry(_srs,{depth:_sfd,bevelEnabled:false,curveSegments:6});_sgf.translate(-cx,-cy,0);
-          var _sff=new THREE.Group();_sff.add(new THREE.Mesh(_sgf,MATS.border));_sff.position.z=TT+0.1-_sfd;      // flush at front, wraps back
+        // ---- Build the frame as a HOLLOW L-shell (thin-walled), not a solid slab: a flat bezel that sits ON
+        // the lid face (horizontal arm) + a thin return that wraps down the side (vertical arm). Hollow inside,
+        // so it reads as trim wrapping the letter — never a solid chunk. ----
+        var _wall=0.8;                                               // outer edge stands ~0.8mm proud of the body side (visible trim, no z-fight)
+        var _t=Math.max(1.2,Math.min(2.4,_sbw*0.55));               // shell wall thickness (bezel depth + side-return thickness)
+        _t=Math.min(_t,_sfd*0.9,_sbd*0.9);
+        var _edgeOut=off(_fsrc,_wall)||_fsrc;                        // outer boundary of the frame
+        var _eA=_pArea(_edgeOut);
+        var _lw=_sbw,_lipIn=off(_fsrc,-_lw);                         // inner boundary of the flat bezel (on the face)
+        for(var _k=0;_k<6&&(!_lipIn||!_lipIn.length||_pArea(_lipIn)<_eA*0.30);_k++){_lw*=0.6;_lipIn=off(_fsrc,-_lw);}  // keep a real hole: shrink the bezel before it can ever fill solid
+        if(!_lipIn||!_lipIn.length)_lipIn=off(_fsrc,-Math.max(0.6,_lw));
+        var _wallIn=off(_fsrc,_wall-_t);                             // inner boundary of the thin side return
+        if(!_wallIn||!_wallIn.length)_wallIn=_lipIn;
+        var _lipRing=(_lipIn&&_lipIn.length)?diff(_edgeOut,_lipIn):_edgeOut;      // flat bezel ring (horizontal arm)
+        var _wallRing=(_wallIn&&_wallIn.length)?diff(_edgeOut,_wallIn):_edgeOut;  // thin outer band (vertical arm / return)
+        var _lipShapes=(_lipRing&&_lipRing.length)?diffToShapes(_lipRing,null,0):null;
+        var _wallShapes=(_wallRing&&_wallRing.length)?diffToShapes(_wallRing,null,0):null;
+        function _sigArm(shapes,extd){if(!shapes||!shapes.length)return null;var g=new THREE.ExtrudeGeometry(shapes,{depth:extd,bevelEnabled:false,curveSegments:6});g.translate(-cx,-cy,0);return g;}
+        if(_lipShapes&&_lipShapes.length){
+          // FRONT L-shell: thin bezel on the front face + thin return wrapping BACK down the side by _sfd
+          var _sff=new THREE.Group();
+          var _flg=_sigArm(_lipShapes,_t); if(_flg){var _flm=new THREE.Mesh(_flg,MATS.border);_flm.position.z=TT+0.1-_t;_sff.add(_flm);}
+          var _fwg=_sigArm(_wallShapes,_sfd);if(_fwg){var _fwm=new THREE.Mesh(_fwg,MATS.border);_fwm.position.z=TT+0.1-_sfd;_sff.add(_fwm);}
           frameGroups.push({group:_sff,name:"Signature frame · front"});
-          var _sgb=new THREE.ExtrudeGeometry(_srs,{depth:_sbd,bevelEnabled:false,curveSegments:6});_sgb.translate(-cx,-cy,0);
-          var _sfb=new THREE.Group();_sfb.add(new THREE.Mesh(_sgb,MATS.border));_sfb.position.z=-depth-0.1;        // flush at back, wraps forward
+          // BACK L-shell: thin bezel on the back face + thin return wrapping FORWARD up the side by _sbd
+          var _sfb=new THREE.Group();
+          var _blg=_sigArm(_lipShapes,_t); if(_blg){var _blm=new THREE.Mesh(_blg,MATS.border);_blm.position.z=-depth-0.1;_sfb.add(_blm);}
+          var _bwg=_sigArm(_wallShapes,_sbd);if(_bwg){var _bwm=new THREE.Mesh(_bwg,MATS.border);_bwm.position.z=-depth-0.1;_sfb.add(_bwm);}
           frameGroups.push({group:_sfb,name:"Signature frame · back"});
         }
       }catch(e){}}
