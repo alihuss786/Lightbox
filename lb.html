@@ -1130,7 +1130,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
     <div class="acc-b">
       <div class="hint">The finishing flourish — wrap your design in a raised <b>frame</b> on the front and back faces, like a picture frame around the glow. Design your box first, then add the frame here and pick its colour.</div>
       <div class="toggle-row" id="sigTogRow"><span class="lbl">🖼️ Add signature frame</span><div class="tg" id="tg_sig" onclick="sigToggle()"><div class="k"></div></div></div>
-      <div id="sigLock" class="hint" style="display:none;color:#e0a94a;border-left:2px solid #e0a94a;padding-left:8px">The signature frame can only be applied on the built-in <b>Sans</b>, <b>Serif</b> or <b>Soft</b> fonts. Switch back to one of those to add a frame.</div>
+      <div id="sigLock" class="hint" style="display:none;color:#e0a94a;border-left:2px solid #e0a94a;padding-left:8px">For a single letter, the signature frame is only available on the built-in <b>Sans</b>, <b>Serif</b> or <b>Soft</b> fonts. Custom fonts <b>are</b> supported in <b>Name</b> mode.</div>
       <div id="sigCtl" style="display:none;flex-direction:column;gap:13px;margin-top:4px">
         <div class="hint">A border on the <b>front</b> and <b>back</b> faces, both flush (never sticking out). The glowing band shows on the sides between them.</div>
         <div class="sw-grid"><div class="sw-item"><span class="sw" data-role="border" onclick="openPal('border',event)"></span><span class="swl">Frame colour</span></div></div>
@@ -1376,7 +1376,10 @@ function sigLabel(){var w=document.getElementById("sigW");if(w){SIG.w=+w.value;v
   var bk=document.getElementById("sigBd");if(bk){SIG.bd=+bk.value;var bl=document.getElementById("sigBdLbl");if(bl)bl.textContent=bk.value;}}
 // The signature frame is only offered on the three built-in fonts (Sans/Serif/Soft). A custom uploaded font's
 // silhouette can be arbitrarily thin/spiky, so we lock the frame off and tell the user why.
-function sigFontIsCustom(){try{if(typeof nameMode!=="undefined"&&nameMode)return !!(selNameFont&&selNameFont.custom);return !!(selFont&&selFont.custom);}catch(e){return false;}}
+// Name mode wraps the whole name as one plate-shaped silhouette, so any font (incl. custom uploads) is fine.
+// Only the single big CAPITAL letter is restricted to the built-in fonts.
+function sigInNameMode(){try{var logoActive=(typeof featState==="function"&&featState("logo")==="on")&&(typeof LOGO!=="undefined")&&LOGO&&LOGO.length>0;return !logoActive&&(typeof featState==="function"&&featState("name")==="on")&&(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0;}catch(e){return false;}}
+function sigFontIsCustom(){try{if(sigInNameMode())return false;return !!(selFont&&selFont.custom);}catch(e){return false;}}
 function sigSyncLock(){var locked=sigFontIsCustom();
   var t=document.getElementById("tg_sig"),row=document.getElementById("sigTogRow"),lk=document.getElementById("sigLock"),c=document.getElementById("sigCtl");
   if(locked&&SIG.on){SIG.on=false;if(t)t.classList.remove("on");if(c)c.style.display="none";}
@@ -4111,7 +4114,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       // return that wraps down the side. Front cap wraps back by SIG.fd, back cap forward by SIG.bd. The
       // BACK counter (an A's triangle, an O's bowl…) additionally gets a WIDER flat bezel so from behind the
       // open hole is framed bigger and shows less of its lit interior. ----
-      if(typeof SIG!=="undefined"&&SIG.on&&!(typeof sigFontIsCustom==="function"&&sigFontIsCustom())){try{   // frame only on the built-in fonts
+      if(typeof SIG!=="undefined"&&SIG.on&&(nameMode||logoMode||!(selFont&&selFont.custom))){try{   // letter mode: frame only on built-in fonts. name/logo: any font ok
         var _sbw=Math.max(1,+SIG.w||5);
         var _sfd=Math.max(0.6,Math.min(+SIG.fd||8,depth));           // front cap: how far it wraps down the side
         var _sbd=Math.max(0.6,Math.min(+SIG.bd||8,depth));           // back cap: how far it wraps down the side
