@@ -4120,13 +4120,15 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
             var _binner=off(_bh,-0.8);var _bcR=(_binner&&_binner.length)?diff(_bo,_binner):_bo;
             _bcShapes=(_bcR&&_bcR.length)?diffToShapes(_bcR,null,0):null;
           }}catch(e){_bcShapes=null;}
-        // BACK sharp-gap fill (letters like V W X Y Z K M N R…): where diagonal strokes meet, the lit body
-        // forms a thin acute spike that pokes past the thin frame from behind. Take the lit-body edge, OPEN it
-        // to drop those spikes, and cover the removed slivers with frame on the back. Guarded so a thin-stroke
-        // letter (where OPEN would eat most of the body) is left alone.
-        var _ncShapes=null;try{var _lb=off(_fsrc,-_lw);
-          if(_lb&&_lb.length){var _g=_lw*0.9;var _op=off(off(_lb,-_g),_g);
-            if(_op&&_op.length&&_pArea(_op)>_pArea(_lb)*0.45){var _spk=diff(_lb,_op);_ncShapes=(_spk&&_spk.length)?diffToShapes(_spk,null,0.6):null;}}}catch(e){_ncShapes=null;}
+        // BACK sharp-gap fill (letters like V W X Y Z K M N R…): at an acute concave junction the round-jointed
+        // inner edge of the frame band pulls back from the vertex, leaving a thin lit sliver on the back. Recompute
+        // the band's inner hole with a MITER join (which reaches into the sharp corner) and cover the round-vs-miter
+        // difference with frame — that difference is exactly the acute slivers and nothing else.
+        var _ncShapes=null;try{
+          var _mo=function(p,d){try{var co=new ClipperLib.ClipperOffset(8,0.25);co.AddPaths(p,ClipperLib.JoinType.jtMiter,ClipperLib.EndType.etClosedPolygon);var s=new ClipperLib.Paths();co.Execute(s,d*S);return s;}catch(e){return off(p,d);}};
+          var _lRnd=off(_fsrc,-_lw), _lMit=_mo(_fsrc,-_lw);
+          if(_lRnd&&_lRnd.length&&_lMit&&_lMit.length){var _spk=diff(_lRnd,_lMit);_ncShapes=(_spk&&_spk.length)?diffToShapes(_spk,null,0.15):null;}
+        }catch(e){_ncShapes=null;}
         function _sigArm(shapes,extd){if(!shapes||!shapes.length)return null;var g=new THREE.ExtrudeGeometry(shapes,{depth:extd,bevelEnabled:false,curveSegments:6});g.translate(-cx,-cy,0);return g;}
         if(_lipShapes&&_lipShapes.length){
           // FRONT L-shell: thin bezel on the front face + thin return wrapping BACK down the side by _sfd
