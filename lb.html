@@ -1131,9 +1131,11 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="hint">The finishing flourish — wrap your design in a raised <b>frame</b> on the front and back faces, like a picture frame around the glow. Design your box first, then add the frame here and pick its colour.</div>
       <div class="toggle-row"><span class="lbl">🖼️ Add signature frame</span><div class="tg" id="tg_sig" onclick="sigToggle()"><div class="k"></div></div></div>
       <div id="sigCtl" style="display:none;flex-direction:column;gap:13px;margin-top:4px">
-        <div class="hint">The frame wraps the whole outer edge and sits flush with the front — it never sticks out.</div>
+        <div class="hint">A border on the <b>front</b> and <b>back</b> faces, both flush (never sticking out). The glowing band shows on the sides between them.</div>
         <div class="sw-grid"><div class="sw-item"><span class="sw" data-role="border" onclick="openPal('border',event)"></span><span class="swl">Frame colour</span></div></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Frame width — <b id="sigWLbl">5</b> mm</span><input type="range" id="sigW" min="2" max="14" step="0.5" value="5" oninput="sigLabel()" onchange="sigRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Front border depth (wraps back) — <b id="sigFdLbl">8</b> mm</span><input type="range" id="sigFd" min="1" max="30" step="0.5" value="8" oninput="sigLabel()" onchange="sigRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Back border depth (wraps forward) — <b id="sigBdLbl">8</b> mm</span><input type="range" id="sigBd" min="1" max="30" step="0.5" value="8" oninput="sigLabel()" onchange="sigRebuild()"></div>
       </div>
     </div>
   </div>
@@ -1366,8 +1368,10 @@ let images=[],selImg=-1,models=[],selModel=-1,uid=1,t1=null,mode="render",lightO
 let texts=[{id:uid++,str:"Aiyla",size:22,x:0,y:0,color:"#FFFFFF",bold:0}],selText=0;
 const COLORS={front:"#E2663B",name:"#FFFFFF",image:"#FFFFFF",model:"#E8C99B",body:"#C9542C",basetext:"#F4E9DC",base:"#C9542C",border:"#111318"};
 // Signature Touch — a raised frame/border wrapped around the design's silhouette on the front + back faces.
-var SIG={on:false,w:5};
-function sigLabel(){var w=document.getElementById("sigW");if(w){SIG.w=+w.value;var wl=document.getElementById("sigWLbl");if(wl)wl.textContent=w.value;}}
+var SIG={on:false,w:5,fd:8,bd:8};
+function sigLabel(){var w=document.getElementById("sigW");if(w){SIG.w=+w.value;var wl=document.getElementById("sigWLbl");if(wl)wl.textContent=w.value;}
+  var f=document.getElementById("sigFd");if(f){SIG.fd=+f.value;var fl=document.getElementById("sigFdLbl");if(fl)fl.textContent=f.value;}
+  var bk=document.getElementById("sigBd");if(bk){SIG.bd=+bk.value;var bl=document.getElementById("sigBdLbl");if(bl)bl.textContent=bk.value;}}
 function sigToggle(){SIG.on=!SIG.on;var t=document.getElementById("tg_sig");if(t)t.classList.toggle("on",SIG.on);var c=document.getElementById("sigCtl");if(c)c.style.display=SIG.on?"flex":"none";sigRebuild();}
 function sigRebuild(){sigLabel();if(typeof scheduleBuild==="function")scheduleBuild();else if(typeof rebuild==="function")rebuild();}
 window.sigToggle=sigToggle;window.sigRebuild=sigRebuild;window.sigLabel=sigLabel;
@@ -4074,21 +4078,26 @@ async function buildModel(){
 // Lid skirt spans the FULL box depth (same depth as the back box) — a hollow cup with the logo on the
 // front face, matching the body depth.
 buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new THREE.Mesh(s.geo,(nameMode||logoMode)?MATS.name:lidMat);m.position.z=s.z;capGroup.add(m);});
-      // ---- Signature Touch: a border LIP that traces the silhouette on the FRONT face and wraps a short way
-      // down the outer edge — flush with the front (never proud), and NOT a full-depth side shell. Outer =
-      // silhouette + a hair OUTWARD (so the frame is the visible edge surface, no z-fight with the box wall);
-      // inner = silhouette shrunk by the border width (the visible border on the front). ----
+      // ---- Signature Touch: a border band that traces the silhouette, on BOTH the FRONT and BACK faces.
+      // The front band sits flush with the front and wraps BACK by SIG.fd mm; the back band sits flush with the
+      // back and wraps FORWARD by SIG.bd mm — leaving a glowing band on the sides between them (like the
+      // reference). Outer = silhouette + a hair OUTWARD (frame is the visible edge, no z-fight with the box
+      // wall); inner = silhouette shrunk by the border width (the visible lip on each face). ----
       if(typeof SIG!=="undefined"&&SIG.on){try{
         var _sbw=Math.max(1,+SIG.w||5);
-        var _swrap=5;                                                // how far the frame wraps down the edge (mm) — a rim, not the whole side
+        var _sfd=Math.max(0.6,Math.min(+SIG.fd||8,depth));           // front border: how far it wraps back
+        var _sbd=Math.max(0.6,Math.min(+SIG.bd||8,depth));           // back border: how far it wraps forward
         var _souter=off(B,0.3)||B;
         var _sinner=off(B,-_sbw);
         var _sring=(_sinner&&_sinner.length)?diff(_souter,_sinner):_souter;
         var _srs=(_sring&&_sring.length)?diffToShapes(_sring,null,0):null;
         if(_srs&&_srs.length){
-          var _sge=new THREE.ExtrudeGeometry(_srs,{depth:_swrap,bevelEnabled:false,curveSegments:6});_sge.translate(-cx,-cy,0);
-          var _sfg=new THREE.Group();_sfg.add(new THREE.Mesh(_sge,MATS.border));_sfg.position.z=TT+0.1-_swrap;   // top flush at the front face, wraps down the edge only
-          frameGroups.push({group:_sfg,name:"Signature frame"});
+          var _sgf=new THREE.ExtrudeGeometry(_srs,{depth:_sfd,bevelEnabled:false,curveSegments:6});_sgf.translate(-cx,-cy,0);
+          var _sff=new THREE.Group();_sff.add(new THREE.Mesh(_sgf,MATS.border));_sff.position.z=TT+0.1-_sfd;      // flush at front, wraps back
+          frameGroups.push({group:_sff,name:"Signature frame · front"});
+          var _sgb=new THREE.ExtrudeGeometry(_srs,{depth:_sbd,bevelEnabled:false,curveSegments:6});_sgb.translate(-cx,-cy,0);
+          var _sfb=new THREE.Group();_sfb.add(new THREE.Mesh(_sgb,MATS.border));_sfb.position.z=-depth-0.1;        // flush at back, wraps forward
+          frameGroups.push({group:_sfb,name:"Signature frame · back"});
         }
       }catch(e){}}
       // ---- Flat photo panel: its own watertight, printable part (true flat lithophane; the geometry colour needs) ----
