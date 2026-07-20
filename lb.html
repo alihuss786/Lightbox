@@ -4123,10 +4123,12 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _lipShapes=(_lipRing&&_lipRing.length)?diffToShapes(_lipRing,null,0):null;
         var _wallShapes=(_wallRing&&_wallRing.length)?diffToShapes(_wallRing,null,0):null;
         // Interior counters: a ring lining each hole edge, extruded the FULL box depth (front face → back face).
-        var _cShapes=null;try{var _holeReg=diff(_outer,_fsrc);      // the counter regions (solid); empty for letters with no counter
-          if(_holeReg&&_holeReg.length){
-            var _offSharp=function(paths,delta){try{var co=new ClipperLib.ClipperOffset(9,0.25);co.AddPaths(paths,ClipperLib.JoinType.jtMiter,ClipperLib.EndType.etClosedPolygon);var sol=new ClipperLib.Paths();co.Execute(sol,delta*S);return sol;}catch(e){return off(paths,delta);}};   // high mitre limit keeps even an acute apex pointed
-            var _cOut=off(_holeReg,_lw),_cIn=_offSharp(_holeReg,-2.0);var _cH=(_cIn&&_cIn.length)?diff(_cOut,_cIn):_cOut;_cShapes=(_cH&&_cH.length)?diffToShapes(_cH,null,0):null;}}catch(e){_cShapes=null;}   // inner opening kept sharp AND pulled in, so the black frame fully fills the counter's sharp corners
+        // Counter source: the BODY's counter (from `filled`) — the lid hole is dilated+rounded by B, but the
+        // body hole is sharper & larger, so the body's sharp corners poke past a lid-based frame. Base the
+        // counter frame on the body hole and blunt the opening so the frame fully covers those sharp corners.
+        var _cSrc=(!logoMode&&typeof filled!=="undefined"&&filled&&filled.length)?filled:_fsrc;
+        var _cShapes=null;try{var _holeReg=diff(fillSolid(_cSrc),_cSrc);   // the counter regions (solid); empty for letters with no counter
+          if(_holeReg&&_holeReg.length){var _cOut=off(_holeReg,_lw+0.6),_cIn=off(_holeReg,-2.6);var _cH=(_cIn&&_cIn.length)?diff(_cOut,_cIn):_cOut;_cShapes=(_cH&&_cH.length)?diffToShapes(_cH,null,0):null;}}catch(e){_cShapes=null;}   // blunt round opening inset well inside the body hole, so the frame fills every sharp corner
         function _sigArm(shapes,extd){if(!shapes||!shapes.length)return null;var g=new THREE.ExtrudeGeometry(shapes,{depth:extd,bevelEnabled:false,curveSegments:6});g.translate(-cx,-cy,0);return g;}
         if(_lipShapes&&_lipShapes.length){
           var _cFull=(TT+0.1)-(-depth-0.1);                         // full box depth for the counter bezel
