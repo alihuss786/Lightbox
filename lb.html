@@ -4109,11 +4109,10 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         // triangle frame), so from behind the open hole shows more frame and less lit interior.
         var _bcShapes=null;try{var _bh=diff(fillSolid(_fsrc),_fsrc);
           if(_bh&&_bh.length){
-            // Same thin border as the front (opening ≈ the hole, so it's as hollow as the front), but grow the
-            // OUTER edge with MITRE joins so each corner extends outward to a point — covering the lit peak that
-            // pokes out at the apex & bottom corners. Clip to the letter so it never spills past the outline.
-            var _offMi=function(p,d){try{var co=new ClipperLib.ClipperOffset(5,0.25);co.AddPaths(p,ClipperLib.JoinType.jtMiter,ClipperLib.EndType.etClosedPolygon);var s=new ClipperLib.Paths();co.Execute(s,d*S);return s;}catch(e){return off(p,d);}};
-            var _bo=_offMi(_bh,_lw);try{var _bc2=intersect(_bo,fillSolid(_fsrc));if(_bc2&&_bc2.length)_bo=_bc2;}catch(e){}
+            // Same thin border as the front (opening ≈ the hole → as hollow as the front). Grow the OUTER edge
+            // by the border width with ROUND joins — corners rounded to the same radius as the front, and the
+            // radius is enough to cover the lit peak at the apex & bottom corners. Clip to the letter outline.
+            var _bo=off(_bh,_lw)||_bh;try{var _bc2=intersect(_bo,fillSolid(_fsrc));if(_bc2&&_bc2.length)_bo=_bc2;}catch(e){}
             var _binner=off(_bh,-0.8);var _bcR=(_binner&&_binner.length)?diff(_bo,_binner):_bo;
             _bcShapes=(_bcR&&_bcR.length)?diffToShapes(_bcR,null,0):null;
           }}catch(e){_bcShapes=null;}
