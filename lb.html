@@ -4087,9 +4087,15 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _sbw=Math.max(1,+SIG.w||5);
         var _sfd=Math.max(0.6,Math.min(+SIG.fd||8,depth));           // front border: how far it wraps back
         var _sbd=Math.max(0.6,Math.min(+SIG.bd||8,depth));           // back border: how far it wraps forward
-        var _souter=off(B,0.3)||B;
-        var _sinner=off(B,-_sbw);
-        var _sring=(_sinner&&_sinner.length)?diff(_souter,_sinner):_souter;
+        // Frame band traces AROUND the letter: it wraps _sbw mm OUTSIDE the silhouette and bites a
+        // hair INWARD so it stays fused to the letter body. The letter's own face stays open (the band
+        // is a true ring, never a filled slug) — so thin line-art / logo shapes can never collapse into
+        // one solid chunk the way an inward-only offset does.
+        var _sbite=Math.min(_sbw*0.5,1.4);                            // inward bite: keeps the frame attached, capped small
+        var _souter=off(B,_sbw)||B;                                   // outer edge: silhouette grown outward by the border width
+        var _sinner=off(B,-_sbite);                                   // inner edge: silhouette shrunk a hair (fuses to the letter)
+        if(!_sinner||!_sinner.length)_sinner=B;                       // never fall back to a solid fill
+        var _sring=diff(_souter,_sinner);
         var _srs=(_sring&&_sring.length)?diffToShapes(_sring,null,0):null;
         if(_srs&&_srs.length){
           var _sgf=new THREE.ExtrudeGeometry(_srs,{depth:_sfd,bevelEnabled:false,curveSegments:6});_sgf.translate(-cx,-cy,0);
