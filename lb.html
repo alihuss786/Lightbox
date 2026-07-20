@@ -8665,19 +8665,17 @@ var qrcode = function() {
     var UL=function(items){return '<ul style="margin:0 0 8px;padding-left:18px;color:#aab2c0;font:400 12.5px/1.6 system-ui">'+items.map(function(x){return '<li style="margin-bottom:4px">'+x+'</li>';}).join('')+'</ul>';};
     var chip=function(a,t){return '<button type="button" data-go="'+a+'" style="flex:0 0 auto;padding:6px 12px;border-radius:20px;border:1px solid #2a2d35;background:#1c1f26;color:#c7cbd2;font:600 11.5px system-ui;cursor:pointer">'+t+'</button>';};
     var body=''
-     + P('Effective '+EFF+'. These policies govern your use of signaturelightboxes.com (the “Site”) and any order you place through it. The Site is operated by '+ENTITY+' (“we”, “us”, “our”). By using the Site or placing an order you agree to them.')
-     + H('lg-terms','1. Terms of sale')
-     + P('We make personalised, made-to-order 3D-printed lightboxes and related items to the design you create.')
-     + Sh('Placing an order')
-     + P('When you pay at checkout you are making an offer to buy. A contract is formed only when we confirm acceptance of your order (by email). We may decline or cancel an order — for example if we cannot make it, if there was a pricing or description error, or if the content is not acceptable (see section 5) — and we will refund any payment for an order we do not accept.')
-     + Sh('Prices & payment')
-     + P('Prices are in pounds sterling (GBP). Payment is taken at checkout by our payment provider, Stripe; we never see or store your full card details. If a price is obviously wrong we may cancel and refund rather than fulfil at that price.')
-     + Sh('Made to order')
-     + P('Items are personalised and made specifically for you, and production may begin shortly after payment. Because our products are handmade / 3D-printed, small variations in colour, finish and dimensions are normal and are not defects.')
+     + P('Effective '+EFF+'. These policies govern your use of signaturelightboxes.com (the “Site”) and any design you create or file you download through it. The Site is operated by '+ENTITY+' (“we”, “us”, “our”). By using the Site you agree to them.')
+     + H('lg-terms','1. Terms of service')
+     + P('Signature Lightboxes is an online design tool. You use it to create personalised lightbox designs and download print-ready 3D files (such as STL / 3MF) to print yourself on your own 3D printer. We provide the software and the files only — we do not manufacture, sell or ship any physical product.')
+     + Sh('Plans & payment')
+     + P('Some features and downloads are free; others require a paid plan or purchase. Prices are in pounds sterling (GBP) and any payment is taken by our payment provider, Stripe — we never see or store your full card details. If a price is obviously wrong we may cancel and refund rather than honour it. You are paying for access to create and download digital files, not for a physical item.')
+     + Sh('Your files & your printer')
+     + P('The files are provided for you to 3D-print for your own use. Print results depend on your printer, materials and settings, which are outside our control, so we cannot guarantee any particular printed outcome. Please preview and check your design before you download it.')
      + Sh('Your content')
-     + P('By adding any name, text, logo or image you confirm you own it or have permission to use it, and that it does not infringe anyone’s rights or break the law. You grant us a licence to use your content only to produce and fulfil your order. You are responsible for what you upload.')
+     + P('By adding any name, text, logo or image you confirm you own it or have permission to use it, and that it does not infringe anyone’s rights or break the law. You grant us a licence to use your content only to provide the design service to you. You are responsible for what you upload.')
      + Sh('Our liability')
-     + P('We do not exclude or limit liability where it would be unlawful to do so (including for death or personal injury caused by our negligence, or for fraud). Subject to that, our total liability for an order is limited to the amount you paid for it, and we are not liable for indirect or consequential losses. Nothing here affects your statutory rights.')
+     + P('We do not exclude or limit liability where it would be unlawful to do so (including for death or personal injury caused by our negligence, or for fraud). Subject to that, our total liability to you is limited to the amount you have paid us in the 12 months before the claim, and we are not liable for indirect or consequential losses. Nothing here affects your statutory rights.')
      + Sh('Governing law')
      + P('These terms are governed by the laws of England and Wales, and disputes are subject to the courts of England and Wales (you may also bring proceedings in your local UK court).')
      + H('lg-privacy','2. Privacy policy')
@@ -8685,7 +8683,7 @@ var qrcode = function() {
      + Sh('What we collect')
      + P('Your name, email address and phone number (if you provide it); the design you create and any photos or images you upload; and your order and payment status. Payments are processed by Stripe — we do not see or store your full card details.')
      + Sh('Why we use it, and our legal basis')
-     + UL(['To take and fulfil your order and provide support — to perform our contract with you.','To send order and service updates — to perform our contract / our legitimate interest in keeping you informed.','To send marketing about new designs and offers — only if you opt in (consent); you can withdraw at any time.','To keep business and accounting records, prevent misuse and fraud, and moderate content — our legitimate interests and legal obligations.'])
+     + UL(['To provide the design tool, your downloads and support — to perform our contract with you.','To send account and service updates — to perform our contract / our legitimate interest in keeping you informed.','To send marketing about new designs and offers — only if you opt in (consent); you can withdraw at any time.','To keep business and accounting records, prevent misuse and fraud, and moderate content — our legitimate interests and legal obligations.'])
      + Sh('Who we share it with')
      + P('We use trusted providers who process data on our instructions: Stripe (payments), Supabase (secure database, sign-in and file storage), Resend (sending emails) and Vercel (website hosting). Some may process data outside the UK / EEA under appropriate safeguards. We do not sell your personal data.')
      + Sh('How long we keep it')
@@ -8695,8 +8693,8 @@ var qrcode = function() {
      + Sh('Cookies & local storage')
      + P('We store your in-progress design and preferences in your browser’s local storage on your device, and use essential cookies to keep you signed in. We do not use advertising trackers.')
      + H('lg-use','3. Acceptable content & use')
-     + P('You must not upload or request anything that is unlawful, hateful, harassing, obscene, or that infringes intellectual property or privacy. We screen names, text and images and may refuse, edit or cancel (and refund) any order whose content we consider inappropriate or unlawful.')
-     + P('The Site, its design tool, code and branding are owned by us or our licensors. You may use the tool to create designs for your own orders; you may not copy, resell or reverse-engineer the tool itself.')
+     + P('You must not upload or request anything that is unlawful, hateful, harassing, obscene, or that infringes intellectual property or privacy. We screen names, text and images and may refuse, edit or remove any design whose content we consider inappropriate or unlawful, and may suspend accounts that misuse the tool.')
+     + P('The Site, its design tool, code and branding are owned by us or our licensors. You may use the tool to create designs and print the files you download for your own use; you may not copy, resell or reverse-engineer the tool itself.')
      + '<div style="font:400 11px/1.5 system-ui;color:#6b7280;margin:20px 0 4px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)">This is a good-faith plain-English draft to get you started — it is not legal advice. Please have a solicitor review it, confirm your VAT position before you rely on it.</div>';
     m.innerHTML='<div style="background:#14161b;color:#eaeaec;border:1px solid rgba(255,255,255,.12);border-radius:16px;max-width:560px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">'
      +'<div style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:1px solid rgba(255,255,255,.08)"><div style="font-weight:800;font-size:16px">Terms, Privacy &amp; Policies</div><button id="lgClose" style="background:none;border:none;color:#aaa;font-size:24px;cursor:pointer;line-height:1">×</button></div>'
