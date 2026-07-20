@@ -4090,11 +4090,17 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _sfd=Math.max(0.6,Math.min(+SIG.fd||8,depth));           // front cap: how far it wraps down the side
         var _sbd=Math.max(0.6,Math.min(+SIG.bd||8,depth));           // back cap: how far it wraps down the side
         var _pArea=function(pp){var a=0;(pp||[]).forEach(function(p){a+=Math.abs(ClipperLib.Clipper.Area(p));});return a;};
-        var _sedge=off(B,0.8)||B;                                    // outer wall stands ~0.8mm proud of the body side (visible trim, no z-fight)
+        // Frame source. Letters/names use B (the silhouette, counters intact). LOGO mode builds its body as a
+        // SOLID box with holes dropped, so B is a filled blob — capping that gives a solid slug. Trace the
+        // logo's TRUE outline (holes preserved) instead, so the frame follows the real logo (a ring stays a
+        // ring, an open counter stays open) exactly like it does for letters.
+        var _fsrc=B;
+        if(logoMode&&window.__logoInk&&window.__logoInk.length){try{var _lo=unionEO(window.__logoInk);if(_lo&&_lo.length){var _loc=cleanPaths(_lo);_fsrc=(_loc&&_loc.length)?_loc:_lo;}}catch(e){}}
+        var _sedge=off(_fsrc,0.8)||_fsrc;                            // outer wall stands ~0.8mm proud of the body side (visible trim, no z-fight)
         var _eA=_pArea(_sedge);
-        var _lw=_sbw,_sinner=off(B,-_lw);                            // face-lip inner boundary
-        for(var _k=0;_k<6&&(!_sinner||!_sinner.length||_pArea(_sinner)<_eA*0.30);_k++){_lw*=0.6;_sinner=off(B,-_lw);}  // keep a real hole: shrink the lip before it can ever fill solid
-        if(!_sinner||!_sinner.length)_sinner=off(B,-Math.max(0.6,_lw));
+        var _lw=_sbw,_sinner=off(_fsrc,-_lw);                        // face-lip inner boundary
+        for(var _k=0;_k<6&&(!_sinner||!_sinner.length||_pArea(_sinner)<_eA*0.30);_k++){_lw*=0.6;_sinner=off(_fsrc,-_lw);}  // keep a real hole: shrink the lip before it can ever fill solid
+        if(!_sinner||!_sinner.length)_sinner=off(_fsrc,-Math.max(0.6,_lw));
         var _sring=(_sinner&&_sinner.length)?diff(_sedge,_sinner):_sedge;
         var _srs=(_sring&&_sring.length)?diffToShapes(_sring,null,0):null;
         if(_srs&&_srs.length){
