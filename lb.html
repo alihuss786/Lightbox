@@ -879,7 +879,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_litho1_inv" onclick="litho1Invert()"><div class="k"></div></div></div>
         <div class="toggle-row"><span class="lbl">🖼️ Picture frame</span><div class="tg" id="tg_litho1_frame" onclick="litho1Frame()"><div class="k"></div></div></div>
         <div id="litho1_frame_ctl" style="display:none;flex-direction:column;gap:10px">
-          <div class="hint">A rounded picture frame the photo slides into, with an <b>LED cavity</b> behind it for a backlit glow and a built-in <b>kickstand</b> on the back so it stands on a desk.</div>
+          <div class="hint">A rounded picture frame with a <b>closed back plate</b> and an <b>LED cavity</b> for a backlit glow. The back has a <b>fold-out easel leg</b> so it stands like a proper photo frame. Prints as 3 parts — frame, photo, back+stand.</div>
           <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">LED gap (space behind photo) — <b id="litho1_ledl">15</b> mm</span><input type="range" id="litho1_led" min="0" max="30" step="1" value="15" oninput="litho1LedGap(this.value)"></div>
         </div>
         <button class="addtext" onclick="litho1Clear()">Remove photo</button>
@@ -2350,18 +2350,34 @@ function buildLithophaneFrame(W,H,maxT){
   // back keeps it glowing. A back lip is deliberately omitted so the plaque can actually be inserted.
   g.add(extr(shole(rrect(ow,oh,rad),openW,openH),bezelT,recessD));      // front bezel lip (overhangs plaque front), z∈[recessD, recessD+bezelT]
   g.add(extr(shole(rrect(ow,oh,rad),W+clr,H+clr),recessD,0));           // side recess wall — plaque friction-seats here, z∈[0,recessD]
-  if(ledGap>0.5)g.add(extr(shole(rrect(ow,oh,rad),W+clr,H+clr),ledGap,-ledGap));  // LED cavity walls behind the plaque, open back, z∈[-ledGap,0]
-  // Integrated KICKSTAND: a central triangular brace on the BACK that props the frame upright, with a foot reaching
-  // back for stability (like a photo-frame easel). Prints as part of the frame.
-  (function(){
-    var bz=-ledGap,botY=-oh/2,topY=-oh/2+Math.min(oh*0.52,95),reach=Math.min(oh*0.42,72),hx=Math.min(W*0.16,22);
-    var P=[[bz,topY],[bz,botY],[bz-reach,botY]],pos=[];               // triangle in the (z,y) plane
-    P.forEach(function(p){pos.push(hx,p[1],p[0]);});P.forEach(function(p){pos.push(-hx,p[1],p[0]);});   // extrude ±hx in X (width)
-    var idx=[0,2,1, 3,4,5, 0,1,3,1,4,3, 1,2,4,2,5,4, 2,0,5,0,3,5];
-    var kgeo=new THREE.BufferGeometry();kgeo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));kgeo.setIndex(idx);kgeo.computeVertexNormals();
-    var km=new THREE.Mesh(kgeo,mat);km.userData.exportColor="#1c1c20";g.add(km);
-  })();
+  if(ledGap>0.5)g.add(extr(shole(rrect(ow,oh,rad),W+clr,H+clr),ledGap,-ledGap));  // LED cavity walls behind the plaque; the back plate (separate part) closes it
   g.userData.frame=true;g.userData.depth=recessD+bezelT+ledGap;g.userData.oh=oh;return g;
+}
+// The closed BACK PLATE (separate part): covers the LED cavity, plugs in with a friction lip, and carries a
+// FOLD-OUT easel leg cut from the panel and joined at the top by a thin living hinge — bend it out to stand,
+// like a proper photo-frame stand. Prints flat in one piece.
+function buildLithophaneBack(W,H,border,ledGap){
+  var ow=W+2*border,oh=H+2*border,rad=5,plateT=2.6,clr=0.4,hgap=0.7;
+  var mat=new THREE.MeshStandardMaterial({color:"#1c1c20",roughness:0.62,metalness:0}),g=new THREE.Group();
+  function rrect(w,h,r){var s=new THREE.Shape(),x=w/2,y=h/2;r=Math.max(0.5,Math.min(r,x-0.5,y-0.5));
+    s.moveTo(-x+r,-y);s.lineTo(x-r,-y);s.quadraticCurveTo(x,-y,x,-y+r);s.lineTo(x,y-r);s.quadraticCurveTo(x,y,x-r,y);
+    s.lineTo(-x+r,y);s.quadraticCurveTo(-x,y,-x,y-r);s.lineTo(-x,-y+r);s.quadraticCurveTo(-x,-y,-x+r,-y);s.closePath();return s;}
+  function rectShape(cx,cy,w,h){var s=new THREE.Shape();s.moveTo(cx-w/2,cy-h/2);s.lineTo(cx+w/2,cy-h/2);s.lineTo(cx+w/2,cy+h/2);s.lineTo(cx-w/2,cy+h/2);s.closePath();return s;}
+  function holeInto(sh,cx,cy,w,h){var p=new THREE.Path();p.moveTo(cx-w/2,cy-h/2);p.lineTo(cx+w/2,cy-h/2);p.lineTo(cx+w/2,cy+h/2);p.lineTo(cx-w/2,cy+h/2);p.closePath();sh.holes.push(p);return sh;}
+  function extr(shape,d,zt){var geo=new THREE.ExtrudeGeometry(shape,{depth:d,bevelEnabled:false,steps:1,curveSegments:8});geo.translate(0,0,zt);geo.computeVertexNormals();var m=new THREE.Mesh(geo,mat);m.userData.exportColor="#1c1c20";return m;}
+  var zFront=-ledGap;                                          // the plate seats at the frame's back opening
+  var plugD=Math.min(4,Math.max(2,ledGap-8));                 // friction lip depth into the cavity
+  var pw=(W+clr)-1.0,ph=(H+clr)-1.0;
+  var legW=Math.min(ow*0.34,48),legH=Math.min(oh*0.62,120),legBottom=-oh/2+7,legCY=legBottom+legH/2;
+  var flange=rrect(ow,oh,rad);holeInto(flange,0,legCY,legW,legH);
+  g.add(extr(flange,plateT,zFront-plateT));                   // outer back cover with the leg cut out
+  var plug=holeInto(rectShape(0,0,pw,ph),0,0,pw-3.5,ph-3.5);
+  g.add(extr(plug,plugD,zFront));                             // friction lip ring into the cavity
+  var lw=legW-2*hgap,lh=legH-2*hgap;
+  g.add(extr(rectShape(0,legCY,lw,lh),plateT,zFront-plateT)); // the leg (fills the cutout, folds out)
+  var legTop=legCY+lh/2,hLen=hgap+2.4,hT=0.8;
+  g.add(extr(rectShape(0,legTop+hgap/2,lw,hLen),hT,zFront-plateT+(plateT-hT)/2));   // thin living hinge at the leg top
+  g.userData.back=true;return g;
 }
 // A separate desk easel: a low base with a slot the framed lithophane drops into and stands in.
 function buildLithophaneStand(frameW,frameDepth){
@@ -4376,6 +4392,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       // Housing the lithophane (or CMYK stack) seats into. Frame = slim open-back picture frame; else the 40mm LED box.
       if(LITHO1.frame&&typeof buildLithophaneFrame==="function"){
         var _frm=buildLithophaneFrame(_lW,_lH,_boxMax);_frm.position.set(0,0,_z0);partList.push({group:_frm,name:"Lithophane frame",flip:false,labs:true,litho:true,color:"#1C1C20"});
+        if(typeof buildLithophaneBack==="function"){var _bk=buildLithophaneBack(_lW,_lH,6,(+LITHO1.ledGap||15));_bk.position.set(0,0,_z0);partList.push({group:_bk,name:"Lithophane back + stand",flip:false,labs:true,litho:true,color:"#1C1C20"});}
       }
       else if(typeof buildLithophaneBox==="function"){var _box=buildLithophaneBox(_lW,_lH,_boxMax);_box.position.set(0,0,_z0);partList.push({group:_box,name:"Lithophane box (40mm)",flip:false,labs:true,litho:true,color:"#D8D4CC"});}
       window.__labsStandalone=true;
