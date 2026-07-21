@@ -3979,7 +3979,7 @@ async function buildModel(){
   const letter=(v("letter")||"A").toUpperCase()[0];if(featState("textures")!=="on"){LIDTEX=null;window.__lidTexId="none";}const logoMode=(featState("logo")==="on")&&(typeof LOGO!=="undefined")&&LOGO&&LOGO.length>0;const nameMode=!logoMode&&(featState("name")==="on")&&(typeof LIDNAME!=="undefined")&&LIDNAME.trim().length>0&&(window.__moderateText?window.__moderateText(LIDNAME).ok:true);window.__nameFlat=nameMode||logoMode;window.__logoFlat=logoMode;window.__logoInk=null;window.__plateFoot=null;try{var _skRow=document.getElementById("dimrow_skirt");if(_skRow)_skRow.style.display="none";}catch(e){}   // single depth control everywhere: Light box depth drives the skirt (hidden on every build path)
       const name=texts.map(t=>(t.str||"").trim()).filter(Boolean).join(" ");
   const lh=mmOf("lh")||140,depth=Math.max(40,mmOf("bd")||40),wall=mmOf("wall")||2;
-  const topT=mmOf("topT")||1,capW=mmOf("capW")||3,skirtD=mmOf("skirt")||14,clearance=0.4;
+  const topT=mmOf("topT")||1,capW=mmOf("capW")||3,skirtD=mmOf("skirt")||14,clearance=0.6;   // lid↔body slip fit: 0.4 gripped too hard to remove; 0.6 seats firmly but pulls back off
   const nameExt=mmOf("nameExt")||10;
   const _mnt=(typeof _mountRead==="function")?_mountRead():null;   // wall keyhole / power cutout / desk base
   let pocket=mmOf("nameDepth");if(isNaN(pocket))pocket=0;pocket=Math.max(0,Math.min(pocket,nameExt));
@@ -4139,15 +4139,16 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         // (holes preserved) so a ring stays a ring.
         var _fsrc=B;
         if(logoMode&&window.__logoInk&&window.__logoInk.length){try{var _lo=unionEO(window.__logoInk);if(_lo&&_lo.length){var _loc=cleanPaths(_lo);_fsrc=(_loc&&_loc.length)?_loc:_lo;}}catch(e){}}
-        var _wall=0.8;                                               // outer edge stands ~0.8mm proud of the body side (visible trim, no z-fight)
-        var _t=Math.max(1.2,Math.min(2.4,_sbw*0.55));               // shell wall thickness (bezel depth + side-return thickness)
+        var _fclr=0.5;                                              // slip clearance: the side-return wall clears the lid outline by this so the frame slides ON and clips (was reaching 1.6mm INTO the lid → cavity too small to fit)
+        var _t=Math.max(1.2,Math.min(2.4,_sbw*0.55));               // bezel depth (vertical)
         _t=Math.min(_t,_sfd*0.9,_sbd*0.9);
-        var _edgeOut=off(_fsrc,_wall)||_fsrc;                        // outer boundary of the frame
+        var _wt=Math.min(_t,1.7);                                   // side-return wall radial thickness (kept slim so the frame doesn't grow much)
+        var _edgeOut=off(_fsrc,_fclr+_wt)||_fsrc;                    // outer boundary of the frame — sits just outside the lid, wall wraps around it
         var _eA=_pArea(_edgeOut);
         var _lw=_sbw,_lipIn=off(_fsrc,-_lw);                         // inner boundary of the flat bezel (on the face)
         for(var _k=0;_k<6&&(!_lipIn||!_lipIn.length||_pArea(_lipIn)<_eA*0.30);_k++){_lw*=0.6;_lipIn=off(_fsrc,-_lw);}  // keep a real hole: shrink the bezel before it can ever fill solid
         if(!_lipIn||!_lipIn.length)_lipIn=off(_fsrc,-Math.max(0.6,_lw));
-        var _wallIn=off(_fsrc,_wall-_t);                             // inner boundary of the thin side return
+        var _wallIn=off(_fsrc,_fclr);                                // inner face of the side return = lid outline + slip clearance, so the wall wraps OUTSIDE the lid and grips
         if(!_wallIn||!_wallIn.length)_wallIn=_lipIn;
         var _lipRing=(_lipIn&&_lipIn.length)?diff(_edgeOut,_lipIn):_edgeOut;      // flat bezel ring (horizontal arm)
         var _wallRing=(_wallIn&&_wallIn.length)?diff(_edgeOut,_wallIn):_edgeOut;  // thin outer band (vertical arm / return)
