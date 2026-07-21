@@ -4139,7 +4139,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         // (holes preserved) so a ring stays a ring.
         var _fsrc=B;
         if(logoMode&&window.__logoInk&&window.__logoInk.length){try{var _lo=unionEO(window.__logoInk);if(_lo&&_lo.length){var _loc=cleanPaths(_lo);_fsrc=(_loc&&_loc.length)?_loc:_lo;}}catch(e){}}
-        var _fclr=0.5;                                              // slip clearance: the side-return wall clears the lid outline by this so the frame slides ON and clips (was reaching 1.6mm INTO the lid → cavity too small to fit)
+        var _fclr=0.8;                                              // slip clearance: the side-return wall clears the lid outline by this so the frame slides ON. 0.8 chosen so FDM tolerance (wall bulge/elephant-foot ~0.3-0.4mm) can't close the gap. (old design reached 1.6mm INTO the lid → guaranteed interference)
         var _t=Math.max(1.2,Math.min(2.4,_sbw*0.55));               // bezel depth (vertical)
         _t=Math.min(_t,_sfd*0.9,_sbd*0.9);
         var _wt=Math.min(_t,1.7);                                   // side-return wall radial thickness (kept slim so the frame doesn't grow much)
