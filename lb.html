@@ -879,7 +879,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_litho1_inv" onclick="litho1Invert()"><div class="k"></div></div></div>
         <div class="toggle-row"><span class="lbl">🖼️ Picture frame</span><div class="tg" id="tg_litho1_frame" onclick="litho1Frame()"><div class="k"></div></div></div>
         <div id="litho1_frame_ctl" style="display:none;flex-direction:column;gap:10px">
-          <div class="hint">A rounded picture frame the photo slides into, with an <b>LED cavity</b> behind it and a matching <b>desk stand</b> — all print as separate parts. Add an LED strip in the gap for a backlit glow.</div>
+          <div class="hint">A rounded picture frame the photo slides into, with an <b>LED cavity</b> behind it for a backlit glow and a built-in <b>kickstand</b> on the back so it stands on a desk.</div>
           <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">LED gap (space behind photo) — <b id="litho1_ledl">15</b> mm</span><input type="range" id="litho1_led" min="0" max="30" step="1" value="15" oninput="litho1LedGap(this.value)"></div>
         </div>
         <button class="addtext" onclick="litho1Clear()">Remove photo</button>
@@ -2351,6 +2351,16 @@ function buildLithophaneFrame(W,H,maxT){
   g.add(extr(shole(rrect(ow,oh,rad),openW,openH),bezelT,recessD));      // front bezel lip (overhangs plaque front), z∈[recessD, recessD+bezelT]
   g.add(extr(shole(rrect(ow,oh,rad),W+clr,H+clr),recessD,0));           // side recess wall — plaque friction-seats here, z∈[0,recessD]
   if(ledGap>0.5)g.add(extr(shole(rrect(ow,oh,rad),W+clr,H+clr),ledGap,-ledGap));  // LED cavity walls behind the plaque, open back, z∈[-ledGap,0]
+  // Integrated KICKSTAND: a central triangular brace on the BACK that props the frame upright, with a foot reaching
+  // back for stability (like a photo-frame easel). Prints as part of the frame.
+  (function(){
+    var bz=-ledGap,botY=-oh/2,topY=-oh/2+Math.min(oh*0.52,95),reach=Math.min(oh*0.42,72),hx=Math.min(W*0.16,22);
+    var P=[[bz,topY],[bz,botY],[bz-reach,botY]],pos=[];               // triangle in the (z,y) plane
+    P.forEach(function(p){pos.push(hx,p[1],p[0]);});P.forEach(function(p){pos.push(-hx,p[1],p[0]);});   // extrude ±hx in X (width)
+    var idx=[0,2,1, 3,4,5, 0,1,3,1,4,3, 1,2,4,2,5,4, 2,0,5,0,3,5];
+    var kgeo=new THREE.BufferGeometry();kgeo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));kgeo.setIndex(idx);kgeo.computeVertexNormals();
+    var km=new THREE.Mesh(kgeo,mat);km.userData.exportColor="#1c1c20";g.add(km);
+  })();
   g.userData.frame=true;g.userData.depth=recessD+bezelT+ledGap;g.userData.oh=oh;return g;
 }
 // A separate desk easel: a low base with a slot the framed lithophane drops into and stands in.
@@ -4366,9 +4376,6 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       // Housing the lithophane (or CMYK stack) seats into. Frame = slim open-back picture frame; else the 40mm LED box.
       if(LITHO1.frame&&typeof buildLithophaneFrame==="function"){
         var _frm=buildLithophaneFrame(_lW,_lH,_boxMax);_frm.position.set(0,0,_z0);partList.push({group:_frm,name:"Lithophane frame",flip:false,labs:true,litho:true,color:"#1C1C20"});
-        if(typeof buildLithophaneStand==="function"){var _fd=(_frm.userData&&_frm.userData.depth)||20,_foh=(_frm.userData&&_frm.userData.oh)||_lH,_lg=(+LITHO1.ledGap||15);
-          var _std=buildLithophaneStand(_lW,_fd);_std.position.set(0,-(_foh/2)-6,_z0+_fd/2-_lg);  // easel under the frame (Y-up, Z-slot already aligned to the frame's depth)
-          partList.push({group:_std,name:"Lithophane stand",flip:false,labs:true,litho:true,color:"#1C1C20"});}
       }
       else if(typeof buildLithophaneBox==="function"){var _box=buildLithophaneBox(_lW,_lH,_boxMax);_box.position.set(0,0,_z0);partList.push({group:_box,name:"Lithophane box (40mm)",flip:false,labs:true,litho:true,color:"#D8D4CC"});}
       window.__labsStandalone=true;
