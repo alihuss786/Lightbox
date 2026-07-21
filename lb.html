@@ -1136,7 +1136,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div id="sigCtl" style="display:none;flex-direction:column;gap:13px;margin-top:4px">
         <div class="hint">A border on the <b>front</b> and <b>back</b> faces, both flush (never sticking out). The glowing band shows on the sides between them.</div>
         <div class="sw-grid"><div class="sw-item"><span class="sw" data-role="border" onclick="openPal('border',event)"></span><span class="swl">Frame colour</span></div></div>
-        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Frame width — <b id="sigWLbl">5</b> mm</span><input type="range" id="sigW" min="2" max="14" step="0.5" value="5" oninput="sigLabel()" onchange="sigRebuild()"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Frame width — <b id="sigWLbl">5</b> mm</span><input type="range" id="sigW" min="0.8" max="14" step="0.2" value="5" oninput="sigLabel()" onchange="sigRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Front border depth (wraps back) — <b id="sigFdLbl">8</b> mm</span><input type="range" id="sigFd" min="1" max="30" step="0.5" value="8" oninput="sigLabel()" onchange="sigRebuild()"></div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Back border depth (wraps forward) — <b id="sigBdLbl">8</b> mm</span><input type="range" id="sigBd" min="1" max="30" step="0.5" value="8" oninput="sigLabel()" onchange="sigRebuild()"></div>
       </div>
@@ -4131,7 +4131,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       // BACK counter (an A's triangle, an O's bowl…) additionally gets a WIDER flat bezel so from behind the
       // open hole is framed bigger and shows less of its lit interior. ----
       if(typeof SIG!=="undefined"&&SIG.on&&(nameMode||logoMode||!(selFont&&selFont.custom))){try{   // letter mode: frame only on built-in fonts. name/logo: any font ok
-        var _sbw=Math.max(1,+SIG.w||5);
+        var _sbw=Math.max(0.6,+SIG.w||5);   // allow a thin frame band (down to slider min 0.8mm)
         var _sfd=Math.max(0.6,Math.min(+SIG.fd||8,depth));           // front cap: how far it wraps down the side
         var _sbd=Math.max(0.6,Math.min(+SIG.bd||8,depth));           // back cap: how far it wraps down the side
         var _pArea=function(pp){var a=0;(pp||[]).forEach(function(p){a+=Math.abs(ClipperLib.Clipper.Area(p));});return a;};
