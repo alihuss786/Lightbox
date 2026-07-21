@@ -878,7 +878,10 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="hint"><b>Auto-balance</b> reads the photo's histogram and sets a good starting depth in one click — then fine-tune with the slider. Turn the lamp on to preview it live; this reshapes the real print too, no extra software needed.</div>
         <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_litho1_inv" onclick="litho1Invert()"><div class="k"></div></div></div>
         <div class="toggle-row"><span class="lbl">🖼️ Picture frame</span><div class="tg" id="tg_litho1_frame" onclick="litho1Frame()"><div class="k"></div></div></div>
-        <div class="hint" id="litho1_frame_hint" style="display:none">A slim rounded picture frame the lithophane slides into — open back so it still glows. Prints as a separate part (print it in black or any colour) and the photo panel drops in.</div>
+        <div id="litho1_frame_ctl" style="display:none;flex-direction:column;gap:10px">
+          <div class="hint">A rounded picture frame the photo slides into, with an <b>LED cavity</b> behind it and a matching <b>desk stand</b> — all print as separate parts. Add an LED strip in the gap for a backlit glow.</div>
+          <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">LED gap (space behind photo) — <b id="litho1_ledl">15</b> mm</span><input type="range" id="litho1_led" min="0" max="30" step="1" value="15" oninput="litho1LedGap(this.value)"></div>
+        </div>
         <button class="addtext" onclick="litho1Clear()">Remove photo</button>
       </div>
     </div>
@@ -2107,7 +2110,7 @@ function _labsScene(name,W,H,customSubj){
 // CMYW filament definitions — exact Bambu Lab PLA Basic hex codes so the exported .3mf colours match the spools.
 var LITHO_CMYK={C:{name:"Cyan",hex:"#0086D6"},M:{name:"Magenta",hex:"#EC008C"},Y:{name:"Yellow",hex:"#F4EE2A"},W:{name:"Jade White",hex:"#FFFFFF"}};
 // ams[slotIndex] = colour key held in that AMS slot. Default Slot1:Cyan, Slot2:Magenta, Slot3:Yellow, Slot4:White.
-var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey",ams:["C","M","Y","W"],frame:false};
+var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey",ams:["C","M","Y","W"],frame:false,ledGap:15};
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
 var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5,cavity:30};
 // Text Lithophane: photo relief mapped onto glyph front faces. mode span|perletter, assembly separate|fused.
@@ -2333,7 +2336,8 @@ function buildLithophaneBox(W,H,maxT){
 // A slim rounded PICTURE FRAME the lithophane slides into — front + back overhang lips capture the plaque, the
 // centre is open front and back so it glows when backlit. Prints as one part (a border), assembled with the plaque.
 function buildLithophaneFrame(W,H,maxT){
-  var border=6,bezel=2.4,clr=0.5,litT=Math.max(2.5,(+maxT||3.5)),bezelT=1.6,backT=1.4,rad=5,recessD=litT+clr;
+  var border=6,bezel=2.4,clr=0.4,litT=Math.max(2.5,(+maxT||3.5)),bezelT=1.6,rad=5,recessD=litT+clr;
+  var ledGap=(+LITHO1.ledGap||15);                         // open cavity BEHIND the plaque for an LED strip to sit in and diffuse
   var mat=new THREE.MeshStandardMaterial({color:"#1c1c20",roughness:0.62,metalness:0}),ow=W+2*border,oh=H+2*border,g=new THREE.Group();
   function rrect(w,h,r){var s=new THREE.Shape(),x=w/2,y=h/2;r=Math.max(0.5,Math.min(r,x-0.5,y-0.5));
     s.moveTo(-x+r,-y);s.lineTo(x-r,-y);s.quadraticCurveTo(x,-y,x,-y+r);s.lineTo(x,y-r);s.quadraticCurveTo(x,y,x-r,y);
@@ -2344,9 +2348,21 @@ function buildLithophaneFrame(W,H,maxT){
   // Front lip + recess wall, OPEN back: the plaque drops into the recess from behind, is held forward by the front
   // lip on all sides, and is retained by side-wall friction (+ gravity when the frame leans back on a stand). Open
   // back keeps it glowing. A back lip is deliberately omitted so the plaque can actually be inserted.
-  g.add(extr(shole(rrect(ow,oh,rad),openW,openH),bezelT,recessD));   // front bezel lip (overhangs plaque front), z∈[recessD, recessD+bezelT]
-  g.add(extr(shole(rrect(ow,oh,rad),W+clr,H+clr),recessD,0));        // side recess wall — plaque seats here with slip clearance, z∈[0,recessD]
-  g.userData.frame=true;return g;
+  g.add(extr(shole(rrect(ow,oh,rad),openW,openH),bezelT,recessD));      // front bezel lip (overhangs plaque front), z∈[recessD, recessD+bezelT]
+  g.add(extr(shole(rrect(ow,oh,rad),W+clr,H+clr),recessD,0));           // side recess wall — plaque friction-seats here, z∈[0,recessD]
+  if(ledGap>0.5)g.add(extr(shole(rrect(ow,oh,rad),W+clr,H+clr),ledGap,-ledGap));  // LED cavity walls behind the plaque, open back, z∈[-ledGap,0]
+  g.userData.frame=true;g.userData.depth=recessD+bezelT+ledGap;g.userData.oh=oh;return g;
+}
+// A separate desk easel: a low base with a slot the framed lithophane drops into and stands in.
+function buildLithophaneStand(frameW,frameDepth){
+  var slotW=frameDepth+2.2,floorT=5,wallH=16,wallD=Math.max(3.5,frameDepth*0.5),baseD=frameDepth+18,
+      baseW=Math.max(46,Math.min(frameW*0.6,130));
+  var mat=new THREE.MeshStandardMaterial({color:"#1c1c20",roughness:0.62,metalness:0}),g=new THREE.Group();
+  function box(w,h,d,x,y,z){var geo=new THREE.BoxGeometry(w,h,d);geo.translate(x,y,z);var m=new THREE.Mesh(geo,mat);m.userData.exportColor="#1c1c20";return m;}
+  g.add(box(baseW,floorT,baseD,0,floorT/2,0));                                        // base floor
+  g.add(box(baseW,wallH,wallD,0,floorT+wallH/2,-(slotW/2+wallD/2)));                  // front slot wall
+  g.add(box(baseW,wallH,wallD,0,floorT+wallH/2, (slotW/2+wallD/2)));                  // back slot wall
+  g.userData.stand=true;return g;
 }
 /* Watertight slab between two per-vertex surfaces (bottom + top grids) — the building block for stacked layers. */
 function _lithoSlab(nx,ny,W,Ht,botZ,topZ){
@@ -2545,7 +2561,8 @@ function litho1AmsAssign(slot,key){slot=+slot;if(!LITHO_CMYK[key])return;var cur
   if(other===slot)return;var displaced=cur[slot];cur[slot]=key;if(other>=0)cur[other]=displaced;LITHO1.ams=cur;
   litho1SyncAms();litho1RenderAms();if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Invert(){LITHO1.invert=!LITHO1.invert;var t=document.getElementById("tg_litho1_inv");if(t)t.classList.toggle("on",LITHO1.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
-function litho1Frame(){LITHO1.frame=!LITHO1.frame;var t=document.getElementById("tg_litho1_frame");if(t)t.classList.toggle("on",LITHO1.frame);var h=document.getElementById("litho1_frame_hint");if(h)h.style.display=LITHO1.frame?"block":"none";if(typeof scheduleBuild==="function")scheduleBuild();}
+function litho1Frame(){LITHO1.frame=!LITHO1.frame;var t=document.getElementById("tg_litho1_frame");if(t)t.classList.toggle("on",LITHO1.frame);var h=document.getElementById("litho1_frame_ctl");if(h)h.style.display=LITHO1.frame?"flex":"none";if(typeof scheduleBuild==="function")scheduleBuild();}
+function litho1LedGap(v){LITHO1.ledGap=Math.max(0,Math.min(30,+v||0));var l=document.getElementById("litho1_ledl");if(l)l.textContent=LITHO1.ledGap;if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Contrast(val){LITHO1.contrast=Math.max(0.5,Math.min(2.5,+val||1));var l=document.getElementById("litho1_conl");if(l)l.textContent=LITHO1.contrast.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
 /* Auto-balance: sample the photo's luminance histogram, recentre midtones (gamma → mean maps to ~0.5) and
    stretch the used tonal range (contrast → the darkest/lightest ~1% fill the depth), so the mesh always has
@@ -4347,7 +4364,12 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         partList.push({group:_lgrp,name:"Lithophane",flip:false,labs:true,litho:true,color:"#FFFFFF"});
       }
       // Housing the lithophane (or CMYK stack) seats into. Frame = slim open-back picture frame; else the 40mm LED box.
-      if(LITHO1.frame&&typeof buildLithophaneFrame==="function"){var _frm=buildLithophaneFrame(_lW,_lH,_boxMax);_frm.position.set(0,0,_z0);partList.push({group:_frm,name:"Lithophane frame",flip:false,labs:true,litho:true,color:"#1C1C20"});}
+      if(LITHO1.frame&&typeof buildLithophaneFrame==="function"){
+        var _frm=buildLithophaneFrame(_lW,_lH,_boxMax);_frm.position.set(0,0,_z0);partList.push({group:_frm,name:"Lithophane frame",flip:false,labs:true,litho:true,color:"#1C1C20"});
+        if(typeof buildLithophaneStand==="function"){var _fd=(_frm.userData&&_frm.userData.depth)||20,_foh=(_frm.userData&&_frm.userData.oh)||_lH,_lg=(+LITHO1.ledGap||15);
+          var _std=buildLithophaneStand(_lW,_fd);_std.position.set(0,-(_foh/2)-6,_z0+_fd/2-_lg);  // easel under the frame (Y-up, Z-slot already aligned to the frame's depth)
+          partList.push({group:_std,name:"Lithophane stand",flip:false,labs:true,litho:true,color:"#1C1C20"});}
+      }
       else if(typeof buildLithophaneBox==="function"){var _box=buildLithophaneBox(_lW,_lH,_boxMax);_box.position.set(0,0,_z0);partList.push({group:_box,name:"Lithophane box (40mm)",flip:false,labs:true,litho:true,color:"#D8D4CC"});}
       window.__labsStandalone=true;
     }}catch(e){}
