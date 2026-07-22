@@ -2674,7 +2674,11 @@ function litho1AmsAssign(slot,key){slot=+slot;if(!LITHO_CMYK[key])return;var cur
   if(other===slot)return;var displaced=cur[slot];cur[slot]=key;if(other>=0)cur[other]=displaced;LITHO1.ams=cur;
   litho1SyncAms();litho1RenderAms();if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Invert(){LITHO1.invert=!LITHO1.invert;var t=document.getElementById("tg_litho1_inv");if(t)t.classList.toggle("on",LITHO1.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
-function litho1Frame(){LITHO1.frame=!LITHO1.frame;var t=document.getElementById("tg_litho1_frame");if(t)t.classList.toggle("on",LITHO1.frame);var h=document.getElementById("litho1_frame_ctl");if(h)h.style.display=LITHO1.frame?"flex":"none";if(LITHO1.frame)initFrameTexList();if(typeof scheduleBuild==="function")scheduleBuild();}
+function litho1Frame(){LITHO1.frame=!LITHO1.frame;var t=document.getElementById("tg_litho1_frame");if(t)t.classList.toggle("on",LITHO1.frame);var h=document.getElementById("litho1_frame_ctl");if(h)h.style.display=LITHO1.frame?"flex":"none";
+  // The frame is a DEEP picture frame — it's meant to be seen front-on. Snap to a near-front view when it's turned on
+  // so it reads as a framed photo, not a boxy side-on view into the LED well.
+  if(LITHO1.frame){try{rotX=0.1;rotY=0.13;zoom=1;panX=0;panY=0;if(typeof applyZoom==="function")applyZoom();}catch(e){}}
+  if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1LedGap(v){LITHO1.ledGap=Math.max(0,Math.min(30,+v||0));var l=document.getElementById("litho1_ledl");if(l)l.textContent=LITHO1.ledGap;if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1HingeClr(v){LITHO1.hingeClr=Math.max(0.25,Math.min(0.9,+v||0.45));var l=document.getElementById("litho1_hcl");if(l)l.textContent=LITHO1.hingeClr.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1FrameTex(v){LITHO1.frameTex=v||"none";if(typeof scheduleBuild==="function")scheduleBuild();}
