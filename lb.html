@@ -881,6 +881,8 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div id="litho1_frame_ctl" style="display:none;flex-direction:column;gap:10px">
           <div class="hint">A rounded picture frame with a <b>closed back plate</b> and an <b>LED cavity</b> for a backlit glow. The back has a <b>fold-out easel leg</b> so it stands like a proper photo frame. Prints as 3 parts — frame, photo, back+stand.</div>
           <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">LED gap (space behind photo) — <b id="litho1_ledl">15</b> mm</span><input type="range" id="litho1_led" min="0" max="30" step="1" value="15" oninput="litho1LedGap(this.value)"></div>
+          <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Hinge clearance (easel fit) — <b id="litho1_hcl">0.45</b> mm</span><input type="range" id="litho1_hc" min="0.25" max="0.9" step="0.05" value="0.45" oninput="litho1HingeClr(this.value)"></div>
+          <div class="hint">The fold-out leg is a <b>print-in-place pin hinge</b>. If the leg is fused solid after printing, raise this a notch; if it's floppy, lower it. Tune it to your printer once.</div>
         </div>
         <button class="addtext" onclick="litho1Clear()">Remove photo</button>
       </div>
@@ -2110,7 +2112,7 @@ function _labsScene(name,W,H,customSubj){
 // CMYW filament definitions — exact Bambu Lab PLA Basic hex codes so the exported .3mf colours match the spools.
 var LITHO_CMYK={C:{name:"Cyan",hex:"#0086D6"},M:{name:"Magenta",hex:"#EC008C"},Y:{name:"Yellow",hex:"#F4EE2A"},W:{name:"Jade White",hex:"#FFFFFF"}};
 // ams[slotIndex] = colour key held in that AMS slot. Default Slot1:Cyan, Slot2:Magenta, Slot3:Yellow, Slot4:White.
-var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey",ams:["C","M","Y","W"],frame:false,ledGap:15};
+var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey",ams:["C","M","Y","W"],frame:false,ledGap:15,hingeClr:0.45};
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
 var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5,cavity:30};
 // Text Lithophane: photo relief mapped onto glyph front faces. mode span|perletter, assembly separate|fused.
@@ -2368,18 +2370,25 @@ function buildLithophaneBack(W,H,border,ledGap){
   var zFront=-ledGap;                                          // the plate seats at the frame's back opening
   var plugD=Math.min(4,Math.max(2,ledGap-8));                 // friction lip depth into the cavity
   var pw=(W+clr)-1.0,ph=(H+clr)-1.0;
-  // FOLD-OUT STRUT: a tapered leg cut from the back panel, hinged at the TOP by a thin living hinge — a strut back
-  // like the reference. Prints flat in one piece; bend the strut out to prop the frame.
-  var wTop=Math.min(ow*0.30,46),wBot=wTop*0.5,yTop=Math.min(oh*0.30,oh/2-16),yBot=-oh/2+8;
-  function strutShape(wt,wb,yt,yb,off){var s=new THREE.Shape();s.moveTo(-wt/2-off,yt+off);s.lineTo(wt/2+off,yt+off);s.lineTo(wb/2+off,yb-off);s.lineTo(-wb/2-off,yb-off);s.closePath();return s;}
-  function strutPath(wt,wb,yt,yb,off){var p=new THREE.Path();p.moveTo(-wt/2-off,yt+off);p.lineTo(wt/2+off,yt+off);p.lineTo(wb/2+off,yb-off);p.lineTo(-wb/2-off,yb-off);p.closePath();return p;}
-  var flange=rrect(ow,oh,rad);flange.holes.push(strutPath(wTop,wBot,yTop,yBot,hgap));   // strut cutout = strut + slip gap
-  g.add(extr(flange,plateT,zFront-plateT));                   // solid back cover with the strut cut out
+  // FOLD-OUT STRUT with a PRINT-IN-PLACE PIN HINGE: a tapered strut carries a barrel along its top; a pin runs
+  // through it, its ends fused into the back panel either side, free (with clearance) inside the barrel — so the
+  // strut swings on the pin like a proper photo-frame strut back. All prints as ONE piece, no assembly.
+  var wTop=Math.min(ow*0.30,46),wBot=wTop*0.55,yTop=Math.min(oh*0.30,oh/2-18),yBot=-oh/2+8;
+  var hClr=Math.max(0.25,Math.min(0.9,+LITHO1.hingeClr||0.45));
+  var rPin=1.2,rTin=rPin+hClr,rTout=rTin+1.35,hw=wTop/2,zBar=zFront-plateT/2,clearTop=rTout+0.8;
+  function strutShape(wt,wb,yt,yb){var s=new THREE.Shape();s.moveTo(-wt/2,yt);s.lineTo(wt/2,yt);s.lineTo(wb/2,yb);s.lineTo(-wb/2,yb);s.closePath();return s;}
+  function strutPath(wt,wb,yt,yb){var p=new THREE.Path();p.moveTo(-wt/2,yt);p.lineTo(wt/2,yt);p.lineTo(wb/2,yb);p.lineTo(-wb/2,yb);p.closePath();return p;}
+  // panel with the strut cut out — cutout reaches ABOVE the strut top (clearTop) so the barrel never touches it
+  var flange=rrect(ow,oh,rad);flange.holes.push(strutPath(wTop+2*hgap,wBot+2*hgap,yTop+clearTop,yBot-hgap));
+  g.add(extr(flange,plateT,zFront-plateT));
   var plug=holeInto(rectShape(0,0,pw,ph),0,0,pw-3.5,ph-3.5);
-  g.add(extr(plug,plugD,zFront));                             // friction lip ring into the cavity
-  g.add(extr(strutShape(wTop,wBot,yTop,yBot,0),plateT,zFront-plateT));   // the tapered strut leg, sits flush in the cutout
-  var hT=0.8,hLen=hgap+2.6;
-  g.add(extr(rectShape(0,yTop+hgap/2,wTop-2,hLen),hT,zFront-plateT+(plateT-hT)/2));   // living hinge across the top of the strut
+  g.add(extr(plug,plugD,zFront));                             // friction lip into the cavity
+  g.add(extr(strutShape(wTop,wBot,yTop,yBot),plateT,zFront-plateT));   // tapered strut leg
+  (function(){var s=new THREE.Shape();s.absarc(0,0,rTout,0,Math.PI*2,false);var h=new THREE.Path();h.absarc(0,0,rTin,0,Math.PI*2,true);s.holes.push(h);
+    var tl=2*hw-1.4,geo=new THREE.ExtrudeGeometry(s,{depth:tl,bevelEnabled:false,curveSegments:24,steps:1});geo.translate(0,0,-tl/2);geo.rotateY(Math.PI/2);geo.translate(0,yTop,zBar);geo.computeVertexNormals();
+    var m=new THREE.Mesh(geo,mat);m.userData.exportColor="#1c1c20";g.add(m);})();   // barrel on the strut top
+  (function(){var pl=2*hw+7,geo=new THREE.CylinderGeometry(rPin,rPin,pl,20);geo.rotateZ(Math.PI/2);geo.translate(0,yTop,zBar);geo.computeVertexNormals();
+    var m=new THREE.Mesh(geo,mat);m.userData.exportColor="#1c1c20";g.add(m);})();   // pin — ends fuse into the panel, spins inside the barrel
   g.userData.back=true;return g;
 }
 // A separate desk easel: a low base with a slot the framed lithophane drops into and stands in.
@@ -2592,6 +2601,7 @@ function litho1AmsAssign(slot,key){slot=+slot;if(!LITHO_CMYK[key])return;var cur
 function litho1Invert(){LITHO1.invert=!LITHO1.invert;var t=document.getElementById("tg_litho1_inv");if(t)t.classList.toggle("on",LITHO1.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Frame(){LITHO1.frame=!LITHO1.frame;var t=document.getElementById("tg_litho1_frame");if(t)t.classList.toggle("on",LITHO1.frame);var h=document.getElementById("litho1_frame_ctl");if(h)h.style.display=LITHO1.frame?"flex":"none";if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1LedGap(v){LITHO1.ledGap=Math.max(0,Math.min(30,+v||0));var l=document.getElementById("litho1_ledl");if(l)l.textContent=LITHO1.ledGap;if(typeof scheduleBuild==="function")scheduleBuild();}
+function litho1HingeClr(v){LITHO1.hingeClr=Math.max(0.25,Math.min(0.9,+v||0.45));var l=document.getElementById("litho1_hcl");if(l)l.textContent=LITHO1.hingeClr.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Contrast(val){LITHO1.contrast=Math.max(0.5,Math.min(2.5,+val||1));var l=document.getElementById("litho1_conl");if(l)l.textContent=LITHO1.contrast.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
 /* Auto-balance: sample the photo's luminance histogram, recentre midtones (gamma → mean maps to ~0.5) and
    stretch the used tonal range (contrast → the darkest/lightest ~1% fill the depth), so the mesh always has
