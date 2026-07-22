@@ -2338,7 +2338,7 @@ function buildLithophaneBox(W,H,maxT){
 // A slim rounded PICTURE FRAME the lithophane slides into — front + back overhang lips capture the plaque, the
 // centre is open front and back so it glows when backlit. Prints as one part (a border), assembled with the plaque.
 function buildLithophaneFrame(W,H,maxT){
-  var border=6,bezel=2.4,clr=0.4,litT=Math.max(2.5,(+maxT||3.5)),bezelT=1.6,rad=5,recessD=litT+clr;
+  var border=3.5,bezel=2,clr=0.4,litT=Math.max(2.5,(+maxT||3.5)),bezelT=1.6,rad=4,recessD=litT+clr;
   var ledGap=(+LITHO1.ledGap||15);                         // open cavity BEHIND the plaque for an LED strip to sit in and diffuse
   var mat=new THREE.MeshStandardMaterial({color:"#1c1c20",roughness:0.62,metalness:0}),ow=W+2*border,oh=H+2*border,g=new THREE.Group();
   function rrect(w,h,r){var s=new THREE.Shape(),x=w/2,y=h/2;r=Math.max(0.5,Math.min(r,x-0.5,y-0.5));
@@ -2359,7 +2359,7 @@ function buildLithophaneFrame(W,H,maxT){
 // FOLD-OUT easel leg cut from the panel and joined at the top by a thin living hinge — bend it out to stand,
 // like a proper photo-frame stand. Prints flat in one piece.
 function buildLithophaneBack(W,H,border,ledGap){
-  var ow=W+2*border,oh=H+2*border,rad=5,plateT=2.6,clr=0.4,hgap=0.7;
+  var ow=W+2*border,oh=H+2*border,rad=4,plateT=2.6,clr=0.4,hgap=0.7;
   var mat=new THREE.MeshStandardMaterial({color:"#1c1c20",roughness:0.62,metalness:0}),g=new THREE.Group();
   function rrect(w,h,r){var s=new THREE.Shape(),x=w/2,y=h/2;r=Math.max(0.5,Math.min(r,x-0.5,y-0.5));
     s.moveTo(-x+r,-y);s.lineTo(x-r,-y);s.quadraticCurveTo(x,-y,x,-y+r);s.lineTo(x,y-r);s.quadraticCurveTo(x,y,x-r,y);
@@ -4405,7 +4405,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       // Housing the lithophane (or CMYK stack) seats into. Frame = slim open-back picture frame; else the 40mm LED box.
       if(LITHO1.frame&&typeof buildLithophaneFrame==="function"){
         var _frm=buildLithophaneFrame(_lW,_lH,_boxMax);_frm.position.set(0,0,_z0);partList.push({group:_frm,name:"Lithophane frame",flip:false,labs:true,litho:true,color:"#1C1C20"});
-        if(typeof buildLithophaneBack==="function"){var _bk=buildLithophaneBack(_lW,_lH,6,(+LITHO1.ledGap||15));_bk.position.set(0,0,_z0);partList.push({group:_bk,name:"Lithophane back + stand",flip:false,labs:true,litho:true,color:"#1C1C20"});}
+        if(typeof buildLithophaneBack==="function"){var _bk=buildLithophaneBack(_lW,_lH,3.5,(+LITHO1.ledGap||15));_bk.position.set(0,0,_z0);partList.push({group:_bk,name:"Lithophane back + stand",flip:false,labs:true,litho:true,color:"#1C1C20"});}
       }
       else if(typeof buildLithophaneBox==="function"){var _box=buildLithophaneBox(_lW,_lH,_boxMax);_box.position.set(0,0,_z0);partList.push({group:_box,name:"Lithophane box (40mm)",flip:false,labs:true,litho:true,color:"#D8D4CC"});}
       window.__labsStandalone=true;
