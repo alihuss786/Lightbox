@@ -2368,15 +2368,18 @@ function buildLithophaneBack(W,H,border,ledGap){
   var zFront=-ledGap;                                          // the plate seats at the frame's back opening
   var plugD=Math.min(4,Math.max(2,ledGap-8));                 // friction lip depth into the cavity
   var pw=(W+clr)-1.0,ph=(H+clr)-1.0;
-  var legW=Math.min(ow*0.34,48),legH=Math.min(oh*0.62,120),legBottom=-oh/2+7,legCY=legBottom+legH/2;
-  var flange=rrect(ow,oh,rad);holeInto(flange,0,legCY,legW,legH);
-  g.add(extr(flange,plateT,zFront-plateT));                   // outer back cover with the leg cut out
+  // FOLD-OUT STRUT: a tapered leg cut from the back panel, hinged at the TOP by a thin living hinge — a strut back
+  // like the reference. Prints flat in one piece; bend the strut out to prop the frame.
+  var wTop=Math.min(ow*0.30,46),wBot=wTop*0.5,yTop=Math.min(oh*0.30,oh/2-16),yBot=-oh/2+8;
+  function strutShape(wt,wb,yt,yb,off){var s=new THREE.Shape();s.moveTo(-wt/2-off,yt+off);s.lineTo(wt/2+off,yt+off);s.lineTo(wb/2+off,yb-off);s.lineTo(-wb/2-off,yb-off);s.closePath();return s;}
+  function strutPath(wt,wb,yt,yb,off){var p=new THREE.Path();p.moveTo(-wt/2-off,yt+off);p.lineTo(wt/2+off,yt+off);p.lineTo(wb/2+off,yb-off);p.lineTo(-wb/2-off,yb-off);p.closePath();return p;}
+  var flange=rrect(ow,oh,rad);flange.holes.push(strutPath(wTop,wBot,yTop,yBot,hgap));   // strut cutout = strut + slip gap
+  g.add(extr(flange,plateT,zFront-plateT));                   // solid back cover with the strut cut out
   var plug=holeInto(rectShape(0,0,pw,ph),0,0,pw-3.5,ph-3.5);
   g.add(extr(plug,plugD,zFront));                             // friction lip ring into the cavity
-  var lw=legW-2*hgap,lh=legH-2*hgap;
-  g.add(extr(rectShape(0,legCY,lw,lh),plateT,zFront-plateT)); // the leg (fills the cutout, folds out)
-  var legTop=legCY+lh/2,hLen=hgap+2.4,hT=0.8;
-  g.add(extr(rectShape(0,legTop+hgap/2,lw,hLen),hT,zFront-plateT+(plateT-hT)/2));   // thin living hinge at the leg top
+  g.add(extr(strutShape(wTop,wBot,yTop,yBot,0),plateT,zFront-plateT));   // the tapered strut leg, sits flush in the cutout
+  var hT=0.8,hLen=hgap+2.6;
+  g.add(extr(rectShape(0,yTop+hgap/2,wTop-2,hLen),hT,zFront-plateT+(plateT-hT)/2));   // living hinge across the top of the strut
   g.userData.back=true;return g;
 }
 // A separate desk easel: a low base with a slot the framed lithophane drops into and stands in.
