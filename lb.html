@@ -880,6 +880,8 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="toggle-row"><span class="lbl">🖼️ Picture frame</span><div class="tg" id="tg_litho1_frame" onclick="litho1Frame()"><div class="k"></div></div></div>
         <div id="litho1_frame_ctl" style="display:none;flex-direction:column;gap:10px">
           <div class="hint">A rounded picture frame with a <b>closed back plate</b> and an <b>LED cavity</b> for a backlit glow. The back has a <b>fold-out easel leg</b> so it stands like a proper photo frame. Prints as 3 parts — frame, photo, back+stand.</div>
+          <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Border texture</span>
+            <select id="litho1_ftex" onchange="litho1FrameTex(this.value)" style="padding:8px 10px;border-radius:8px;background:#0a0b0e;color:#fff;border:1px solid var(--line)"></select></div>
           <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">LED gap (space behind photo) — <b id="litho1_ledl">15</b> mm</span><input type="range" id="litho1_led" min="0" max="30" step="1" value="15" oninput="litho1LedGap(this.value)"></div>
           <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Hinge clearance (easel fit) — <b id="litho1_hcl">0.45</b> mm</span><input type="range" id="litho1_hc" min="0.25" max="0.9" step="0.05" value="0.45" oninput="litho1HingeClr(this.value)"></div>
           <div class="hint">The fold-out leg is a <b>print-in-place pin hinge</b>. If the leg is fused solid after printing, raise this a notch; if it's floppy, lower it. Tune it to your printer once.</div>
@@ -2112,7 +2114,9 @@ function _labsScene(name,W,H,customSubj){
 // CMYW filament definitions — exact Bambu Lab PLA Basic hex codes so the exported .3mf colours match the spools.
 var LITHO_CMYK={C:{name:"Cyan",hex:"#0086D6"},M:{name:"Magenta",hex:"#EC008C"},Y:{name:"Yellow",hex:"#F4EE2A"},W:{name:"Jade White",hex:"#FFFFFF"}};
 // ams[slotIndex] = colour key held in that AMS slot. Default Slot1:Cyan, Slot2:Magenta, Slot3:Yellow, Slot4:White.
-var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey",ams:["C","M","Y","W"],frame:false,ledGap:15,hingeClr:0.45};
+var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey",ams:["C","M","Y","W"],frame:false,ledGap:15,hingeClr:0.45,frameTex:"none"};
+// Frame border-wall relief options — each wraps a repeating pattern around the frame's outer vertical wall.
+var FRAME_TEX=[{id:"none",name:"Plain"},{id:"container",name:"Fluted"},{id:"knurling",name:"Knurled"},{id:"pyramids",name:"Pyramids"},{id:"checkerboard",name:"Checker"},{id:"aztec",name:"Aztec"}];
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
 var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5,cavity:30};
 // Text Lithophane: photo relief mapped onto glyph front faces. mode span|perletter, assembly separate|fused.
@@ -2335,6 +2339,57 @@ function buildLithophaneBox(W,H,maxT){
   g.add(extr(hole(rect(ow,oh),W+clr,H+clr),frontLip,0));                            // front recess — the litho seats flush here, z∈[0,frontLip]
   g.userData.cavity=cavity;return g;
 }
+// A repeating relief pattern wrapped around the frame's outer vertical wall, built as ONE closed watertight solid
+// ring (textured outer surface + smooth inner surface tucked into the frame body so the slicer fuses them). The
+// pattern IDs match the reference frame STLs: fluted / knurled / pyramids / checker / aztec.
+function buildFrameTexSleeve(ow,oh,rad,z0,z1,patId,mat){
+  if(!patId||patId==="none")return null;
+  var wallH=z1-z0;if(wallH<3)return null;
+  // 1) outer rounded-rect outline (CCW), corners arced, straights subdivided ~1mm
+  var x=ow/2,y=oh/2;rad=Math.max(0.5,Math.min(rad,x-0.5,y-0.5));
+  var pts=[],CS=10;
+  function edge(ax,ay,bx,by){var dx=bx-ax,dy=by-ay,L=Math.hypot(dx,dy),n=Math.max(1,Math.round(L));for(var k=0;k<n;k++){var t=k/n;pts.push([ax+dx*t,ay+dy*t]);}}
+  function arc(cx,cy,a0,a1){for(var k=0;k<CS;k++){var a=a0+(a1-a0)*(k/CS);pts.push([cx+rad*Math.cos(a),cy+rad*Math.sin(a)]);}}
+  edge(-x+rad,-y, x-rad,-y);              arc(x-rad,-y+rad,-Math.PI/2,0);
+  edge(x,-y+rad, x,y-rad);                arc(x-rad,y-rad,0,Math.PI/2);
+  edge(x-rad,y, -x+rad,y);                arc(-x+rad,y-rad,Math.PI/2,Math.PI);
+  edge(-x,y-rad, -x,-y+rad);              arc(-x+rad,-y+rad,Math.PI,Math.PI*1.5);
+  var N=pts.length;
+  // 2) arc length + outward unit normal per point
+  var arcS=new Float64Array(N),nrm=[],acc=0;
+  for(var i=0;i<N;i++){arcS[i]=acc;var a=pts[i],b=pts[(i+1)%N];acc+=Math.hypot(b[0]-a[0],b[1]-a[1]);
+    var pv=pts[(i-1+N)%N],nx2=pts[(i+1)%N],dx=nx2[0]-pv[0],dy=nx2[1]-pv[1],L=Math.hypot(dx,dy)||1,nX=dy/L,nY=-dx/L;
+    if(nX*a[0]+nY*a[1]<0){nX=-nX;nY=-nY;}nrm.push([nX,nY]);}
+  var P=acc;if(P<8)return null;
+  // 3) pattern params — even tiling around the loop; feature ~6mm
+  var cols=Math.max(6,Math.round(P/6.2)),pdS=P/cols,rowsV=Math.max(1,Math.round(wallH/6.2));
+  var amp=1.1,lift=0.25,inset=1.2;
+  function fr(v){return v-Math.floor(v);}function tri(v){return 1-2*Math.abs(fr(v)-0.5);}
+  function pat(s,t){var col=s/pdS;
+    switch(patId){
+      case"container":return Math.pow(0.5-0.5*Math.cos(2*Math.PI*col),0.7);
+      case"knurling":{var d1=tri(col+t*rowsV),d2=tri(col-t*rowsV);return Math.max(0,Math.min(1,(d1+d2-1)*2));}
+      case"pyramids":{var px=Math.abs(2*fr(col)-1),py=Math.abs(2*fr(t*rowsV)-1);return Math.max(0,1-Math.max(px,py));}
+      case"checkerboard":return((Math.floor(col)+Math.floor(t*rowsV))&1)?1:0;
+      case"aztec":{var r=t*rowsV,offc=(Math.floor(r)&1)?0.5:0,cc=fr(col+offc),rr=fr(r);return(cc>0.14&&cc<0.86&&rr>0.2&&rr<0.8)?1:0;}
+      default:return 0;
+    }}
+  // 4) vertical layers + closed-ring geometry (outer textured surface, inner smooth surface, top/bottom ring caps)
+  var Lz=Math.max(8,Math.round(wallH/0.7));
+  function outV(i,j){var t=j/(Lz-1),z=z0+wallH*t,d=lift+amp*pat(arcS[i],t);return[pts[i][0]+nrm[i][0]*d,pts[i][1]+nrm[i][1]*d,z];}
+  function innV(i,j){var t=j/(Lz-1),z=z0+wallH*t;return[pts[i][0]-nrm[i][0]*inset,pts[i][1]-nrm[i][1]*inset,z];}
+  var pos=[];function tf(A,B,C){pos.push(A[0],A[1],A[2],B[0],B[1],B[2],C[0],C[1],C[2]);}
+  function quad(A,B,C,D){tf(A,B,C);tf(A,C,D);}
+  for(i=0;i<N;i++){var i1=(i+1)%N;for(var j=0;j<Lz-1;j++){
+    quad(outV(i,j),outV(i1,j),outV(i1,j+1),outV(i,j+1));                 // outer textured surface (faces out)
+    quad(innV(i1,j),innV(i,j),innV(i,j+1),innV(i1,j+1));                 // inner smooth surface (faces in)
+  }
+    quad(outV(i,Lz-1),outV(i1,Lz-1),innV(i1,Lz-1),innV(i,Lz-1));        // top ring cap
+    quad(innV(i,0),innV(i1,0),outV(i1,0),outV(i,0));                    // bottom ring cap
+  }
+  var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.BufferAttribute(new Float32Array(pos),3));geo.computeVertexNormals();
+  var m=new THREE.Mesh(geo,mat);m.userData.exportColor="#1c1c20";return m;
+}
 // A slim rounded PICTURE FRAME the lithophane slides into — front + back overhang lips capture the plaque, the
 // centre is open front and back so it glows when backlit. Prints as one part (a border), assembled with the plaque.
 function buildLithophaneFrame(W,H,maxT){
@@ -2353,6 +2408,9 @@ function buildLithophaneFrame(W,H,maxT){
   g.add(extr(shole(rrect(ow,oh,rad),openW,openH),bezelT,recessD));      // front bezel lip (overhangs plaque front), z∈[recessD, recessD+bezelT]
   g.add(extr(shole(rrect(ow,oh,rad),W+clr,H+clr),recessD,0));           // side recess wall — plaque friction-seats here, z∈[0,recessD]
   if(ledGap>0.5)g.add(extr(shole(rrect(ow,oh,rad),W+clr,H+clr),ledGap,-ledGap));  // LED cavity walls behind the plaque; the back plate (separate part) closes it
+  // optional relief pattern wrapped around the outer wall (fluted / knurled / pyramids / checker / aztec)
+  if(LITHO1.frameTex&&LITHO1.frameTex!=="none"){var _slz0=(ledGap>0.5?-ledGap:0),_slz1=recessD+bezelT-1.2;
+    var _sv=buildFrameTexSleeve(ow,oh,rad,_slz0,_slz1,LITHO1.frameTex,mat);if(_sv)g.add(_sv);}
   g.userData.frame=true;g.userData.depth=recessD+bezelT+ledGap;g.userData.oh=oh;return g;
 }
 // The closed BACK PLATE (separate part): covers the LED cavity, plugs in with a friction lip, and carries a
@@ -2599,9 +2657,11 @@ function litho1AmsAssign(slot,key){slot=+slot;if(!LITHO_CMYK[key])return;var cur
   if(other===slot)return;var displaced=cur[slot];cur[slot]=key;if(other>=0)cur[other]=displaced;LITHO1.ams=cur;
   litho1SyncAms();litho1RenderAms();if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Invert(){LITHO1.invert=!LITHO1.invert;var t=document.getElementById("tg_litho1_inv");if(t)t.classList.toggle("on",LITHO1.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
-function litho1Frame(){LITHO1.frame=!LITHO1.frame;var t=document.getElementById("tg_litho1_frame");if(t)t.classList.toggle("on",LITHO1.frame);var h=document.getElementById("litho1_frame_ctl");if(h)h.style.display=LITHO1.frame?"flex":"none";if(typeof scheduleBuild==="function")scheduleBuild();}
+function litho1Frame(){LITHO1.frame=!LITHO1.frame;var t=document.getElementById("tg_litho1_frame");if(t)t.classList.toggle("on",LITHO1.frame);var h=document.getElementById("litho1_frame_ctl");if(h)h.style.display=LITHO1.frame?"flex":"none";if(LITHO1.frame)initFrameTexList();if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1LedGap(v){LITHO1.ledGap=Math.max(0,Math.min(30,+v||0));var l=document.getElementById("litho1_ledl");if(l)l.textContent=LITHO1.ledGap;if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1HingeClr(v){LITHO1.hingeClr=Math.max(0.25,Math.min(0.9,+v||0.45));var l=document.getElementById("litho1_hcl");if(l)l.textContent=LITHO1.hingeClr.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
+function litho1FrameTex(v){LITHO1.frameTex=v||"none";if(typeof scheduleBuild==="function")scheduleBuild();}
+function initFrameTexList(){var sel=document.getElementById("litho1_ftex");if(!sel||typeof FRAME_TEX==="undefined")return;sel.innerHTML=FRAME_TEX.map(function(t){return '<option value="'+t.id+'"'+(t.id===LITHO1.frameTex?" selected":"")+'>'+t.name+'</option>';}).join("");}
 function litho1Contrast(val){LITHO1.contrast=Math.max(0.5,Math.min(2.5,+val||1));var l=document.getElementById("litho1_conl");if(l)l.textContent=LITHO1.contrast.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
 /* Auto-balance: sample the photo's luminance histogram, recentre midtones (gamma → mean maps to ~0.5) and
    stretch the used tonal range (contrast → the darkest/lightest ~1% fill the depth), so the mesh always has
