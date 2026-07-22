@@ -882,7 +882,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
           <div class="hint">A rounded picture frame with a <b>closed back plate</b> and an <b>LED cavity</b> for a backlit glow. The back has a <b>fold-out easel leg</b> so it stands like a proper photo frame. Prints as 3 parts — frame, photo, back+stand.</div>
           <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Border texture</span>
             <select id="litho1_ftex" onchange="litho1FrameTex(this.value)" style="padding:8px 10px;border-radius:8px;background:#0a0b0e;color:#fff;border:1px solid var(--line)"></select></div>
-          <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">LED gap (space behind photo) — <b id="litho1_ledl">15</b> mm</span><input type="range" id="litho1_led" min="0" max="30" step="1" value="15" oninput="litho1LedGap(this.value)"></div>
+          <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">LED gap (space behind photo) — <b id="litho1_ledl">10</b> mm</span><input type="range" id="litho1_led" min="0" max="30" step="1" value="10" oninput="litho1LedGap(this.value)"></div>
           <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Hinge clearance (easel fit) — <b id="litho1_hcl">0.45</b> mm</span><input type="range" id="litho1_hc" min="0.25" max="0.9" step="0.05" value="0.45" oninput="litho1HingeClr(this.value)"></div>
           <div class="hint">The fold-out leg is a <b>print-in-place pin hinge</b>. If the leg is fused solid after printing, raise this a notch; if it's floppy, lower it. Tune it to your printer once.</div>
         </div>
@@ -2114,7 +2114,7 @@ function _labsScene(name,W,H,customSubj){
 // CMYW filament definitions — exact Bambu Lab PLA Basic hex codes so the exported .3mf colours match the spools.
 var LITHO_CMYK={C:{name:"Cyan",hex:"#0086D6"},M:{name:"Magenta",hex:"#EC008C"},Y:{name:"Yellow",hex:"#F4EE2A"},W:{name:"Jade White",hex:"#FFFFFF"}};
 // ams[slotIndex] = colour key held in that AMS slot. Default Slot1:Cyan, Slot2:Magenta, Slot3:Yellow, Slot4:White.
-var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey",ams:["C","M","Y","W"],frame:false,ledGap:15,hingeClr:0.45,frameTex:"none"};
+var LITHO1={on:false,img:null,src:null,minT:0.8,maxT:3.5,invert:false,contrast:1.0,gamma:1.0,mode:"grey",ams:["C","M","Y","W"],frame:false,ledGap:10,hingeClr:0.45,frameTex:"none"};
 // Frame border-wall relief options — each wraps a repeating pattern around the frame's outer vertical wall.
 var FRAME_TEX=[{id:"none",name:"Plain"},{id:"container",name:"Fluted"},{id:"knurling",name:"Knurled"},{id:"pyramids",name:"Pyramids"},{id:"checkerboard",name:"Checker"},{id:"aztec",name:"Aztec"}];
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
@@ -2345,10 +2345,10 @@ function buildLithophaneBox(W,H,maxT){
 function buildFrameTexSleeve(ow,oh,rad,z0,z1,patId,mat){
   if(!patId||patId==="none")return null;
   var wallH=z1-z0;if(wallH<3)return null;
-  // 1) outer rounded-rect outline (CCW), corners arced, straights subdivided ~1mm
+  // 1) outer rounded-rect outline (CCW): corners densely arced, straights finely subdivided (~0.5mm) for crisp relief
   var x=ow/2,y=oh/2;rad=Math.max(0.5,Math.min(rad,x-0.5,y-0.5));
-  var pts=[],CS=10;
-  function edge(ax,ay,bx,by){var dx=bx-ax,dy=by-ay,L=Math.hypot(dx,dy),n=Math.max(1,Math.round(L));for(var k=0;k<n;k++){var t=k/n;pts.push([ax+dx*t,ay+dy*t]);}}
+  var pts=[],CS=16,ST=0.5;
+  function edge(ax,ay,bx,by){var dx=bx-ax,dy=by-ay,L=Math.hypot(dx,dy),n=Math.max(1,Math.round(L/ST));for(var k=0;k<n;k++){var t=k/n;pts.push([ax+dx*t,ay+dy*t]);}}
   function arc(cx,cy,a0,a1){for(var k=0;k<CS;k++){var a=a0+(a1-a0)*(k/CS);pts.push([cx+rad*Math.cos(a),cy+rad*Math.sin(a)]);}}
   edge(-x+rad,-y, x-rad,-y);              arc(x-rad,-y+rad,-Math.PI/2,0);
   edge(x,-y+rad, x,y-rad);                arc(x-rad,y-rad,0,Math.PI/2);
@@ -2361,31 +2361,34 @@ function buildFrameTexSleeve(ow,oh,rad,z0,z1,patId,mat){
     var pv=pts[(i-1+N)%N],nx2=pts[(i+1)%N],dx=nx2[0]-pv[0],dy=nx2[1]-pv[1],L=Math.hypot(dx,dy)||1,nX=dy/L,nY=-dx/L;
     if(nX*a[0]+nY*a[1]<0){nX=-nX;nY=-nY;}nrm.push([nX,nY]);}
   var P=acc;if(P<8)return null;
-  // 3) pattern params — even tiling around the loop; feature ~6mm
-  var cols=Math.max(6,Math.round(P/6.2)),pdS=P/cols,rowsV=Math.max(1,Math.round(wallH/6.2));
-  var amp=1.1,lift=0.25,inset=1.2;
+  // 3) per-pattern feature size + relief depth (tuned to the reference STLs); even tiling around the loop
+  var FS={container:4.2,knurling:4.6,pyramids:3.2,checkerboard:4.6,aztec:6.4}[patId]||4.4;
+  var FV={container:4.2,knurling:4.6,pyramids:3.2,checkerboard:4.6,aztec:4.2}[patId]||4.4;
+  var amp={container:0.9,knurling:1.0,pyramids:1.05,checkerboard:0.85,aztec:0.85}[patId]||0.9;
+  var lift=0.15,inset=1.1;
+  var cols=Math.max(6,Math.round(P/FS)),pdS=P/cols,rowsV=Math.max(2,Math.round(wallH/FV));
   function fr(v){return v-Math.floor(v);}function tri(v){return 1-2*Math.abs(fr(v)-0.5);}
   function pat(s,t){var col=s/pdS;
     switch(patId){
-      case"container":return Math.pow(0.5-0.5*Math.cos(2*Math.PI*col),0.7);
-      case"knurling":{var d1=tri(col+t*rowsV),d2=tri(col-t*rowsV);return Math.max(0,Math.min(1,(d1+d2-1)*2));}
-      case"pyramids":{var px=Math.abs(2*fr(col)-1),py=Math.abs(2*fr(t*rowsV)-1);return Math.max(0,1-Math.max(px,py));}
-      case"checkerboard":return((Math.floor(col)+Math.floor(t*rowsV))&1)?1:0;
-      case"aztec":{var r=t*rowsV,offc=(Math.floor(r)&1)?0.5:0,cc=fr(col+offc),rr=fr(r);return(cc>0.14&&cc<0.86&&rr>0.2&&rr<0.8)?1:0;}
+      case"container":return Math.pow(0.5-0.5*Math.cos(2*Math.PI*col),0.7);                      // rounded vertical flutes
+      case"knurling":{var d1=tri(col+t*rowsV),d2=tri(col-t*rowsV);return Math.max(0,Math.min(1,(d1+d2-1)*2.2));}  // diagonal diamond knurl
+      case"pyramids":{var px=Math.abs(2*fr(col)-1),py=Math.abs(2*fr(t*rowsV)-1);return Math.max(0,1-Math.max(px,py));}  // grid of square pyramids
+      case"checkerboard":return((Math.floor(col)+Math.floor(t*rowsV))&1)?1:0;                    // raised checker squares
+      case"aztec":{var r=t*rowsV,offc=(Math.floor(r)&1)?0.5:0,cc=fr(col+offc),rr=fr(r);return(cc>0.12&&cc<0.88&&rr>0.18&&rr<0.82)?1:0;}  // staggered raised bricks
       default:return 0;
     }}
-  // 4) vertical layers + closed-ring geometry (outer textured surface, inner smooth surface, top/bottom ring caps)
-  var Lz=Math.max(8,Math.round(wallH/0.7));
+  // 4) closed-ring geometry: dense textured OUTER grid (full height, edge-to-edge) + a simple 2-ring inner wall
+  // tucked into the frame body, joined by top/bottom ring caps — one watertight solid regardless of pattern.
+  var Lz=Math.max(12,Math.round(wallH/0.45));
   function outV(i,j){var t=j/(Lz-1),z=z0+wallH*t,d=lift+amp*pat(arcS[i],t);return[pts[i][0]+nrm[i][0]*d,pts[i][1]+nrm[i][1]*d,z];}
-  function innV(i,j){var t=j/(Lz-1),z=z0+wallH*t;return[pts[i][0]-nrm[i][0]*inset,pts[i][1]-nrm[i][1]*inset,z];}
+  function innV(i,top){var z=top?z1:z0;return[pts[i][0]-nrm[i][0]*inset,pts[i][1]-nrm[i][1]*inset,z];}
   var pos=[];function tf(A,B,C){pos.push(A[0],A[1],A[2],B[0],B[1],B[2],C[0],C[1],C[2]);}
   function quad(A,B,C,D){tf(A,B,C);tf(A,C,D);}
-  for(i=0;i<N;i++){var i1=(i+1)%N;for(var j=0;j<Lz-1;j++){
-    quad(outV(i,j),outV(i1,j),outV(i1,j+1),outV(i,j+1));                 // outer textured surface (faces out)
-    quad(innV(i1,j),innV(i,j),innV(i,j+1),innV(i1,j+1));                 // inner smooth surface (faces in)
-  }
-    quad(outV(i,Lz-1),outV(i1,Lz-1),innV(i1,Lz-1),innV(i,Lz-1));        // top ring cap
-    quad(innV(i,0),innV(i1,0),outV(i1,0),outV(i,0));                    // bottom ring cap
+  for(i=0;i<N;i++){var i1=(i+1)%N;
+    for(var j=0;j<Lz-1;j++)quad(outV(i,j),outV(i1,j),outV(i1,j+1),outV(i,j+1));   // outer textured surface (faces out)
+    quad(innV(i1,false),innV(i,false),innV(i,true),innV(i1,true));                // inner smooth wall (faces in)
+    quad(outV(i,Lz-1),outV(i1,Lz-1),innV(i1,true),innV(i,true));                  // top ring cap
+    quad(innV(i,false),innV(i1,false),outV(i1,0),outV(i,0));                      // bottom ring cap
   }
   var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.BufferAttribute(new Float32Array(pos),3));geo.computeVertexNormals();
   var m=new THREE.Mesh(geo,mat);m.userData.exportColor="#1c1c20";return m;
@@ -2393,7 +2396,7 @@ function buildFrameTexSleeve(ow,oh,rad,z0,z1,patId,mat){
 // A slim rounded PICTURE FRAME the lithophane slides into — front + back overhang lips capture the plaque, the
 // centre is open front and back so it glows when backlit. Prints as one part (a border), assembled with the plaque.
 function buildLithophaneFrame(W,H,maxT){
-  var border=3.5,bezel=2,clr=0.4,litT=Math.max(2.5,(+maxT||3.5)),bezelT=1.6,rad=4,recessD=litT+clr;
+  var border=2.6,bezel=1.6,clr=0.4,litT=Math.max(2.5,(+maxT||3.5)),bezelT=1.5,rad=3.5,recessD=litT+clr;
   var ledGap=(+LITHO1.ledGap||15);                         // open cavity BEHIND the plaque for an LED strip to sit in and diffuse
   var mat=new THREE.MeshStandardMaterial({color:"#1c1c20",roughness:0.62,metalness:0}),ow=W+2*border,oh=H+2*border,g=new THREE.Group();
   function rrect(w,h,r){var s=new THREE.Shape(),x=w/2,y=h/2;r=Math.max(0.5,Math.min(r,x-0.5,y-0.5));
@@ -2409,7 +2412,7 @@ function buildLithophaneFrame(W,H,maxT){
   g.add(extr(shole(rrect(ow,oh,rad),W+clr,H+clr),recessD,0));           // side recess wall — plaque friction-seats here, z∈[0,recessD]
   if(ledGap>0.5)g.add(extr(shole(rrect(ow,oh,rad),W+clr,H+clr),ledGap,-ledGap));  // LED cavity walls behind the plaque; the back plate (separate part) closes it
   // optional relief pattern wrapped around the outer wall (fluted / knurled / pyramids / checker / aztec)
-  if(LITHO1.frameTex&&LITHO1.frameTex!=="none"){var _slz0=(ledGap>0.5?-ledGap:0),_slz1=recessD+bezelT-1.2;
+  if(LITHO1.frameTex&&LITHO1.frameTex!=="none"){var _slz0=(ledGap>0.5?-ledGap:0),_slz1=recessD+bezelT;
     var _sv=buildFrameTexSleeve(ow,oh,rad,_slz0,_slz1,LITHO1.frameTex,mat);if(_sv)g.add(_sv);}
   g.userData.frame=true;g.userData.depth=recessD+bezelT+ledGap;g.userData.oh=oh;return g;
 }
@@ -2417,7 +2420,7 @@ function buildLithophaneFrame(W,H,maxT){
 // FOLD-OUT easel leg cut from the panel and joined at the top by a thin living hinge — bend it out to stand,
 // like a proper photo-frame stand. Prints flat in one piece.
 function buildLithophaneBack(W,H,border,ledGap){
-  var ow=W+2*border,oh=H+2*border,rad=4,plateT=2.6,clr=0.4,hgap=0.7;
+  var ow=W+2*border,oh=H+2*border,rad=3.5,plateT=2.6,clr=0.4,hgap=0.7;
   var mat=new THREE.MeshStandardMaterial({color:"#1c1c20",roughness:0.62,metalness:0}),g=new THREE.Group();
   function rrect(w,h,r){var s=new THREE.Shape(),x=w/2,y=h/2;r=Math.max(0.5,Math.min(r,x-0.5,y-0.5));
     s.moveTo(-x+r,-y);s.lineTo(x-r,-y);s.quadraticCurveTo(x,-y,x,-y+r);s.lineTo(x,y-r);s.quadraticCurveTo(x,y,x-r,y);
@@ -4465,7 +4468,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       // Housing the lithophane (or CMYK stack) seats into. Frame = slim open-back picture frame; else the 40mm LED box.
       if(LITHO1.frame&&typeof buildLithophaneFrame==="function"){
         var _frm=buildLithophaneFrame(_lW,_lH,_boxMax);_frm.position.set(0,0,_z0);partList.push({group:_frm,name:"Lithophane frame",flip:false,labs:true,litho:true,color:"#1C1C20"});
-        if(typeof buildLithophaneBack==="function"){var _bk=buildLithophaneBack(_lW,_lH,3.5,(+LITHO1.ledGap||15));_bk.position.set(0,0,_z0);partList.push({group:_bk,name:"Lithophane back + stand",flip:false,labs:true,litho:true,color:"#1C1C20"});}
+        if(typeof buildLithophaneBack==="function"){var _bk=buildLithophaneBack(_lW,_lH,2.6,(+LITHO1.ledGap||10));_bk.position.set(0,0,_z0);partList.push({group:_bk,name:"Lithophane back + stand",flip:false,labs:true,litho:true,color:"#1C1C20"});}
       }
       else if(typeof buildLithophaneBox==="function"){var _box=buildLithophaneBox(_lW,_lH,_boxMax);_box.position.set(0,0,_z0);partList.push({group:_box,name:"Lithophane box (40mm)",flip:false,labs:true,litho:true,color:"#D8D4CC"});}
       window.__labsStandalone=true;
