@@ -879,7 +879,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_litho1_inv" onclick="litho1Invert()"><div class="k"></div></div></div>
         <div class="toggle-row"><span class="lbl">🖼️ Picture frame</span><div class="tg" id="tg_litho1_frame" onclick="litho1Frame()"><div class="k"></div></div></div>
         <div id="litho1_frame_ctl" style="display:none;flex-direction:column;gap:10px">
-          <div class="hint">Wraps your photo in a <b>snap-together backlit frame</b>: a clean <b>back plate</b> (keyhole hanger + fold-out pin-hinge easel), an <b>8mm LED cavity</b> behind the photo for a light strip, and a small-bezel <b>front</b> that snaps on with the photo trapped inside. A flush <b>USB-C port</b> (9×3.2mm) sits at the bottom edge, with an internal channel that holds the breakout board upright. The whole frame <b>auto-fits your photo's orientation and size</b>. Prints as 3 parts — back+stand, photo, front bezel.</div>
+          <div class="hint">Wraps your photo in a <b>snap-together backlit frame</b>: a clean <b>back plate</b> (keyhole hanger + fold-out pin-hinge easel), an <b>8mm LED cavity</b> behind the photo for a light strip, and a small-bezel <b>front</b> that snaps on with the photo trapped inside. A <b>USB-C port</b> (9×3.2mm) sits centred on the <b>back plate</b>, with an internal pocket that holds the breakout board flat over it. The whole frame <b>auto-fits your photo's orientation and size</b>. Prints as 3 parts — back+stand, photo, front bezel.</div>
         </div>
         <button class="addtext" onclick="litho1Clear()">Remove photo</button>
       </div>
@@ -2382,6 +2382,13 @@ function buildExactFrame(plW,plH){if(!FRAME_EXACT.stand)return null;
   var grp=new THREE.Group();grp.userData.exactFrame=true;grp.userData.back=true;
   var rad=Math.min(6,plW*0.07,plH*0.07),zB=8.0,zF=FRAME_EXACT.PLATEZ;
   var sh=_rrShape(plW,plH,rad);
+  // USB-C PORT through the back plate, horizontally centred, mid-height (clear of the keyhole above and the stand
+  // hinge below). The board mounts flat inside over this hole; the cable plugs into the back.
+  var Uc=FRAME_EXACT.USB,uW=Uc.connW+2*Uc.clr,uH=Uc.connH+2*Uc.clr,ucy=plH*0.16;
+  var up=new THREE.Path(),ur=1.2,ux=uW/2,uy=uH/2;
+  up.moveTo(-ux+ur,ucy-uy);up.lineTo(ux-ur,ucy-uy);up.quadraticCurveTo(ux,ucy-uy,ux,ucy-uy+ur);up.lineTo(ux,ucy+uy-ur);up.quadraticCurveTo(ux,ucy+uy,ux-ur,ucy+uy);
+  up.lineTo(-ux+ur,ucy+uy);up.quadraticCurveTo(-ux,ucy+uy,-ux,ucy+uy-ur);up.lineTo(-ux,ucy-uy+ur);up.quadraticCurveTo(-ux,ucy-uy,-ux+ur,ucy-uy);up.closePath();
+  sh.holes.push(up);
   // keyhole (screw circle + slot upward) near the top centre — scaled with the plate ("hold" shrinks with the frame)
   var khS=Math.max(0.55,Math.min(1.2,plH/FRAME_EXACT.OH));
   var topY=plH/2,R=4.8*khS,cy=topY-20*khS,sw=2.2*khS,ty=topY-9*khS,kp=new THREE.Path(),yi=Math.sqrt(R*R-sw*sw);
@@ -2405,15 +2412,16 @@ function buildExactFrame(plW,plH){if(!FRAME_EXACT.stand)return null;
   // 9.4x3.6mm USB-C PORT window at the back-centre (flush with the bottom edge) — built by splitting the wall into a
   // back Z-slice (with the port gap) and a front slice (solid ring). Internal rails hold the breakout board upright.
   var lg=FRAME_EXACT.LEDGAP,U=FRAME_EXACT.USB,wThk=4;
-  var portW=U.connW+2*U.clr,portD=U.connH+2*U.clr;   // 9.7 x 3.9 opening (9x3.2 + clearance)
   var wOW=plW-1.2,wOH=plH-1.2,wIW=Math.max(6,wOW-2*wThk),wIH=Math.max(6,wOH-2*wThk);
-  function cwx(shape,z0,z1){var g=new THREE.ExtrudeGeometry(shape,{depth:z1-z0,bevelEnabled:false,steps:1,curveSegments:6});g.translate(0,0,z0);g.computeVertexNormals();var m=new THREE.Mesh(g,mat);m.userData.exportColor="#1c1c20";grp.add(m);}
-  function cwRing(){var s=_rrShape(wOW,wOH,Math.max(2,rad-1));s.holes.push(_rrPath(wIW,wIH,Math.max(2,rad-3)));return s;}
-  cwx(_ringC(wOW,wOH,wIW,wIH,portW),zF,zF+portD);   // back slice: bottom-centre open by the port width for the connector
-  cwx(cwRing(),zF+portD,zF+lg);                       // front slice: solid bottom (closes everything but the port)
-  // board channel: two rails hold the 10.2mm board upright against the back plate, ~18.8mm up from the bottom edge
-  var brW=U.boardW+0.5,chH=17.6+1.2,ry0=-wOH/2;
-  [-1,1].forEach(function(sgn){var g=new THREE.BoxGeometry(1.2,chH,2.0);g.translate(sgn*(brW/2+0.6),ry0+chH/2,zF+1.2);var bm=new THREE.Mesh(g,mat);bm.userData.exportColor="#1c1c20";grp.add(bm);});
+  var cw=_rrShape(wOW,wOH,Math.max(2,rad-1));cw.holes.push(_rrPath(wIW,wIH,Math.max(2,rad-3)));   // clean rounded ring — solid all round
+  var cgeo=new THREE.ExtrudeGeometry(cw,{depth:lg,bevelEnabled:false,steps:1,curveSegments:8});cgeo.translate(0,0,zF);cgeo.computeVertexNormals();
+  var cm=new THREE.Mesh(cgeo,mat);cm.userData.exportColor="#1c1c20";grp.add(cm);
+  // BOARD POCKET on the back-plate front, over the port hole: four low rails frame the 10.2x16.3mm board so it seats
+  // flat with its connector aligned to the back-plate cutout. Board sits below the cutout centre, extending upward.
+  var brW=U.boardW+0.5,brH=16.3+0.6,by0=ucy-uH/2-0.4,rT=1.0,rZ=zF+0.9;
+  function rail(w,h,cx,cy){var g=new THREE.BoxGeometry(w,h,1.8);g.translate(cx,cy,rZ);var m2=new THREE.Mesh(g,mat);m2.userData.exportColor="#1c1c20";grp.add(m2);}
+  rail(rT,brH,-(brW/2+rT/2),by0-brH/2);rail(rT,brH,(brW/2+rT/2),by0-brH/2);   // left/right rails
+  rail(brW+2*rT,rT,0,by0-brH);   // bottom stop
   return grp;}
 // A slim FRONT BEZEL that snaps onto the back plate with the photo trapped inside: a small front rim overhangs the
 // photo, a perimeter skirt wraps the plate, and inward snap tabs catch behind the plate's back face. Sized to plW×plH.
@@ -2424,13 +2432,10 @@ function buildFrontBezel(plW,plH,maxT){
   var skX=pX+clr,skY=pY+clr,oX=skX+wt,oY=skY+wt;         // skirt inner / outer halves
   var bd=4.0;var opX=Math.max(6,pX-bd),opY=Math.max(6,pY-bd);   // opening (small border overhanging the photo)
   var rad=Math.min(7,oX*0.09,oY*0.09);
-  var U=FRAME_EXACT.USB,uw=U.connW+2*U.clr,portTop=FRAME_EXACT.PLATEZ+U.connH+2*U.clr;   // bottom USB-C port window (matches the cavity wall)
   var zPhotoFront=FRAME_EXACT.PLATEZ+FRAME_EXACT.LEDGAP+(+maxT||3.5)+0.3,rimZ0=zPhotoFront,rimZ1=rimZ0+1.6,skBack=7.4;
-  function ext(shape,d,z){var g=new THREE.ExtrudeGeometry(shape,{depth:d,bevelEnabled:false,steps:1,curveSegments:6});g.translate(0,0,z);g.computeVertexNormals();var m=new THREE.Mesh(g,mat);m.userData.exportColor="#1c1c20";grp.add(m);}
-  function skRing(){var s=_rrShape(2*oX,2*oY,rad);s.holes.push(_rrPath(2*skX,2*skY,Math.max(2,rad-wt)));return s;}
+  function ext(shape,d,z){var g=new THREE.ExtrudeGeometry(shape,{depth:d,bevelEnabled:false,steps:1,curveSegments:8});g.translate(0,0,z);g.computeVertexNormals();var m=new THREE.Mesh(g,mat);m.userData.exportColor="#1c1c20";grp.add(m);}
   var rim=_rrShape(2*oX,2*oY,rad);rim.holes.push(_rrPath(2*opX,2*opY,Math.max(2,rad-wt)));ext(rim,rimZ1-rimZ0,rimZ0);   // front rim
-  ext(_ringC(2*oX,2*oY,2*skX,2*skY,uw),portTop-skBack,skBack);   // skirt back slice: open at the bottom only for the USB-C port
-  ext(skRing(),rimZ0-portTop,portTop);                            // skirt front slice: solid bottom
+  var sk=_rrShape(2*oX,2*oY,rad);sk.holes.push(_rrPath(2*skX,2*skY,Math.max(2,rad-wt)));ext(sk,rimZ0-skBack,skBack);   // perimeter skirt — clean rounded ring, solid all round
   // inward snap tabs at the skirt back that hook behind the plate (back face z≈8.0)
   var hookIn=1.1,tabW=9,tz0=skBack,tz1=8.0,cxT=skX+(wt-hookIn)/2,cyT=skY+(wt-hookIn)/2,tw=wt+hookIn;
   function box(w,h,cx,cy){var g=new THREE.BoxGeometry(w,h,tz1-tz0);g.translate(cx,cy,(tz0+tz1)/2);var m=new THREE.Mesh(g,mat);m.userData.exportColor="#1c1c20";grp.add(m);}
