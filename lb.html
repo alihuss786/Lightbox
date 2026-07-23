@@ -4730,8 +4730,13 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _fmat=new THREE.MeshStandardMaterial({color:_dark,roughness:0.55,metalness:0,side:THREE.DoubleSide});
         var _rectShape=_rrShape(_PW,_PH,_rad);
         var _rectPts=_rectShape.getPoints(6).map(function(p){return {X:Math.round(p.x*S),Y:Math.round(p.y*S)};});
-        // ===== PART 1 — FRONT PLATE: rounded rectangle with the word knocked out (counters stay as solid islands). =====
-        try{var _plateShapes=diffToShapes([_rectPts],_letC,0.35);
+        // The front plate RECESSES into a raised rim so it ends up flush with the box top (flush front) while the outer
+        // wall runs the full depth (flush sides). _rimW = rim lip, _ptol = drop-in clearance, _sh = plate rest shoulder.
+        var _rimW=Math.min(Math.max(0.9,_wall*0.5),1.3),_ptol=0.35;
+        var _PLW=_PW-2*_rimW-2*_ptol,_PLH=_PH-2*_rimW-2*_ptol,_radP=Math.max(1,_rad-_rimW-_ptol);
+        var _platePts=_rrShape(_PLW,_PLH,_radP).getPoints(6).map(function(p){return {X:Math.round(p.x*S),Y:Math.round(p.y*S)};});
+        // ===== PART 1 — FRONT PLATE: rounded rectangle (recessed size) with the word knocked out (counters = islands). =====
+        try{var _plateShapes=diffToShapes([_platePts],_letC,0.35);
           if(_plateShapes&&_plateShapes.length){
             var _pg=new THREE.ExtrudeGeometry(_plateShapes,{depth:_frontT,bevelEnabled:false,curveSegments:4});
             _pg.translate(0,0,_back+_cav);_pg.computeVertexNormals();
@@ -4767,10 +4772,16 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           var _bpShapes=(_backHoles&&_backHoles.length)?diffToShapes([_rectPts],_backHoles,0.3):[_rrShape(_PW,_PH,_rad)];
           var _bg=new THREE.ExtrudeGeometry(_bpShapes,{depth:_back,bevelEnabled:false,curveSegments:4});_bg.computeVertexNormals();
           _boxG.add(function(){var m=new THREE.Mesh(_bg,_fmat);m.userData.exportColor=_dark;return m;}());
-          // perimeter walls
+          // perimeter cavity walls (inner opening = LED cavity)
           var _wsShape=_rrShape(_PW,_PH,_rad);_wsShape.holes.push(_rrPath(_IW,_IH,_rad2));
           var _wg=new THREE.ExtrudeGeometry([_wsShape],{depth:_cav,bevelEnabled:false,curveSegments:4});_wg.translate(0,0,_back);_wg.computeVertexNormals();
           _boxG.add(function(){var m=new THREE.Mesh(_wg,_fmat);m.userData.exportColor=_dark;return m;}());
+          // raised RIM the front plate recesses into — outer wall continues to the full front (flush sides), leaving a
+          // shoulder (top of the cavity wall) for the plate to rest on so its face finishes flush with the box top.
+          var _RW=_PW-2*_rimW,_RH=_PH-2*_rimW,_radR=Math.max(1,_rad-_rimW);
+          var _rmShape=_rrShape(_PW,_PH,_rad);_rmShape.holes.push(_rrPath(_RW,_RH,_radR));
+          var _rmg=new THREE.ExtrudeGeometry([_rmShape],{depth:_frontT,bevelEnabled:false,curveSegments:4});_rmg.translate(0,0,_back+_cav);_rmg.computeVertexNormals();
+          _boxG.add(function(){var m=new THREE.Mesh(_rmg,_fmat);m.userData.exportColor=_dark;return m;}());
           // inner ledge — a thin inward lip directly behind the lithophane so it can't fall into the cavity
           var _ldShape=_rrShape(_IW,_IH,_rad2);_ldShape.holes.push(_rrPath(Math.max(2,_IW-2*_ledge),Math.max(2,_IH-2*_ledge),Math.max(0.8,_rad2-_ledge)));
           var _ldg=new THREE.ExtrudeGeometry([_ldShape],{depth:_ledgeT,bevelEnabled:false,curveSegments:4});_ldg.translate(0,0,_back+_cav-_clrF-_maxT-_ledgeT);_ldg.computeVertexNormals();
