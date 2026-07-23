@@ -904,18 +904,11 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
   <div class="acc" data-feat="tlitho">
     <div class="acc-h" onclick="accT(this)">Text Lithophane 🔤 <i class="chev">⌄</i></div>
     <div class="acc-b">
-      <div class="hint">Turn a name into <b>glowing photo-relief letters</b>: the exact lithophane depth math (dark = thick, light = thin) is projected onto the front face of each 3D letter, built as a <b>watertight</b> solid. Spans one image across the whole name, or maps a separate photo to each letter.</div>
+      <div class="hint">Turn a word into a <b>backlit lightbox</b> — the Marvel-logo look: the word is cut out of a solid front plate that sits over a flat photo lithophane, so the picture <b>glows through the letters</b> when it's lit. Add photos and drag / resize them behind the word.</div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><span class="lbl">Text</span><input type="text" id="tlitho_text" maxlength="24" value="LOVE" placeholder="e.g. a name" style="width:100%;padding:10px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font:16px system-ui,sans-serif;box-sizing:border-box" oninput="tlithoText(this.value)"></div>
-      <div class="row"><span class="lbl">Image mode</span><select id="tlitho_mode" class="psel" style="width:auto" onchange="tlithoMode(this.value)"><option value="span">🖼 One image across the name</option><option value="perletter">🔤 A photo per letter</option></select></div>
-      <button class="upfont" style="cursor:pointer" onclick="g('tlitho_font_file').click()">⬆ Upload a font (.ttf / .otf)</button>
-      <input type="file" id="tlitho_font_file" accept=".ttf,.otf,font/ttf,font/otf,application/font-sfnt" style="display:none" onchange="onTlithoFontUpload(this)">
-      <div class="hint" id="tlitho_fontHint">Default is a bold block font — upload your own .ttf / .otf to override it.</div>
-      <div class="hint">Want a stand? Turn on <b>🧱 Desk base</b> in the <b>Mounting</b> tab — it builds a base sized to the whole name that the letters sit on.</div>
-      <div id="tlitho_span" style="display:flex;flex-direction:column;gap:8px">
-        <label class="upfont" style="cursor:pointer">⬆ Upload the image<input type="file" id="tlitho_span_file" accept="image/*" hidden onchange="tlithoSpanUpload(this)"></label>
-        <div class="row"><span class="lbl">Preview</span><div id="tlitho_span_thumb" style="width:88px;height:88px;border-radius:10px;border:1px solid var(--line);background:#0a0b0e center/cover no-repeat;align-self:flex-start"></div></div>
-      </div>
-      <div id="tlitho_letters" style="display:none;flex-direction:column;gap:8px"></div>
+      <label class="upfont" style="cursor:pointer">⬆ Add photo(s)<input type="file" accept="image/*" hidden multiple onchange="tlithoAddImages(this)"></label>
+      <div class="lbl" style="opacity:.72;font-weight:400;margin:2px 0">Drag a photo to move it, drag its corner to resize. The outlined word shows where the letters reveal each photo.</div>
+      <div id="tlitho_stage" style="position:relative;width:100%;aspect-ratio:3 / 1;background:#0a0b0e;border:1px solid var(--line);border-radius:10px;overflow:hidden;touch-action:none;user-select:none"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Letter height — <b id="tlitho_hl">40</b> mm <span style="opacity:.6;font-weight:400">(same as Size tab)</span></span><input type="range" id="tlitho_h" min="20" max="400" step="2" value="40" oninput="tlithoHeight(this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Letter spacing (gap) — <b id="tlitho_spl">10</b> mm</span><input type="range" id="tlitho_sp" min="0" max="25" step="1" value="10" oninput="tlithoSpacing(this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thinnest (white) — <b id="tlitho_minl">0.8</b> mm</span><input type="range" id="tlitho_min" min="0.4" max="2" step="0.1" value="0.8" oninput="tlithoThick('min',this.value)"></div>
@@ -1377,6 +1370,7 @@ _dimReset.onclick=function(){DIMS.forEach(function(d){if(_BASIC[d.id])return;var
 _dimAdv.appendChild(_dimReset);_dimAdv.style.display="none";   // advanced starts collapsed
 // Size controls also drive the Text Lithophane: changing Letter height / Wall thickness here resizes the letters.
 ["lh","lhR","wall","wallR","bd","bdR"].forEach(function(id){var el=g(id);if(el)el.addEventListener("input",function(){try{syncTlithoFromDims();}catch(e){}});});
+try{if(typeof tlithoStageRender==="function")tlithoStageRender();}catch(e){}
 
 let images=[],selImg=-1,models=[],selModel=-1,uid=1,t1=null,mode="render",lightOn=true,diffOn=false,selPlate=0,DIM=null;
 // Dynamic, independent text layers on the lid. Each: {id, str, size(mm), x, y}. selText = active layer.
@@ -2115,7 +2109,7 @@ var FRAME_TEX=[{id:"none",name:"Plain"},{id:"container",name:"Fluted"},{id:"knur
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
 var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5,cavity:30};
 // Text Lithophane: photo relief mapped onto glyph front faces. mode span|perletter, assembly separate|fused.
-var TLITHO={text:"LOVE",mode:"span",img:null,src:null,perImgs:{},height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,back:2,spacing:10,font:null};
+var TLITHO={text:"LOVE",mode:"span",img:null,src:null,perImgs:{},layers:[],height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,back:2,spacing:10,font:null};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
@@ -2271,7 +2265,46 @@ function _tlithoPiecewise(letters,perImgs,invert,gamma,contrast,minT,range){
   return function(x,y){for(var i=0;i<subs.length;i++){var u=subs[i];if(!u)continue;var b=u.bb;if(x>=b.x0&&x<=b.x0+b.w&&y>=b.y0&&y<=b.y0+b.h)return u.s(x,y);}return minT;};
 }
 // ---- Text Lithophane UI ----
-function tlithoText(v){TLITHO.text=(v||"").slice(0,24);tlithoRenderLetters();if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoText(v){TLITHO.text=(v||"").slice(0,24);tlithoStageRender();if(typeof scheduleBuild==="function")scheduleBuild();}
+// ---- Multi-photo composer: upload photos and drag / resize them behind the word (they composite onto the flat lithophane). ----
+function tlithoAddImages(input){var fs=input&&input.files;if(!fs||!fs.length)return;
+  Array.prototype.forEach.call(fs,function(f){if(f.type&&!/^image\//.test(f.type))return;var img=new Image();
+    img.onload=function(){TLITHO.layers.push({id:"tl"+Date.now()+"_"+Math.round(Math.random()*9999),img:img,src:img.src,nx:0.5,ny:0.5,nw:0.42});tlithoStageRender();if(typeof scheduleBuild==="function")scheduleBuild();};
+    img.src=URL.createObjectURL(f);});
+  input.value="";}
+function tlithoRemoveLayer(id){TLITHO.layers=(TLITHO.layers||[]).filter(function(L){return L.id!==id;});tlithoStageRender();if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoStageAspect(ar){if(!(ar>0.2&&ar<12))return;var st=document.getElementById("tlitho_stage");if(st){var cur=parseFloat(st.style.aspectRatio)||0;if(Math.abs(cur-ar)>0.02)st.style.aspectRatio=ar.toFixed(3)+" / 1";}}
+function _tlEsc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function tlithoStageRender(){var st=document.getElementById("tlitho_stage");if(!st)return;
+  var ar=parseFloat(st.style.aspectRatio)||3,vbH=Math.round(1000/ar);
+  var fs=Math.round(vbH*0.60),ls=Math.max(0,TLITHO.spacing||0)*3.2,sw=Math.max(2,Math.round(fs*0.045));
+  var svg='<svg viewBox="0 0 1000 '+vbH+'" preserveAspectRatio="xMidYMid meet" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5">'
+    +'<text x="500" y="'+Math.round(vbH*0.52)+'" text-anchor="middle" dominant-baseline="central" font-family="Arial Black,Impact,sans-serif" font-weight="900" font-size="'+fs+'" letter-spacing="'+ls+'" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.78)" stroke-width="'+sw+'">'+_tlEsc(TLITHO.text)+'</text></svg>';
+  var html="";
+  (TLITHO.layers||[]).forEach(function(L){
+    html+='<div class="tllayer" data-id="'+L.id+'" onpointerdown="tlithoDragStart(event,\''+L.id+'\',\'move\')" style="position:absolute;left:'+(L.nx*100).toFixed(2)+'%;top:'+(L.ny*100).toFixed(2)+'%;width:'+(L.nw*100).toFixed(2)+'%;transform:translate(-50%,-50%);cursor:move;z-index:2;touch-action:none">'
+      +'<img src="'+L.src+'" draggable="false" style="width:100%;display:block;border-radius:4px;pointer-events:none;box-shadow:0 0 0 1px rgba(255,255,255,.3)">'
+      +'<div onpointerdown="event.stopPropagation();event.preventDefault();tlithoRemoveLayer(\''+L.id+'\')" title="Remove" style="position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;background:#e0464b;color:#fff;font:700 13px/1 system-ui;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:4">×</div>'
+      +'<div onpointerdown="tlithoDragStart(event,\''+L.id+'\',\'size\')" title="Resize" style="position:absolute;right:-7px;bottom:-7px;width:16px;height:16px;border-radius:4px;background:var(--acc,#5b8cff);border:2px solid #fff;cursor:nwse-resize;z-index:4;touch-action:none"></div>'
+      +'</div>';});
+  if(!(TLITHO.layers||[]).length)html+='<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8aa;opacity:.7;font-size:13px;text-align:center;padding:0 14px;z-index:1">Add photo(s) above — they’ll appear here to drag and resize behind the letters.</div>';
+  st.innerHTML=svg+html;}
+var _tlDrag=null;
+function tlithoDragStart(e,id,mode){e.preventDefault();e.stopPropagation();var L=(TLITHO.layers||[]).filter(function(x){return x.id===id;})[0];if(!L)return;
+  var st=document.getElementById("tlitho_stage"),r=st.getBoundingClientRect();
+  _tlDrag={id:id,mode:mode,sx:e.clientX,sy:e.clientY,nx:L.nx,ny:L.ny,nw:L.nw,W:r.width,H:r.height};
+  window.addEventListener("pointermove",tlithoDragMove);window.addEventListener("pointerup",tlithoDragEnd);}
+function tlithoDragMove(e){if(!_tlDrag)return;var L=(TLITHO.layers||[]).filter(function(x){return x.id===_tlDrag.id;})[0];if(!L)return;
+  var dx=e.clientX-_tlDrag.sx,dy=e.clientY-_tlDrag.sy,node=document.querySelector('.tllayer[data-id="'+_tlDrag.id+'"]');if(!node)return;
+  if(_tlDrag.mode==="move"){L.nx=Math.max(0,Math.min(1,_tlDrag.nx+dx/_tlDrag.W));L.ny=Math.max(0,Math.min(1,_tlDrag.ny+dy/_tlDrag.H));node.style.left=(L.nx*100).toFixed(2)+"%";node.style.top=(L.ny*100).toFixed(2)+"%";}
+  else{L.nw=Math.max(0.05,Math.min(2.5,_tlDrag.nw+dx/_tlDrag.W));node.style.width=(L.nw*100).toFixed(2)+"%";}}
+function tlithoDragEnd(){window.removeEventListener("pointermove",tlithoDragMove);window.removeEventListener("pointerup",tlithoDragEnd);if(_tlDrag){_tlDrag=null;if(typeof scheduleBuild==="function")scheduleBuild();}}
+// Composite every placed photo onto a white lithophane canvas at the panel's aspect (white = bright glow where empty).
+function _tlithoComposite(LW,LH){var k=8,px=Math.max(240,Math.round(LW*k)),py=Math.max(120,Math.round(LH*k));
+  var cv=document.createElement("canvas");cv.width=px;cv.height=py;var c=cv.getContext("2d");c.fillStyle="#ffffff";c.fillRect(0,0,px,py);
+  (TLITHO.layers||[]).forEach(function(L){if(!L.img)return;var iw=L.img.naturalWidth||L.img.width||1,ih=L.img.naturalHeight||L.img.height||1,w=L.nw*px,h=w*(ih/iw);
+    try{c.drawImage(L.img,L.nx*px-w/2,L.ny*py-h/2,w,h);}catch(e){}});
+  return cv;}
 function tlithoMode(v){TLITHO.mode=(v==="perletter")?"perletter":"span";tlithoRenderLetters();if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoHeight(v){TLITHO.height=Math.max(20,Math.min(400,+v||40));var l=document.getElementById("tlitho_hl");if(l)l.textContent=Math.round(TLITHO.height);
   // mirror into the global Size "Letter height" so the two controls are ONE value (change either, both follow)
@@ -2283,7 +2316,7 @@ function syncTlithoFromDims(){try{var h=(typeof mmOf==="function")?mmOf("lh"):0;
 function tlithoThick(which,v){v=+v;if(which==="min")TLITHO.minT=Math.max(0.4,Math.min(1.6,v||0.8));else TLITHO.maxT=Math.max(1.5,Math.min(3.0,v||3));if(TLITHO.maxT<TLITHO.minT+0.3)TLITHO.maxT=TLITHO.minT+0.3;var a=document.getElementById("tlitho_minl"),b=document.getElementById("tlitho_maxl");if(a)a.textContent=TLITHO.minT.toFixed(1);if(b)b.textContent=TLITHO.maxT.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoFrameTgl(){TLITHO.frame=!TLITHO.frame;var t=document.getElementById("tg_tlitho_frame");if(t)t.classList.toggle("on",TLITHO.frame);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoBack(v){TLITHO.back=Math.max(1,Math.min(8,+v||2));var l=document.getElementById("tlitho_backl");if(l)l.textContent=TLITHO.back.toFixed(1).replace(/\.0$/,"");if(typeof scheduleBuild==="function")scheduleBuild();}
-function tlithoSpacing(v){TLITHO.spacing=Math.max(0,Math.min(25,+v||8));var l=document.getElementById("tlitho_spl");if(l)l.textContent=Math.round(TLITHO.spacing);if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoSpacing(v){TLITHO.spacing=Math.max(0,Math.min(25,+v||8));var l=document.getElementById("tlitho_spl");if(l)l.textContent=Math.round(TLITHO.spacing);if(typeof tlithoStageRender==="function")tlithoStageRender();if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoContrast(v){TLITHO.contrast=Math.max(0.5,Math.min(2.5,+v||1));var l=document.getElementById("tlitho_conl");if(l)l.textContent=TLITHO.contrast.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoInvert(){TLITHO.invert=!TLITHO.invert;var t=document.getElementById("tg_tlitho_inv");if(t)t.classList.toggle("on",TLITHO.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
 function onTlithoFontUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;var rd=new FileReader();
@@ -2794,7 +2827,7 @@ function litho1Auto(){if(!LITHO1.img)return;var a=_lithoAuto(LITHO1.img);LITHO1.
   var sl=document.getElementById("litho1_con");if(sl)sl.value=LITHO1.contrast;var l=document.getElementById("litho1_conl");if(l)l.textContent=LITHO1.contrast.toFixed(2);
   if(typeof scheduleBuild==="function")scheduleBuild();}
 function litho1Clear(){LITHO1.on=false;LITHO1.img=null;LITHO1.src=null;var c=document.getElementById("litho1_ctl");if(c)c.style.display="none";var th=document.getElementById("litho1_thumb");if(th)th.style.backgroundImage="";if(typeof scheduleBuild==="function")scheduleBuild();}
-function tlithoAuto(){var img=TLITHO.img||(TLITHO.perImgs[0]&&TLITHO.perImgs[0].img);if(!img||typeof _lithoAuto!=="function")return;var a=_lithoAuto(img);TLITHO.gamma=a.gamma;TLITHO.contrast=a.contrast;
+function tlithoAuto(){var img=(TLITHO.layers&&TLITHO.layers[0]&&TLITHO.layers[0].img)||TLITHO.img||(TLITHO.perImgs[0]&&TLITHO.perImgs[0].img);if(!img||typeof _lithoAuto!=="function")return;var a=_lithoAuto(img);TLITHO.gamma=a.gamma;TLITHO.contrast=a.contrast;
   var sl=document.getElementById("tlitho_con");if(sl)sl.value=TLITHO.contrast;var l=document.getElementById("tlitho_conl");if(l)l.textContent=TLITHO.contrast.toFixed(2);
   if(typeof scheduleBuild==="function")scheduleBuild();}
 async function buildLabs2(filled,cx,cy,TT){
@@ -4614,13 +4647,14 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
     // user's word CUT OUT of it, laid over the lithophane — so a backlight glows the photo through the letters
     // (the Marvel-logo-lithophane look). Three separate colourable/printable parts: Lightbox, Lithophane, Front plate.
     try{var _tlGate=(typeof featState!=="function")||featState("tlitho")!=="hidden";
-    var _tImg=TLITHO.img||(function(){var _k=Object.keys(TLITHO.perImgs)[0];return _k?TLITHO.perImgs[_k].img:null;})();
-    if(_tlGate&&_genOK("tlitho")&&TLITHO.text&&TLITHO.text.trim()&&_tImg&&typeof buildLithophaneGeometry==="function"){
-      // Font: an uploaded .ttf/.otf (opentype) if the user chose one, else a heavy built-in BLOCK font (bold).
-      var _tletters=null;
-      if(TLITHO.font&&TLITHO.font.url){try{var _otf=await loadOT(TLITHO.font.url);_tletters=_tlithoLettersOT(_otf,TLITHO.text,TLITHO.height);}catch(e){_tletters=null;}}
-      if(!_tletters||!_tletters.length){var _tfUrl=selFont.url;try{var _bf=(typeof FONTS!=="undefined"&&FONTS.filter(function(f){return /bold/i.test(f.url);})[0]);if(_bf)_tfUrl=_bf.url;}catch(e){}
-        var _tfont=await loadFont(_tfUrl);_tletters=_tlithoLetters(_tfont,TLITHO.text,TLITHO.height);}
+    var _tHasImg=TLITHO.layers&&TLITHO.layers.length;
+    if(_tlGate&&_genOK("tlitho")&&TLITHO.text&&TLITHO.text.trim()&&_tHasImg&&typeof buildLithophaneGeometry==="function"){
+      // Font: ONE fixed heavy BLOCK font, then dilated outward so the strokes read like the thick Marvel-logo slab —
+      // fat letters keep the photo clearly visible through each cut-out (no custom-font upload; the weight is fixed).
+      var _tfUrl=selFont.url;try{var _bf=(typeof FONTS!=="undefined"&&FONTS.filter(function(f){return /bold/i.test(f.url);})[0]);if(_bf)_tfUrl=_bf.url;}catch(e){}
+      var _tfont=await loadFont(_tfUrl),_tletters=_tlithoLetters(_tfont,TLITHO.text,TLITHO.height);
+      var _thk=Math.max(0.6,TLITHO.height*0.055);   // extra weight ≈ 5.5% of cap height → Marvel-style heavy strokes
+      _tletters=_tletters.map(function(L){var _p=null;try{_p=off(L.paths,_thk);}catch(e){_p=null;}return {paths:(_p&&_p.length)?_p:L.paths,char:L.char};});
       if(_tletters.length){
         var _tz0=(TT||1)+0.05,_built=false;
         // ---- Lay the word out horizontally with the chosen letter spacing; collect every glyph outline (outer + its
@@ -4639,6 +4673,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _frontT=2.2,_cav=14,_ledge=1.6,_ledgeT=1.2,_tol=0.4;                        // front-plate thickness, LED cavity depth, litho ledge
         var _maxT=TLITHO.maxT,_rad=Math.min(7,_PW*0.06,_PH*0.06),_rad2=Math.max(1,_rad-_wall);
         var _IW=_PW-2*_wall,_IH=_PH-2*_wall;                                            // inner cavity opening
+        try{if(typeof tlithoStageAspect==="function")tlithoStageAspect(_IW/_IH);}catch(e){}   // keep the drag/resize composer at the true panel aspect
         var _dark="#2B2B2B";
         var _fmat=new THREE.MeshStandardMaterial({color:_dark,roughness:0.55,metalness:0,side:THREE.DoubleSide});
         var _rectShape=_rrShape(_PW,_PH,_rad);
@@ -4654,7 +4689,8 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         }catch(e){}
         // ===== PART 2 — LITHOPHANE: a thin flat photo panel that drops into the cavity, front face flush with the wall top. =====
         try{var _LW=_IW-_tol,_LH=_IH-_tol;
-          var _lgeo=buildLithophaneGeometry(_tImg,{widthMm:_LW,heightMm:_LH,minThickness:TLITHO.minT,maxThickness:_maxT,maxRes:400,invert:TLITHO.invert,contrast:TLITHO.contrast,gamma:TLITHO.gamma});
+          var _comp=_tlithoComposite(_LW,_LH);                                          // all placed photos composited onto one white panel
+          var _lgeo=buildLithophaneGeometry(_comp,{widthMm:_LW,heightMm:_LH,minThickness:TLITHO.minT,maxThickness:_maxT,maxRes:400,invert:TLITHO.invert,contrast:TLITHO.contrast,gamma:TLITHO.gamma});
           _lgeo.translate(0,0,_back+_cav-_maxT);                                        // flat back on the ledge, relief toward the front plate
           var _lmat=lithophaneMaterial(),_lm=new THREE.Mesh(_lgeo,_lmat);
           _lm.userData.lithoUL=_lmat.userData.uLit;_lm.userData.lithoTint=_lmat.userData.uTint;   // driven by the lamp in applyLabsLight
