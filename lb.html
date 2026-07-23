@@ -2511,7 +2511,7 @@ function buildUsbTestPrint(){
   var mat=new THREE.MeshStandardMaterial({color:"#2B2B2B",roughness:0.6,metalness:0,side:THREE.DoubleSide});
   var grp=new THREE.Group();
   var uW=U.connW+2*U.clr,uH=U.connH+2*U.clr;            // port window = connector + clearance (exact, both tabs)
-  var fY=-0.95,bY=fY+1.4,ucy=0;                         // same floor / rail / port relationship as the lithophanes
+  var fY=-0.95,bY=fY+1.4,ucy=fY+0.7+uH/2;              // port sits ABOVE the floor top (board rests on the floor, the connector pokes through) — so the cradle never covers the port
   var plW=brW+2.4+3,plH=plW,rad=2;                      // small square, just big enough to carry the rails
   var sh=_rrShape(plW,plH,rad);
   var ux=uW/2,uy=uH/2,ur=1.0,up=new THREE.Path();
