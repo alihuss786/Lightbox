@@ -2384,12 +2384,12 @@ function buildExactFrame(plW,plH){if(!FRAME_EXACT.stand)return null;
   kp.closePath();if(cy-R>-plH/2+8)sh.holes.push(kp);
   var pgeo=new THREE.ExtrudeGeometry(sh,{depth:zF-zB,bevelEnabled:false,steps:1,curveSegments:6});pgeo.translate(0,0,zB);pgeo.computeVertexNormals();
   var pm=new THREE.Mesh(pgeo,mat);pm.userData.exportColor="#1c1c20";grp.add(pm);
-  // stand: uniform-scale the fold-out leg to the plate — BUT never below ss=0.6, so the print-in-place hinge clearance
-  // (0.635mm native) never scales below ~0.38mm and always prints free. When the floor kicks in on a small plate, shift
-  // the stand UP in Y so its folded foot still lands exactly at the plate bottom (no overhang), just with a shorter
-  // leg-to-plate ratio. Shift Z so the mounts fuse into the plate back.
-  var ss=Math.max(0.6,Math.min(2.4,plH/FRAME_EXACT.OH)),yShift=(FRAME_EXACT.OH/2)*ss-plH/2;
-  var sg=FRAME_EXACT.stand.clone();sg.scale(ss,ss,ss);sg.translate(0,yShift,(zB+0.3)-8.28*ss);sg.computeVertexNormals();
+  // stand: scale the fold-out leg to the plate IN-PLANE ONLY (width + height by ss) and leave the DEPTH axis unscaled.
+  // The print-in-place hinge's clearance is a face-to-face gap in the depth direction (0.635mm), so keeping depth at 1:1
+  // holds that gap constant at ANY frame size — the leg shrinks proportionally (foot lands at the plate bottom on its
+  // own) while the hinge always prints free. Small +Z nudge so the mounts fuse into the plate back.
+  var ss=Math.max(0.3,Math.min(2.4,plH/FRAME_EXACT.OH));
+  var sg=FRAME_EXACT.stand.clone();sg.scale(ss,ss,1);sg.translate(0,0,0.3);sg.computeVertexNormals();
   var sm=new THREE.Mesh(sg,mat);sm.userData.exportColor="#1c1c20";grp.add(sm);
   return grp;}
 // A slim FRONT BEZEL that snaps onto the back plate with the photo trapped inside: a small front rim overhangs the
