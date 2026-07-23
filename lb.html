@@ -2266,7 +2266,7 @@ function _tlithoPiecewise(letters,perImgs,invert,gamma,contrast,minT,range){
   return function(x,y){for(var i=0;i<subs.length;i++){var u=subs[i];if(!u)continue;var b=u.bb;if(x>=b.x0&&x<=b.x0+b.w&&y>=b.y0&&y<=b.y0+b.h)return u.s(x,y);}return minT;};
 }
 // ---- Text Lithophane UI ----
-function tlithoText(v){TLITHO.text=(v||"").slice(0,24);tlithoStageRender();if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoText(v){TLITHO.text=(v||"").slice(0,24);window.__tlGuide=null;tlithoStageRender();if(typeof scheduleBuild==="function")scheduleBuild();}
 // ---- Multi-photo composer: upload photos and drag / resize them behind the word (they composite onto the flat lithophane). ----
 function tlithoAddImages(input){var fs=input&&input.files;if(!fs||!fs.length)return;
   Array.prototype.forEach.call(fs,function(f){if(f.type&&!/^image\//.test(f.type))return;var img=new Image();
@@ -2277,10 +2277,18 @@ function tlithoRemoveLayer(id){TLITHO.layers=(TLITHO.layers||[]).filter(function
 function tlithoStageAspect(ar){if(!(ar>0.2&&ar<12))return;var st=document.getElementById("tlitho_stage");if(st){var cur=parseFloat(st.style.aspectRatio)||0;if(Math.abs(cur-ar)>0.02)st.style.aspectRatio=ar.toFixed(3)+" / 1";}}
 function _tlEsc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function tlithoStageRender(){var st=document.getElementById("tlitho_stage");if(!st)return;
-  var ar=parseFloat(st.style.aspectRatio)||3,vbH=Math.round(1000/ar);
-  var fs=Math.round(vbH*0.60),ls=Math.max(0,TLITHO.spacing||0)*3.2,sw=Math.max(2,Math.round(fs*0.045));
-  var svg='<svg viewBox="0 0 1000 '+vbH+'" preserveAspectRatio="xMidYMid meet" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5">'
-    +'<text x="500" y="'+Math.round(vbH*0.52)+'" text-anchor="middle" dominant-baseline="central" font-family="Arial Black,Impact,sans-serif" font-weight="900" font-size="'+fs+'" letter-spacing="'+ls+'" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.78)" stroke-width="'+sw+'">'+_tlEsc(TLITHO.text)+'</text></svg>';
+  var guide=window.__tlGuide,ar=(guide&&guide.ar>0.2&&guide.ar<12)?guide.ar:(parseFloat(st.style.aspectRatio)||3),vbH=Math.round(1000/ar);
+  if(Math.abs((parseFloat(st.style.aspectRatio)||0)-ar)>0.02)st.style.aspectRatio=ar.toFixed(3)+" / 1";
+  var svg;
+  if(guide&&guide.paths&&guide.paths.length){
+    // EXACT guide — the real cut-out letter outlines, so the photo lines up with the 3D box precisely.
+    var d=guide.paths.map(function(p){if(!p.length)return "";return "M"+p.map(function(q){return (q.u*1000).toFixed(1)+","+(q.v*vbH).toFixed(1);}).join("L")+"Z";}).join("");
+    svg='<svg viewBox="0 0 1000 '+vbH+'" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5"><path d="'+d+'" fill="rgba(255,255,255,0.12)" fill-rule="evenodd" stroke="rgba(255,255,255,0.85)" stroke-width="'+Math.max(1.4,vbH*0.008).toFixed(1)+'"/></svg>';
+  }else{
+    var fs=Math.round(vbH*0.60),ls=Math.max(0,TLITHO.spacing||0)*3.2,sw=Math.max(2,Math.round(fs*0.045));
+    svg='<svg viewBox="0 0 1000 '+vbH+'" preserveAspectRatio="xMidYMid meet" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5">'
+      +'<text x="500" y="'+Math.round(vbH*0.52)+'" text-anchor="middle" dominant-baseline="central" font-family="Arial Black,Impact,sans-serif" font-weight="900" font-size="'+fs+'" letter-spacing="'+ls+'" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.78)" stroke-width="'+sw+'">'+_tlEsc(TLITHO.text)+'</text></svg>';
+  }
   var html="";
   (TLITHO.layers||[]).forEach(function(L){
     html+='<div class="tllayer" data-id="'+L.id+'" onpointerdown="tlithoDragStart(event,\''+L.id+'\',\'move\')" style="position:absolute;left:'+(L.nx*100).toFixed(2)+'%;top:'+(L.ny*100).toFixed(2)+'%;width:'+(L.nw*100).toFixed(2)+'%;transform:translate(-50%,-50%);cursor:move;z-index:2;touch-action:none">'
@@ -2334,7 +2342,7 @@ function syncTlithoFromDims(){try{var h=(typeof mmOf==="function")?mmOf("lh"):0;
 function tlithoThick(which,v){v=+v;if(which==="min")TLITHO.minT=Math.max(0.4,Math.min(1.6,v||0.8));else TLITHO.maxT=Math.max(1.5,Math.min(3.0,v||3));if(TLITHO.maxT<TLITHO.minT+0.3)TLITHO.maxT=TLITHO.minT+0.3;var a=document.getElementById("tlitho_minl"),b=document.getElementById("tlitho_maxl");if(a)a.textContent=TLITHO.minT.toFixed(1);if(b)b.textContent=TLITHO.maxT.toFixed(1);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoFrameTgl(){TLITHO.frame=!TLITHO.frame;var t=document.getElementById("tg_tlitho_frame");if(t)t.classList.toggle("on",TLITHO.frame);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoBack(v){TLITHO.back=Math.max(1,Math.min(8,+v||2));var l=document.getElementById("tlitho_backl");if(l)l.textContent=TLITHO.back.toFixed(1).replace(/\.0$/,"");if(typeof scheduleBuild==="function")scheduleBuild();}
-function tlithoSpacing(v){TLITHO.spacing=Math.max(0,Math.min(25,+v||8));var l=document.getElementById("tlitho_spl");if(l)l.textContent=Math.round(TLITHO.spacing);if(typeof tlithoStageRender==="function")tlithoStageRender();if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoSpacing(v){TLITHO.spacing=Math.max(0,Math.min(25,+v||8));var l=document.getElementById("tlitho_spl");if(l)l.textContent=Math.round(TLITHO.spacing);window.__tlGuide=null;if(typeof tlithoStageRender==="function")tlithoStageRender();if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoContrast(v){TLITHO.contrast=Math.max(0.5,Math.min(2.5,+v||1));var l=document.getElementById("tlitho_conl");if(l)l.textContent=TLITHO.contrast.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoInvert(){TLITHO.invert=!TLITHO.invert;var t=document.getElementById("tg_tlitho_inv");if(t)t.classList.toggle("on",TLITHO.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
 function onTlithoFontUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;var rd=new FileReader();
@@ -4691,7 +4699,10 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _frontT=2.2,_cav=14,_ledge=1.6,_ledgeT=1.2,_tol=0.4;                        // front-plate thickness, LED cavity depth, litho ledge
         var _maxT=TLITHO.maxT,_rad=Math.min(7,_PW*0.06,_PH*0.06),_rad2=Math.max(1,_rad-_wall);
         var _IW=_PW-2*_wall,_IH=_PH-2*_wall;                                            // inner cavity opening
-        try{if(typeof tlithoStageAspect==="function")tlithoStageAspect(_IW/_IH);}catch(e){}   // keep the drag/resize composer at the true panel aspect
+        // Publish the REAL cut-out letter outlines (normalised to the lithophane panel) to the drag/resize composer,
+        // so its on-screen word guide is the exact geometry the photo shows through — placement matches the 3D box.
+        try{var _gp=_letC.map(function(p){return p.map(function(pt){return {u:0.5+(pt.X/S)/_IW,v:0.5-(pt.Y/S)/_IH};});});
+          window.__tlGuide={ar:_IW/_IH,paths:_gp};if(typeof tlithoStageRender==="function")tlithoStageRender();}catch(e){}
         var _dark="#2B2B2B";
         var _fmat=new THREE.MeshStandardMaterial({color:_dark,roughness:0.55,metalness:0,side:THREE.DoubleSide});
         var _rectShape=_rrShape(_PW,_PH,_rad);
