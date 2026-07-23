@@ -2375,17 +2375,18 @@ function buildExactFrame(plW,plH){if(!FRAME_EXACT.stand)return null;
   var grp=new THREE.Group();grp.userData.exactFrame=true;grp.userData.back=true;
   var rad=Math.min(6,plW*0.07,plH*0.07),zB=8.0,zF=FRAME_EXACT.PLATEZ;
   var sh=_rrShape(plW,plH,rad);
-  // keyhole (screw circle + slot upward) near the top centre of whatever plate we built
-  var topY=plH/2,R=4.8,cy=topY-20,sw=2.2,ty=topY-9,kp=new THREE.Path(),yi=Math.sqrt(R*R-sw*sw);
+  // keyhole (screw circle + slot upward) near the top centre — scaled with the plate ("hold" shrinks with the frame)
+  var khS=Math.max(0.55,Math.min(1.2,plH/FRAME_EXACT.OH));
+  var topY=plH/2,R=4.8*khS,cy=topY-20*khS,sw=2.2*khS,ty=topY-9*khS,kp=new THREE.Path(),yi=Math.sqrt(R*R-sw*sw);
   kp.moveTo(sw,cy+yi);kp.lineTo(sw,ty);kp.lineTo(-sw,ty);kp.lineTo(-sw,cy+yi);
   var a0=Math.atan2(yi,-sw),a1=Math.atan2(yi,sw)+Math.PI*2,st=40;
   for(var s=0;s<=st;s++){var a=a0+(a1-a0)*(s/st);kp.lineTo(Math.cos(a)*R,cy+Math.sin(a)*R);}
   kp.closePath();if(cy-R>-plH/2+8)sh.holes.push(kp);
   var pgeo=new THREE.ExtrudeGeometry(sh,{depth:zF-zB,bevelEnabled:false,steps:1,curveSegments:6});pgeo.translate(0,0,zB);pgeo.computeVertexNormals();
   var pm=new THREE.Mesh(pgeo,mat);pm.userData.exportColor="#1c1c20";grp.add(pm);
-  // stand: uniform-scale so its folded leg spans the plate height (original was designed for a 165mm-tall plate),
-  // then shift in Z so its mounts fuse into the plate back. Uniform scale keeps the print-in-place hinge round.
-  var ss=Math.max(0.55,Math.min(2.4,plH/FRAME_EXACT.OH));
+  // stand: uniform-scale so its folded leg foot lands exactly at the plate bottom (the leg was designed to span a
+  // 165mm-tall plate), then shift in Z so its mounts fuse into the plate back. Uniform scale keeps the hinge round.
+  var ss=Math.max(0.3,Math.min(2.4,plH/FRAME_EXACT.OH));
   var sg=FRAME_EXACT.stand.clone();sg.scale(ss,ss,ss);sg.translate(0,0,(zB+0.3)-8.28*ss);sg.computeVertexNormals();
   var sm=new THREE.Mesh(sg,mat);sm.userData.exportColor="#1c1c20";grp.add(sm);
   return grp;}
