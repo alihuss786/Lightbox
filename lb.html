@@ -4706,18 +4706,20 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _tz0=(TT||1)+0.05,_built=false;
         // ---- Lay the word out horizontally with the chosen letter spacing; collect every glyph outline (outer + its
         //      counters) in shared WORD coords so they can be knocked straight out of the front plate. ----
-        var _gap=(TLITHO.spacing!=null?TLITHO.spacing:10),_cursorX=0,_allLet=[];
-        _tletters.forEach(function(L){var _b=_tlithoBox([L]),_offX=_cursorX-_b.x0,_ix=Math.round(_offX*S);
-          L.paths.forEach(function(p){_allLet.push(p.map(function(pt){return {X:pt.X+_ix,Y:pt.Y};}));});
-          _cursorX+=_b.w+_gap;});
+        var _gap=(TLITHO.spacing!=null?TLITHO.spacing:10),_cursorX=0,_allLet=[],_letGroups=[];
+        _tletters.forEach(function(L){var _b=_tlithoBox([L]),_offX=_cursorX-_b.x0,_ix=Math.round(_offX*S),_g=[];
+          L.paths.forEach(function(p){var _op=p.map(function(pt){return {X:pt.X+_ix,Y:pt.Y};});_allLet.push(_op);_g.push(_op);});
+          _letGroups.push(_g);_cursorX+=_b.w+_gap;});
         var _pb=_tlithoBox([{paths:_allLet}]);                                        // whole-word bounding box (mm)
         var _cxI=Math.round(_pb.cx*S),_cyI=Math.round(_pb.cy*S);
-        var _letC=_allLet.map(function(p){return p.map(function(pt){return {X:pt.X-_cxI,Y:pt.Y-_cyI};});});   // letters recentred on origin
+        function _ctr(p){return p.map(function(pt){return {X:pt.X-_cxI,Y:pt.Y-_cyI};});}
+        var _letC=_allLet.map(_ctr);                                                   // all letter outlines recentred on origin (for the lid)
+        var _letGroupsC=_letGroups.map(function(g){return g.map(_ctr);});              // per-letter groups recentred (for the inlay reliefs)
         // ---- Box / plate dimensions. The face plate spans the whole word with a border margin; the box sits behind. ----
         var _mgn=Math.max(7,TLITHO.height*0.30);                                       // border from the letters to the plate edge
         var _PW=_pb.w+2*_mgn,_PH=_pb.h+2*_mgn;                                          // footprint of the plate AND the box
         var _wall=Math.max(1.5,TLITHO.wall||2),_back=Math.max(1.2,TLITHO.back||2);      // box wall + back thickness (from Size tab)
-        var _usb=(TLITHO.usb!==false),_pLen=16.3+0.5,_maxT=TLITHO.maxT,_clrF=0.6;       // USB-C board length; _clrF = gap so the relief peaks clear the flat front plate
+        var _usb=(TLITHO.usb!==false),_pLen=16.3+0.5,_maxT=TLITHO.maxT,_clrF=0.0;       // USB-C board length; _clrF=0 → lithophane meets the lid so it backs/holds the floating letter centres
         var _frontT=2.2,_ledge=1.6,_ledgeT=1.2,_tol=0.4;                                // front-plate thickness, litho ledge
         var _cav=_usb?Math.max(14,_pLen+_maxT+_clrF+1):14;                              // deepen the LED cavity so the USB-C board seats fully BEHIND the lithophane
         var _rad=Math.min(7,_PW*0.06,_PH*0.06),_rad2=Math.max(1,_rad-_wall);
@@ -4747,6 +4749,13 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         // ===== PART 2 — LITHOPHANE: a thin flat photo panel that drops into the cavity, front face flush with the wall top. =====
         try{var _LW=_IW-_tol,_LH=_IH-_tol;
           var _comp=_tlithoComposite(_LW,_LH);                                          // all placed photos composited onto one white panel
+          // Letter-centre (counter) support: paint the glyph HOLES black on the composite so the lithophane there is
+          // thick + proud (a flat pad up at the lid plane) that backs each floating letter centre. Hidden behind the
+          // opaque centre, so it only adds support — no visual change to the glowing strokes.
+          try{var _ccx=_comp.getContext("2d"),_ccw=_comp.width,_cch=_comp.height,_car=_letC.map(function(p){return ClipperLib.Clipper.Area(p);});
+            var _cmi=0,_ck;for(_ck=1;_ck<_letC.length;_ck++)if(Math.abs(_car[_ck])>Math.abs(_car[_cmi]))_cmi=_ck;var _cosg=_car[_cmi]>=0?1:-1;
+            _ccx.fillStyle="#000";_letC.forEach(function(p,_k){if(!p.length||(_car[_k]>=0?1:-1)===_cosg)return;_ccx.beginPath();p.forEach(function(pt,pi){var X=(pt.X/S+_LW/2)/_LW*_ccw,Y=(_LH/2-pt.Y/S)/_LH*_cch;if(pi===0)_ccx.moveTo(X,Y);else _ccx.lineTo(X,Y);});_ccx.closePath();_ccx.fill();});
+          }catch(e){}
           var _lgeo=buildLithophaneGeometry(_comp,{widthMm:_LW,heightMm:_LH,minThickness:TLITHO.minT,maxThickness:_maxT,maxRes:400,invert:TLITHO.invert,contrast:TLITHO.contrast,gamma:TLITHO.gamma});
           // Relief faces FORWARD so the texture is visible through the letters, recessed by _clrF so the bumps clear the
           // flat front plate; the flat back faces the cavity and rests on the ledge.
