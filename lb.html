@@ -2292,26 +2292,37 @@ function tlithoStageRender(){var st=document.getElementById("tlitho_stage");if(!
       +'<text x="500" y="'+Math.round(vbH*0.52)+'" text-anchor="middle" dominant-baseline="central" font-family="Arial Black,Impact,sans-serif" font-weight="900" font-size="'+fs+'" letter-spacing="'+ls+'" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.78)" stroke-width="'+sw+'">'+_tlEsc(TLITHO.text)+'</text></svg>';
   }
   var html="";
-  (TLITHO.layers||[]).forEach(function(L){
-    html+='<div class="tllayer" data-id="'+L.id+'" onpointerdown="tlithoDragStart(event,\''+L.id+'\',\'move\')" style="position:absolute;left:'+(L.nx*100).toFixed(2)+'%;top:'+(L.ny*100).toFixed(2)+'%;width:'+(L.nw*100).toFixed(2)+'%;transform:translate(-50%,-50%);cursor:move;z-index:2;touch-action:none">'
+  (TLITHO.layers||[]).forEach(function(L,i){
+    html+='<div class="tllayer" data-id="'+L.id+'" onpointerdown="tlithoDragStart(event,\''+L.id+'\',\'move\')" style="position:absolute;left:'+(L.nx*100).toFixed(2)+'%;top:'+(L.ny*100).toFixed(2)+'%;width:'+(L.nw*100).toFixed(2)+'%;transform:translate(-50%,-50%);cursor:move;z-index:'+(2+i)+';touch-action:none">'
       +'<img src="'+L.src+'" draggable="false" style="width:100%;display:block;border-radius:4px;pointer-events:none;box-shadow:0 0 0 1px rgba(255,255,255,.3)">'
       +'<div onpointerdown="event.stopPropagation();event.preventDefault();tlithoRemoveLayer(\''+L.id+'\')" title="Remove" style="position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;background:#e0464b;color:#fff;font:700 13px/1 system-ui;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:4">×</div>'
       +'<div onpointerdown="tlithoDragStart(event,\''+L.id+'\',\'size\')" title="Drag to resize" style="position:absolute;right:-10px;bottom:-10px;width:22px;height:22px;border-radius:5px;background:var(--acc,#5b8cff);border:2px solid #fff;cursor:nwse-resize;z-index:4;touch-action:none;box-shadow:0 1px 4px rgba(0,0,0,.5)"></div>'
       +'</div>';});
   if(!(TLITHO.layers||[]).length)html+='<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8aa;opacity:.7;font-size:13px;text-align:center;padding:0 14px;z-index:1">Add photo(s) above — they’ll appear here to drag and resize behind the letters.</div>';
   st.innerHTML=svg+html;
-  // Per-photo size sliders (an explicit resize control alongside the drag-corner handle).
-  var ll=document.getElementById("tlitho_layerlist");if(ll){var lh="";
-    (TLITHO.layers||[]).forEach(function(L,i){var pct=Math.round(L.nw*100);
-      lh+='<div class="row" style="align-items:center;gap:9px">'
+  // Per-photo controls: stacking order (front↔back), size slider, remove. Listed FRONT-first so the top row = the
+  // photo that overlaps all the others.
+  var ll=document.getElementById("tlitho_layerlist");if(ll){var lh="",_n=(TLITHO.layers||[]).length;
+    if(_n>1)lh+='<div class="lbl" style="opacity:.6;font-weight:400;font-size:11.5px;margin:2px 0 -2px">Stacking — top of this list sits in front. Use ▲ / ▼ to change which photo overlaps.</div>';
+    var _ord=[];(TLITHO.layers||[]).forEach(function(L,i){_ord.push({L:L,i:i});});_ord.reverse();
+    _ord.forEach(function(o){var L=o.L,i=o.i,pct=Math.round(L.nw*100),isFront=(i===_n-1),isBack=(i===0);
+      lh+='<div class="row" style="align-items:center;gap:8px">'
         +'<div style="width:38px;height:38px;flex:0 0 auto;border-radius:8px;border:1px solid var(--line);background:#0a0b0e center/cover no-repeat;background-image:url('+L.src+')"></div>'
+        +(_n>1?('<div style="display:flex;flex-direction:column;gap:2px;flex:0 0 auto">'
+          +'<div onclick="tlithoReorder(\''+L.id+'\',1)" title="Bring forward" style="width:24px;height:17px;border-radius:5px 5px 2px 2px;background:'+(isFront?'#ffffff10':'var(--card,#1a1c22)')+';border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:'+(isFront?'default':'pointer')+';opacity:'+(isFront?'.3':'1')+';font-size:10px;line-height:1">▲</div>'
+          +'<div onclick="tlithoReorder(\''+L.id+'\',-1)" title="Send back" style="width:24px;height:17px;border-radius:2px 2px 5px 5px;background:'+(isBack?'#ffffff10':'var(--card,#1a1c22)')+';border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:'+(isBack?'default':'pointer')+';opacity:'+(isBack?'.3':'1')+';font-size:10px;line-height:1">▼</div>'
+          +'</div>'):'')
         +'<div style="flex:1;display:flex;flex-direction:column;gap:3px">'
-          +'<span class="lbl" style="font-weight:400;opacity:.7;font-size:12px">Photo '+(i+1)+' size — <b>'+pct+'%</b></span>'
+          +'<span class="lbl" style="font-weight:400;opacity:.7;font-size:12px">'+(isFront&&_n>1?'Front · ':(isBack&&_n>1?'Back · ':''))+'size — <b>'+pct+'%</b></span>'
           +'<input type="range" min="5" max="150" step="1" value="'+pct+'" oninput="tlithoLayerSize(\''+L.id+'\',this.value,false)" onchange="tlithoLayerSize(\''+L.id+'\',this.value,true)">'
         +'</div>'
         +'<div onclick="tlithoRemoveLayer(\''+L.id+'\')" title="Remove" style="flex:0 0 auto;width:26px;height:26px;border-radius:6px;background:#e0464b22;color:#e0464b;font:700 15px/1 system-ui;display:flex;align-items:center;justify-content:center;cursor:pointer">×</div>'
         +'</div>';});
     ll.innerHTML=lh;}}
+// Reorder a photo in the stack: dir>0 brings it forward (drawn later = on top), dir<0 sends it back.
+function tlithoReorder(id,dir){var a=TLITHO.layers||[],i=-1;for(var k=0;k<a.length;k++){if(a[k].id===id){i=k;break;}}
+  var j=i+(dir>0?1:-1);if(i<0||j<0||j>=a.length)return;var t=a[i];a[i]=a[j];a[j]=t;
+  tlithoStageRender();if(typeof scheduleBuild==="function")scheduleBuild();}
 // Resize a photo from its slider — live-update the on-stage node width, and rebuild the model when released.
 function tlithoLayerSize(id,val,commit){var L=(TLITHO.layers||[]).filter(function(x){return x.id===id;})[0];if(!L)return;
   L.nw=Math.max(0.05,Math.min(2.5,(+val||100)/100));
