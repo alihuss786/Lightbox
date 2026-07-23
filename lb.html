@@ -4717,9 +4717,9 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _mgn=Math.max(7,TLITHO.height*0.30);                                       // border from the letters to the plate edge
         var _PW=_pb.w+2*_mgn,_PH=_pb.h+2*_mgn;                                          // footprint of the plate AND the box
         var _wall=Math.max(1.5,TLITHO.wall||2),_back=Math.max(1.2,TLITHO.back||2);      // box wall + back thickness (from Size tab)
-        var _usb=(TLITHO.usb!==false),_pLen=16.3+0.5,_maxT=TLITHO.maxT;                 // USB-C breakout board length (same module as the picture frame)
+        var _usb=(TLITHO.usb!==false),_pLen=16.3+0.5,_maxT=TLITHO.maxT,_clrF=0.6;       // USB-C board length; _clrF = gap so the relief peaks clear the flat front plate
         var _frontT=2.2,_ledge=1.6,_ledgeT=1.2,_tol=0.4;                                // front-plate thickness, litho ledge
-        var _cav=_usb?Math.max(14,_pLen+_maxT+1):14;                                    // deepen the LED cavity so the USB-C board seats fully BEHIND the lithophane
+        var _cav=_usb?Math.max(14,_pLen+_maxT+_clrF+1):14;                              // deepen the LED cavity so the USB-C board seats fully BEHIND the lithophane
         var _rad=Math.min(7,_PW*0.06,_PH*0.06),_rad2=Math.max(1,_rad-_wall);
         var _IW=_PW-2*_wall,_IH=_PH-2*_wall;                                            // inner cavity opening
         // Publish the REAL cut-out letter outlines (normalised to the lithophane panel) to the drag/resize composer,
@@ -4743,10 +4743,9 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         try{var _LW=_IW-_tol,_LH=_IH-_tol;
           var _comp=_tlithoComposite(_LW,_LH);                                          // all placed photos composited onto one white panel
           var _lgeo=buildLithophaneGeometry(_comp,{widthMm:_LW,heightMm:_LH,minThickness:TLITHO.minT,maxThickness:_maxT,maxRes:400,invert:TLITHO.invert,contrast:TLITHO.contrast,gamma:TLITHO.gamma});
-          // Orient the lithophane FLAT face FORWARD so it seats flush against the flat-backed front plate, with the
-          // relief facing BACK into the LED cavity (correct lithophane orientation + a perfect flat-on-flat joint).
-          _lgeo.scale(1,1,-1);var _lix=_lgeo.index;if(_lix){var _la=_lix.array;for(var _t=0;_t<_la.length;_t+=3){var _tmp=_la[_t+1];_la[_t+1]=_la[_t+2];_la[_t+2]=_tmp;}_lix.needsUpdate=true;}_lgeo.computeVertexNormals();
-          _lgeo.translate(0,0,_back+_cav);                                              // flat face flush with the wall top / plate back; relief recedes into the cavity
+          // Relief faces FORWARD so the texture is visible through the letters, recessed by _clrF so the bumps clear the
+          // flat front plate; the flat back faces the cavity and rests on the ledge.
+          _lgeo.translate(0,0,_back+_cav-_clrF-_maxT);                                  // relief peaks stop _clrF behind the plate; flat back on the ledge
           var _lmat=lithophaneMaterial(),_lm=new THREE.Mesh(_lgeo,_lmat);
           _lm.userData.lithoUL=_lmat.userData.uLit;_lm.userData.lithoTint=_lmat.userData.uTint;   // driven by the lamp in applyLabsLight
           var _lgrp=new THREE.Group();_lgrp.add(_lm);_lgrp.position.set(0,0,_tz0);
@@ -4774,7 +4773,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           _boxG.add(function(){var m=new THREE.Mesh(_wg,_fmat);m.userData.exportColor=_dark;return m;}());
           // inner ledge — a thin inward lip directly behind the lithophane so it can't fall into the cavity
           var _ldShape=_rrShape(_IW,_IH,_rad2);_ldShape.holes.push(_rrPath(Math.max(2,_IW-2*_ledge),Math.max(2,_IH-2*_ledge),Math.max(0.8,_rad2-_ledge)));
-          var _ldg=new THREE.ExtrudeGeometry([_ldShape],{depth:_ledgeT,bevelEnabled:false,curveSegments:4});_ldg.translate(0,0,_back+_cav-_maxT-_ledgeT);_ldg.computeVertexNormals();
+          var _ldg=new THREE.ExtrudeGeometry([_ldShape],{depth:_ledgeT,bevelEnabled:false,curveSegments:4});_ldg.translate(0,0,_back+_cav-_clrF-_maxT-_ledgeT);_ldg.computeVertexNormals();
           _boxG.add(function(){var m=new THREE.Mesh(_ldg,_fmat);m.userData.exportColor=_dark;return m;}());
           // USB-C BOARD POCKET: a low floor + two side rails at the cavity bottom, connector end over the port, board
           // extending FORWARD (stays behind the lithophane). Same cradle as the picture frame's breakout-board pocket.
