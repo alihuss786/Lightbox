@@ -2358,7 +2358,12 @@ function buildExactFrame(sc){if(!FRAME_EXACT.geo)return null;
   var g=FRAME_EXACT.geo.clone();g.scale(sc,sc,sc);g.computeBoundingBox();
   var mat=new THREE.MeshStandardMaterial({color:"#1c1c20",roughness:0.62,metalness:0,side:THREE.DoubleSide});
   var m=new THREE.Mesh(g,mat);m.userData.exportColor="#1c1c20";
-  var grp=new THREE.Group();grp.add(m);grp.userData.exactFrame=true;grp.userData.back=true;return grp;}
+  var grp=new THREE.Group();grp.add(m);grp.userData.exactFrame=true;grp.userData.back=true;
+  // Fill the two leftover snap-clip cut-outs so the back reads solid (app coords, ×sc). Span the plate thickness only.
+  [[-49.75,-3.5,15.5,17],[27.5,-74.25,19,16.5]].forEach(function(f){
+    var geo=new THREE.BoxGeometry(f[2]*sc,f[3]*sc,2.4*sc);geo.translate(f[0]*sc,f[1]*sc,9.1*sc);
+    var fm=new THREE.Mesh(geo,mat);fm.userData.exportColor="#1c1c20";grp.add(fm);});
+  return grp;}
 // A repeating relief pattern wrapped around the frame's outer vertical wall, built as ONE closed watertight solid
 // ring (textured outer surface + smooth inner surface tucked into the frame body so the slicer fuses them). The
 // pattern IDs match the reference frame STLs: fluted / knurled / pyramids / checker / aztec.
