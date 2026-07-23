@@ -2384,7 +2384,7 @@ function buildExactFrame(plW,plH){if(!FRAME_EXACT.stand)return null;
   var sh=_rrShape(plW,plH,rad);
   // USB-C PORT through the back plate, horizontally centred, mid-height (clear of the keyhole above and the stand
   // hinge below). The board mounts flat inside over this hole; the cable plugs into the back.
-  var Uc=FRAME_EXACT.USB,uW=Uc.connW+2*Uc.clr,uH=Uc.connH+2*Uc.clr,ucy=plH*0.16;
+  var Uc=FRAME_EXACT.USB,uW=Uc.connW+2*Uc.clr,uH=Uc.connH+2*Uc.clr,ucy=-plH/2+uH/2+9;   // bottom-centre of the back plate
   var up=new THREE.Path(),ur=1.2,ux=uW/2,uy=uH/2;
   up.moveTo(-ux+ur,ucy-uy);up.lineTo(ux-ur,ucy-uy);up.quadraticCurveTo(ux,ucy-uy,ux,ucy-uy+ur);up.lineTo(ux,ucy+uy-ur);up.quadraticCurveTo(ux,ucy+uy,ux-ur,ucy+uy);
   up.lineTo(-ux+ur,ucy+uy);up.quadraticCurveTo(-ux,ucy+uy,-ux,ucy+uy-ur);up.lineTo(-ux,ucy-uy+ur);up.quadraticCurveTo(-ux,ucy-uy,-ux+ur,ucy-uy);up.closePath();
@@ -2416,12 +2416,12 @@ function buildExactFrame(plW,plH){if(!FRAME_EXACT.stand)return null;
   var cw=_rrShape(wOW,wOH,Math.max(2,rad-1));cw.holes.push(_rrPath(wIW,wIH,Math.max(2,rad-3)));   // clean rounded ring — solid all round
   var cgeo=new THREE.ExtrudeGeometry(cw,{depth:lg,bevelEnabled:false,steps:1,curveSegments:8});cgeo.translate(0,0,zF);cgeo.computeVertexNormals();
   var cm=new THREE.Mesh(cgeo,mat);cm.userData.exportColor="#1c1c20";grp.add(cm);
-  // BOARD POCKET on the back-plate front, over the port hole: four low rails frame the 10.2x16.3mm board so it seats
-  // flat with its connector aligned to the back-plate cutout. Board sits below the cutout centre, extending upward.
-  var brW=U.boardW+0.5,brH=16.3+0.6,by0=ucy-uH/2-0.4,rT=1.0,rZ=zF+0.9;
+  // BOARD POCKET on the back-plate front, over the port hole: rails frame the 10.2x16.3mm board so it seats flat with
+  // its connector edge aligned to the back-plate cutout. Board extends UPWARD from the bottom-centre cutout.
+  var brW=U.boardW+0.5,brH=16.3+0.6,by0=ucy+uH/2+0.4,rT=1.0,rZ=zF+0.9;
   function rail(w,h,cx,cy){var g=new THREE.BoxGeometry(w,h,1.8);g.translate(cx,cy,rZ);var m2=new THREE.Mesh(g,mat);m2.userData.exportColor="#1c1c20";grp.add(m2);}
-  rail(rT,brH,-(brW/2+rT/2),by0-brH/2);rail(rT,brH,(brW/2+rT/2),by0-brH/2);   // left/right rails
-  rail(brW+2*rT,rT,0,by0-brH);   // bottom stop
+  rail(rT,brH,-(brW/2+rT/2),by0+brH/2);rail(rT,brH,(brW/2+rT/2),by0+brH/2);   // left/right rails
+  rail(brW+2*rT,rT,0,by0+brH);   // top stop
   return grp;}
 // A slim FRONT BEZEL that snaps onto the back plate with the photo trapped inside: a small front rim overhangs the
 // photo, a perimeter skirt wraps the plate, and inward snap tabs catch behind the plate's back face. Sized to plW×plH.
