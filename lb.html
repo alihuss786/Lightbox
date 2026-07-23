@@ -2504,6 +2504,40 @@ function buildExactFrame(plW,plH){if(!FRAME_EXACT.stand)return null;
   box(brW+2.4,1.4,pLen,0,fY,rZ);                                   // floor the board rests on
   box(1.2,3,pLen,-(brW/2+0.6),bY,rZ);box(1.2,3,pLen,(brW/2+0.6),bY,rZ);   // side guide rails
   return grp;}
+// ---- OWNER TEST PRINT: the USB-C board cradle — the EXACT slide rails + port cutout used by both Lithophane tabs
+//      (picture-frame + text), on a minimal square back plate, so the breakout-board fit can be validated on its own. ----
+function buildUsbTestPrint(){
+  var U=FRAME_EXACT.USB,brW=U.boardW+0.6,pLen=16.3+0.5,back=2;
+  var mat=new THREE.MeshStandardMaterial({color:"#2B2B2B",roughness:0.6,metalness:0,side:THREE.DoubleSide});
+  var grp=new THREE.Group();
+  var uW=U.connW+2*U.clr,uH=U.connH+2*U.clr;            // port window = connector + clearance (exact, both tabs)
+  var fY=-0.95,bY=fY+1.4,ucy=0;                         // same floor / rail / port relationship as the lithophanes
+  var plW=brW+2.4+3,plH=plW,rad=2;                      // small square, just big enough to carry the rails
+  var sh=_rrShape(plW,plH,rad);
+  var ux=uW/2,uy=uH/2,ur=1.0,up=new THREE.Path();
+  up.moveTo(-ux+ur,ucy-uy);up.lineTo(ux-ur,ucy-uy);up.quadraticCurveTo(ux,ucy-uy,ux,ucy-uy+ur);up.lineTo(ux,ucy+uy-ur);up.quadraticCurveTo(ux,ucy+uy,ux-ur,ucy+uy);
+  up.lineTo(-ux+ur,ucy+uy);up.quadraticCurveTo(-ux,ucy+uy,-ux,ucy+uy-ur);up.lineTo(-ux,ucy-uy+ur);up.quadraticCurveTo(-ux,ucy-uy,-ux+ur,ucy-uy);up.closePath();
+  sh.holes.push(up);
+  var pg=new THREE.ExtrudeGeometry(sh,{depth:back,bevelEnabled:false,steps:1,curveSegments:6});pg.computeVertexNormals();
+  grp.add(new THREE.Mesh(pg,mat));
+  function box(w,h,d,cx,cy){var g=new THREE.BoxGeometry(w,h,d);g.translate(cx,cy,back+d/2);grp.add(new THREE.Mesh(g,mat));}
+  box(brW+2.4,1.4,pLen,0,fY);                           // floor the board rests on
+  box(1.2,3,pLen,-(brW/2+0.6),bY);box(1.2,3,pLen,(brW/2+0.6),bY);   // side guide rails
+  grp.userData.testName="usb_cradle";return grp;
+}
+// Minimal binary-STL writer for the owner test prints (independent of the .3mf plate pipeline).
+function _grpToStlBlob(grp){grp.updateMatrixWorld(true);var tris=[];
+  grp.traverse(function(o){if(!o.isMesh)return;var pos=o.geometry.attributes.position,idx=o.geometry.index,m=o.matrixWorld;
+    function T(a,b,c){var A=new THREE.Vector3().fromBufferAttribute(pos,a).applyMatrix4(m),B=new THREE.Vector3().fromBufferAttribute(pos,b).applyMatrix4(m),C=new THREE.Vector3().fromBufferAttribute(pos,c).applyMatrix4(m);tris.push([A,B,C]);}
+    if(idx){for(var i=0;i<idx.count;i+=3)T(idx.getX(i),idx.getX(i+1),idx.getX(i+2));}else{for(var i=0;i<pos.count;i+=3)T(i,i+1,i+2);}});
+  var buf=new ArrayBuffer(84+tris.length*50),dv=new DataView(buf),off=84;dv.setUint32(80,tris.length,true);
+  var n=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3();
+  tris.forEach(function(t){ab.subVectors(t[1],t[0]);ac.subVectors(t[2],t[0]);n.crossVectors(ab,ac).normalize();
+    dv.setFloat32(off,n.x,true);dv.setFloat32(off+4,n.y,true);dv.setFloat32(off+8,n.z,true);off+=12;
+    for(var k=0;k<3;k++){dv.setFloat32(off,t[k].x,true);dv.setFloat32(off+4,t[k].y,true);dv.setFloat32(off+8,t[k].z,true);off+=12;}
+    dv.setUint16(off,0,true);off+=2;});
+  return new Blob([buf],{type:"model/stl"});}
+function _dlBlob(blob,fname){var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();setTimeout(function(){try{URL.revokeObjectURL(a.href);a.remove();}catch(e){}},1500);}
 // A slim FRONT BEZEL that snaps onto the back plate with the photo trapped inside: a small front rim overhangs the
 // photo, a perimeter skirt wraps the plate, and inward snap tabs catch behind the plate's back face. Sized to plW×plH.
 function buildFrontBezel(plW,plH,maxT){
@@ -6670,7 +6704,7 @@ window.USDZExporter=USDZExporter;})();
     });
   }
   var _dashCfg=null;var _tabTier="features";
-  var _dashSecs=[["analytics","\uD83D\uDCCA Analytics"],["templates","\u2726 Templates"],["tabs","\u2317 Tabs"],["catalog","\u25A6 Catalog"]];
+  var _dashSecs=[["analytics","\uD83D\uDCCA Analytics"],["templates","\u2726 Templates"],["tabs","\u2317 Tabs"],["catalog","\u25A6 Catalog"],["testprints","\uD83E\uDDEA Test prints"]];
   var _iconBtn="flex:none;width:34px;height:34px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#dfe;cursor:pointer;font-size:14px";
   function _tdesc(d){try{if(d){if(d.logoPaths)return "Logo";if(d.name&&String(d.name).trim())return "Name \u00b7 "+String(d.name).trim();if(d.letter)return "Letter "+String(d.letter).toUpperCase().slice(0,1);}}catch(e){}return "Design";}
   function renderDashNav(){var nav=document.getElementById("odNav");if(!nav)return;var cur=window.__dashSection||"analytics";nav.innerHTML=_dashSecs.map(function(sec){var on=sec[0]===cur;return '<button data-sec="'+sec[0]+'" style="padding:8px 15px;border-radius:9px;border:1px solid '+(on?"#e0c08d":"#2a2d35")+';background:'+(on?"rgba(224,192,141,.12)":"transparent")+';color:'+(on?"#e0c08d":"#c7cbd2")+';font-weight:600;font-size:13px;cursor:pointer">'+sec[1]+'</button>';}).join("");[].forEach.call(nav.querySelectorAll("[data-sec]"),function(b){b.onclick=function(){setDashSection(b.getAttribute("data-sec"));};});}
@@ -6741,7 +6775,17 @@ window.USDZExporter=USDZExporter;})();
     }if(!H)H='<div style="text-align:center;color:#7f8896;padding:50px 0">No sales yet.</div>';host.innerHTML=H;
   }
   window.__openMerchantAnalytics=function(){var m=document.getElementById("merchAnalytics");if(!m){m=document.createElement("div");m.id="merchAnalytics";m.style.cssText="display:none;position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.66);align-items:center;justify-content:center;padding:16px";m.innerHTML='<div style="background:#14161b;color:#eaeaec;border:1px solid rgba(255,255,255,.12);border-radius:16px;max-width:620px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden"><div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08)"><div style="font-weight:800;font-size:16px">\uD83D\uDCCA Your sales</div><button id="maClose" style="background:none;border:none;color:#aaa;font-size:24px;cursor:pointer;line-height:1">\u00d7</button></div><div id="maList" style="padding:16px 18px;overflow:auto">Loading\u2026</div></div>';document.body.appendChild(m);m.querySelector("#maClose").onclick=function(){m.style.display="none";};m.onclick=function(e){if(e.target===m)m.style.display="none";};}m.style.display="flex";try{renderAnalytics(m.querySelector("#maList"),"merchant");}catch(e){}};
-  function refreshDash(){var l=document.getElementById("odList");if(!l)return;renderDashNav();var sec=window.__dashSection||"analytics";if(sec==="templates")renderTemplatesAdmin(l);else if(sec==="tabs")renderTabsAdmin(l);else if(sec==="catalog")renderCatalogAdmin(l);else renderAnalytics(l);}
+  function refreshDash(){var l=document.getElementById("odList");if(!l)return;renderDashNav();var sec=window.__dashSection||"analytics";if(sec==="templates")renderTemplatesAdmin(l);else if(sec==="tabs")renderTabsAdmin(l);else if(sec==="catalog")renderCatalogAdmin(l);else if(sec==="testprints")renderTestPrints(l);else renderAnalytics(l);}
+  // Owner-only bench for validating fit-critical geometry before it ships in a product. New test parts live here; it is
+  // never shown to visitors (the dashboard itself is owner-gated) and touches no live studio tab.
+  function renderTestPrints(host){
+    var items=[{id:"usb_cradle",name:"USB-C board cradle",dims:"board channel 10.8mm · rails 1.2×3mm · length 16.8mm · port 9.7×3.9mm",
+      desc:"The exact slide rails + USB-C port cutout used by both Lithophane tabs (picture-frame + text), on a minimal square back plate. Print it to confirm the breakout board slides in and the connector lines up with the port.",build:buildUsbTestPrint}];
+    host.innerHTML='<div style="max-width:600px;margin:0 auto"><div style="font-size:13px;color:#aab2c0;margin-bottom:16px;line-height:1.55">🔒 <b>Owner only.</b> Quick parts to validate fit before they go into a product — new ideas and things to test can live here. Not shown to anyone else, and separate from the live studio tabs.</div><div id="tpBody"></div></div>';
+    var body=host.querySelector("#tpBody");
+    body.innerHTML=items.map(function(it){return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:#14161b;margin-bottom:10px"><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">'+esc(it.name)+'</div><div style="font-size:12px;color:#8b93a1;margin-top:3px;line-height:1.5">'+esc(it.desc)+'</div><div style="font-size:11px;color:#6b7280;margin-top:5px">'+esc(it.dims)+'</div></div><button data-tp="'+it.id+'" style="padding:9px 16px;border-radius:9px;border:none;background:#e0c08d;color:#231a0c;font-weight:700;cursor:pointer;white-space:nowrap">⬇ STL</button></div>';}).join("");
+    body.querySelectorAll("[data-tp]").forEach(function(b){b.onclick=function(){var it=items.filter(function(x){return x.id===b.getAttribute("data-tp");})[0];if(!it)return;b.textContent="…";try{var g=it.build();var blob=_grpToStlBlob(g);_dlBlob(blob,it.id+"_test.stl");b.textContent="⬇ STL";}catch(e){b.textContent="⬇ STL";try{uiAlert("Couldn’t build the test part: "+(e&&e.message||e));}catch(_){}}};});
+  }
 
   function ensureOwnerDash(){
     var d=document.getElementById("ownerDash");if(d)return d;
