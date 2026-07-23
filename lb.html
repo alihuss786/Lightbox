@@ -879,7 +879,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
         <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_litho1_inv" onclick="litho1Invert()"><div class="k"></div></div></div>
         <div class="toggle-row"><span class="lbl">🖼️ Picture frame</span><div class="tg" id="tg_litho1_frame" onclick="litho1Frame()"><div class="k"></div></div></div>
         <div id="litho1_frame_ctl" style="display:none;flex-direction:column;gap:10px">
-          <div class="hint">Adds a slim <b>back plate</b> behind your photo with a <b>keyhole slot</b> for hanging on a wall and a <b>fold-out pin-hinge easel</b> so it can also stand on a desk. No bulky frame — just the photo on a thin stand-and-hang backing. Prints as 2 parts — the photo and the back+stand (easel built in, print-in-place). Scales with the Size box.</div>
+          <div class="hint">Wraps your photo in a slim <b>snap-together frame</b>: a clean <b>back plate</b> with a <b>keyhole hanger</b> + <b>fold-out pin-hinge easel</b>, and a small-bezel <b>front</b> that snaps on with the photo trapped inside. The whole frame <b>auto-fits your photo's orientation and size</b> (portrait or landscape). Prints as 3 parts — back+stand, photo, and front bezel.</div>
         </div>
         <button class="addtext" onclick="litho1Clear()">Remove photo</button>
       </div>
@@ -2361,24 +2361,52 @@ var FRAME_EXACT_GZB64="H4sIAAAAAAACA4Sde7xU8/f/N91OCkcqIRkcJMXhk5yUzn7jQy75jET3m
     if(typeof LITHO1!=="undefined"&&LITHO1.frame&&typeof scheduleBuild==="function")scheduleBuild();
   }).catch(function(){});
 }catch(e){}})();
-// Build a CLEAN back plate (smooth rounded rectangle + keyhole hanger) and mount the STL's fold-out pin-hinge stand
-// on it. No clip tabs, notches or holes — one solid dark part. Scaled by sc; front face at PLATEZ (photo mounts there).
-function buildExactFrame(sc){if(!FRAME_EXACT.stand)return null;
+// Shared rounded-rect Shape / Path (centred at origin).
+function _rrShape(w,h,r){var s=new THREE.Shape(),x=w/2,y=h/2;r=Math.max(0.5,Math.min(r,x-0.5,y-0.5));
+  s.moveTo(-x+r,-y);s.lineTo(x-r,-y);s.quadraticCurveTo(x,-y,x,-y+r);s.lineTo(x,y-r);s.quadraticCurveTo(x,y,x-r,y);
+  s.lineTo(-x+r,y);s.quadraticCurveTo(-x,y,-x,y-r);s.lineTo(-x,-y+r);s.quadraticCurveTo(-x,-y,-x+r,-y);s.closePath();return s;}
+function _rrPath(w,h,r){var p=new THREE.Path(),x=w/2,y=h/2;r=Math.max(0.5,Math.min(r,x-0.5,y-0.5));
+  p.moveTo(-x+r,-y);p.lineTo(x-r,-y);p.quadraticCurveTo(x,-y,x,-y+r);p.lineTo(x,y-r);p.quadraticCurveTo(x,y,x-r,y);
+  p.lineTo(-x+r,y);p.quadraticCurveTo(-x,y,-x,y-r);p.lineTo(-x,-y+r);p.quadraticCurveTo(-x,-y,-x+r,-y);p.closePath();return p;}
+// Build a CLEAN back plate (rounded rectangle + keyhole) sized to plW×plH, and mount the STL's fold-out pin-hinge
+// stand on it (scaled so its folded leg fits the plate height). One solid dark part; front face at PLATEZ.
+function buildExactFrame(plW,plH){if(!FRAME_EXACT.stand)return null;
   var mat=new THREE.MeshStandardMaterial({color:"#1c1c20",roughness:0.62,metalness:0,side:THREE.DoubleSide});
   var grp=new THREE.Group();grp.userData.exactFrame=true;grp.userData.back=true;
-  var ow=FRAME_EXACT.OW,oh=FRAME_EXACT.OH,rad=6,zB=8.0,zF=FRAME_EXACT.PLATEZ;   // plate z∈[8.0,10.28], overlaps the stand mounts (top≈8.28)
-  var sh=new THREE.Shape(),x=ow/2,y=oh/2;
-  sh.moveTo(-x+rad,-y);sh.lineTo(x-rad,-y);sh.quadraticCurveTo(x,-y,x,-y+rad);sh.lineTo(x,y-rad);sh.quadraticCurveTo(x,y,x-rad,y);
-  sh.lineTo(-x+rad,y);sh.quadraticCurveTo(-x,y,-x,y-rad);sh.lineTo(-x,-y+rad);sh.quadraticCurveTo(-x,-y,-x+rad,-y);sh.closePath();
-  // keyhole hole: screw circle at the bottom + a narrow slot upward, at the plate's upper centre
-  var R=4.8,cy=36,sw=2.2,ty=47,kp=new THREE.Path(),yi=Math.sqrt(R*R-sw*sw);
+  var rad=Math.min(6,plW*0.07,plH*0.07),zB=8.0,zF=FRAME_EXACT.PLATEZ;
+  var sh=_rrShape(plW,plH,rad);
+  // keyhole (screw circle + slot upward) near the top centre of whatever plate we built
+  var topY=plH/2,R=4.8,cy=topY-20,sw=2.2,ty=topY-9,kp=new THREE.Path(),yi=Math.sqrt(R*R-sw*sw);
   kp.moveTo(sw,cy+yi);kp.lineTo(sw,ty);kp.lineTo(-sw,ty);kp.lineTo(-sw,cy+yi);
   var a0=Math.atan2(yi,-sw),a1=Math.atan2(yi,sw)+Math.PI*2,st=40;
   for(var s=0;s<=st;s++){var a=a0+(a1-a0)*(s/st);kp.lineTo(Math.cos(a)*R,cy+Math.sin(a)*R);}
-  kp.closePath();sh.holes.push(kp);
-  var pgeo=new THREE.ExtrudeGeometry(sh,{depth:zF-zB,bevelEnabled:false,steps:1,curveSegments:6});pgeo.translate(0,0,zB);pgeo.scale(sc,sc,sc);pgeo.computeVertexNormals();
+  kp.closePath();if(cy-R>-plH/2+8)sh.holes.push(kp);
+  var pgeo=new THREE.ExtrudeGeometry(sh,{depth:zF-zB,bevelEnabled:false,steps:1,curveSegments:6});pgeo.translate(0,0,zB);pgeo.computeVertexNormals();
   var pm=new THREE.Mesh(pgeo,mat);pm.userData.exportColor="#1c1c20";grp.add(pm);
-  var sg=FRAME_EXACT.stand.clone();sg.scale(sc,sc,sc);var sm=new THREE.Mesh(sg,mat);sm.userData.exportColor="#1c1c20";grp.add(sm);
+  // stand: uniform-scale so its folded leg spans the plate height (original was designed for a 165mm-tall plate),
+  // then shift in Z so its mounts fuse into the plate back. Uniform scale keeps the print-in-place hinge round.
+  var ss=Math.max(0.55,Math.min(2.4,plH/FRAME_EXACT.OH));
+  var sg=FRAME_EXACT.stand.clone();sg.scale(ss,ss,ss);sg.translate(0,0,(zB+0.3)-8.28*ss);sg.computeVertexNormals();
+  var sm=new THREE.Mesh(sg,mat);sm.userData.exportColor="#1c1c20";grp.add(sm);
+  return grp;}
+// A slim FRONT BEZEL that snaps onto the back plate with the photo trapped inside: a small front rim overhangs the
+// photo, a perimeter skirt wraps the plate, and inward snap tabs catch behind the plate's back face. Sized to plW×plH.
+function buildFrontBezel(plW,plH,maxT){
+  var mat=new THREE.MeshStandardMaterial({color:"#1c1c20",roughness:0.62,metalness:0,side:THREE.DoubleSide});
+  var grp=new THREE.Group();grp.userData.bezel=true;
+  var clr=0.35,wt=1.6,pX=plW/2,pY=plH/2;
+  var skX=pX+clr,skY=pY+clr,oX=skX+wt,oY=skY+wt;         // skirt inner / outer halves
+  var bd=4.0;var opX=Math.max(6,pX-bd),opY=Math.max(6,pY-bd);   // opening (small border overhanging the photo)
+  var rad=Math.min(7,oX*0.09,oY*0.09);
+  var zPhotoFront=FRAME_EXACT.PLATEZ+(+maxT||3.5)+0.3,rimZ0=zPhotoFront,rimZ1=rimZ0+1.6,skBack=7.4;
+  function ext(shape,d,z){var g=new THREE.ExtrudeGeometry(shape,{depth:d,bevelEnabled:false,steps:1,curveSegments:6});g.translate(0,0,z);g.computeVertexNormals();var m=new THREE.Mesh(g,mat);m.userData.exportColor="#1c1c20";grp.add(m);}
+  var rim=_rrShape(2*oX,2*oY,rad);rim.holes.push(_rrPath(2*opX,2*opY,Math.max(2,rad-wt)));ext(rim,rimZ1-rimZ0,rimZ0);   // front rim
+  var sk=_rrShape(2*oX,2*oY,rad);sk.holes.push(_rrPath(2*skX,2*skY,Math.max(2,rad-wt)));ext(sk,rimZ0-skBack,skBack);   // perimeter skirt
+  // inward snap tabs at the skirt back that hook behind the plate (back face z≈8.0)
+  var hookIn=1.1,tabW=9,tz0=skBack,tz1=8.0,cxT=skX+(wt-hookIn)/2,cyT=skY+(wt-hookIn)/2,tw=wt+hookIn;
+  function box(w,h,cx,cy){var g=new THREE.BoxGeometry(w,h,tz1-tz0);g.translate(cx,cy,(tz0+tz1)/2);var m=new THREE.Mesh(g,mat);m.userData.exportColor="#1c1c20";grp.add(m);}
+  var nY=Math.max(2,Math.round(plH/70));for(var i=0;i<nY;i++){var yy=-pY+ (plH)*(i+1)/(nY+1);box(tw,tabW,cxT,yy);box(tw,tabW,-cxT,yy);}   // left/right edge tabs
+  box(tabW,tw,0,cyT);   // top edge tab (bottom skipped — clear of the fold-out leg)
   return grp;}
 // A repeating relief pattern wrapped around the frame's outer vertical wall, built as ONE closed watertight solid
 // ring (textured outer surface + smooth inner surface tucked into the frame body so the slicer fuses them). The
@@ -4485,11 +4513,9 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
       // Match the uploaded image's ASPECT RATIO (contain-fit within the lid footprint) so it is never stretched.
       var _iw=LITHO1.img.naturalWidth||LITHO1.img.width||1,_ih=LITHO1.img.naturalHeight||LITHO1.img.height||1,_ar=_iw/_ih;
       var _aw=Math.max(20,LW),_ah=Math.max(20,LH),_lW=_aw,_lH=_aw/_ar,_z0=(TT||1)+0.05,_boxMax=LITHO1.maxT;if(_lH>_ah){_lH=_ah;_lW=_ah*_ar;}
-      // Exact picture frame ON: the photo fills the frame's fixed aperture (aspect locked to the frame), scaled with the
-      // user's size box. The plaque then seats near the front opening; the embedded STL supplies everything else.
-      var _exFrame=(LITHO1.frame&&FRAME_EXACT.stand),_exSc=1;
-      if(_exFrame){_exSc=Math.max(0.25,Math.min(4,Math.min(LW/FRAME_EXACT.OW,LH/FRAME_EXACT.OH)));
-        var _pw=110*_exSc,_ph=158*_exSc;_lW=_pw;_lH=_pw/_ar;if(_lH>_ph){_lH=_ph;_lW=_ph*_ar;}}   // photo contain-fit onto the plate face
+      // Picture frame ON: the back plate + snap-on front bezel adapt to the PHOTO's own orientation and size (_lW×_lH
+      // already follow the image aspect above). The plate hugs the photo with a small margin; the bezel wraps the plate.
+      var _exFrame=(LITHO1.frame&&FRAME_EXACT.stand),_plW=_lW+5,_plH=_lH+5;
       if(LITHO1.mode==="cmyk"&&typeof buildCMYKLithophane==="function"){
         // FULL COLOUR: four stacked C/M/Y/W meshes, each its own coloured body → 4 AMS parts on export.
         if(typeof litho1SyncAms==="function")litho1SyncAms();   // AMS palette = the user's CMYW slot mapping, always current at export time
@@ -4507,7 +4533,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           if(_top){m.userData.cmykTop=true;m.userData.matGlow=_matGlow;}
           _cg.add(m);});
         _cg.position.set(0,0,_z0);
-        if(_exFrame){var _bbc=new THREE.Box3().setFromObject(_cg);_cg.position.z+=(_z0+FRAME_EXACT.PLATEZ*_exSc)-_bbc.min.z;}   // mount the photo on the back-plate's front face
+        if(_exFrame){var _bbc=new THREE.Box3().setFromObject(_cg);_cg.position.z+=(_z0+FRAME_EXACT.PLATEZ)-_bbc.min.z;}   // mount the photo on the back-plate's front face
         partList.push({group:_cg,name:"Lithophane CMYK",flip:false,labs:true,litho:true,cmyk:true,color:"#FFFFFF"});
         _boxMax=3.0;
       }else{
@@ -4515,13 +4541,14 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _lmat=lithophaneMaterial(),_lm=new THREE.Mesh(_lgeo,_lmat);
         _lm.userData.lithoUL=_lmat.userData.uLit;_lm.userData.lithoTint=_lmat.userData.uTint;   // driven by the lamp in applyLabsLight
         var _lgrp=new THREE.Group();_lgrp.add(_lm);_lgrp.position.set(0,0,_z0);
-        if(_exFrame){var _bbl=new THREE.Box3().setFromObject(_lgrp);_lgrp.position.z+=(_z0+FRAME_EXACT.PLATEZ*_exSc)-_bbl.min.z;}   // mount the photo on the back-plate's front face
+        if(_exFrame){var _bbl=new THREE.Box3().setFromObject(_lgrp);_lgrp.position.z+=(_z0+FRAME_EXACT.PLATEZ)-_bbl.min.z;}   // mount the photo on the back-plate's front face
         partList.push({group:_lgrp,name:"Lithophane",flip:false,labs:true,litho:true,color:"#FFFFFF"});
       }
       // Housing. Frame ON = the exact user-supplied picture frame (closed back, keyhole hanger + fold-out pin-hinge
       // easel, all in the STL). Frame OFF = the 40mm LED box.
       if(LITHO1.frame){
-        if(_exFrame){var _ef=buildExactFrame(_exSc);if(_ef){_ef.position.set(0,0,_z0);partList.push({group:_ef,name:"Back + stand",flip:false,labs:true,litho:true,color:"#1C1C20"});}}
+        if(_exFrame){var _ef=buildExactFrame(_plW,_plH);if(_ef){_ef.position.set(0,0,_z0);partList.push({group:_ef,name:"Back + stand",flip:false,labs:true,litho:true,color:"#1C1C20"});}
+          if(typeof buildFrontBezel==="function"){var _bz=buildFrontBezel(_plW,_plH,_boxMax);if(_bz){_bz.position.set(0,0,_z0);partList.push({group:_bz,name:"Front bezel",flip:false,labs:true,litho:true,color:"#1C1C20"});}}}
       }
       else if(typeof buildLithophaneBox==="function"){var _box=buildLithophaneBox(_lW,_lH,_boxMax);_box.position.set(0,0,_z0);partList.push({group:_box,name:"Lithophane box (40mm)",flip:false,labs:true,litho:true,color:"#D8D4CC"});}
       window.__labsStandalone=true;
