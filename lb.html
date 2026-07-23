@@ -2283,13 +2283,20 @@ function tlithoStageRender(){var st=document.getElementById("tlitho_stage");if(!
   if(Math.abs((parseFloat(st.style.aspectRatio)||0)-ar)>0.02)st.style.aspectRatio=ar.toFixed(3)+" / 1";
   var svg;
   if(guide&&guide.paths&&guide.paths.length){
-    // EXACT guide — the real cut-out letter outlines, so the photo lines up with the 3D box precisely.
+    // EXACT guide — the real cut-out letters. Dim the surrounding plate and knock the letters OUT of it, so the word
+    // always reads as bright windows on a dark surround (visible over ANY photo), plus a bold cyan outline + dark halo.
     var d=guide.paths.map(function(p){if(!p.length)return "";return "M"+p.map(function(q){return (q.u*1000).toFixed(1)+","+(q.v*vbH).toFixed(1);}).join("L")+"Z";}).join("");
-    svg='<svg viewBox="0 0 1000 '+vbH+'" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5"><path d="'+d+'" fill="rgba(255,255,255,0.12)" fill-rule="evenodd" stroke="rgba(255,255,255,0.85)" stroke-width="'+Math.max(1.4,vbH*0.008).toFixed(1)+'"/></svg>';
+    var sw=Math.max(4,vbH*0.016).toFixed(1),sw2=Math.max(9,vbH*0.038).toFixed(1);
+    svg='<svg viewBox="0 0 1000 '+vbH+'" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:50">'
+      +'<defs><mask id="tlmask"><rect width="1000" height="'+vbH+'" fill="#fff"/><path d="'+d+'" fill="#000" fill-rule="evenodd"/></mask></defs>'
+      +'<rect width="1000" height="'+vbH+'" fill="rgba(6,8,13,0.5)" mask="url(#tlmask)"/>'
+      +'<path d="'+d+'" fill="none" fill-rule="evenodd" stroke="rgba(0,0,0,0.6)" stroke-width="'+sw2+'"/>'
+      +'<path d="'+d+'" fill="none" fill-rule="evenodd" stroke="#1fe0ff" stroke-width="'+sw+'"/></svg>';
   }else{
-    var fs=Math.round(vbH*0.60),ls=Math.max(0,TLITHO.spacing||0)*3.2,sw=Math.max(2,Math.round(fs*0.045));
-    svg='<svg viewBox="0 0 1000 '+vbH+'" preserveAspectRatio="xMidYMid meet" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5">'
-      +'<text x="500" y="'+Math.round(vbH*0.52)+'" text-anchor="middle" dominant-baseline="central" font-family="Arial Black,Impact,sans-serif" font-weight="900" font-size="'+fs+'" letter-spacing="'+ls+'" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.78)" stroke-width="'+sw+'">'+_tlEsc(TLITHO.text)+'</text></svg>';
+    var fs=Math.round(vbH*0.60),ls=Math.max(0,TLITHO.spacing||0)*3.2,sw=Math.max(3,Math.round(fs*0.05)),txt=_tlEsc(TLITHO.text);
+    svg='<svg viewBox="0 0 1000 '+vbH+'" preserveAspectRatio="xMidYMid meet" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:50">'
+      +'<text x="500" y="'+Math.round(vbH*0.52)+'" text-anchor="middle" dominant-baseline="central" font-family="Arial Black,Impact,sans-serif" font-weight="900" font-size="'+fs+'" letter-spacing="'+ls+'" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="'+(sw*2.4).toFixed(0)+'">'+txt+'</text>'
+      +'<text x="500" y="'+Math.round(vbH*0.52)+'" text-anchor="middle" dominant-baseline="central" font-family="Arial Black,Impact,sans-serif" font-weight="900" font-size="'+fs+'" letter-spacing="'+ls+'" fill="none" stroke="#1fe0ff" stroke-width="'+sw+'">'+txt+'</text></svg>';
   }
   var html="";
   (TLITHO.layers||[]).forEach(function(L,i){
