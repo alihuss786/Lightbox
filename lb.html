@@ -909,6 +909,7 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <label class="upfont" style="cursor:pointer">⬆ Add photo(s)<input type="file" accept="image/*" hidden multiple onchange="tlithoAddImages(this)"></label>
       <div class="lbl" style="opacity:.72;font-weight:400;margin:2px 0">Drag a photo to move it, drag its corner to resize. The outlined word shows where the letters reveal each photo.</div>
       <div id="tlitho_stage" style="position:relative;width:100%;aspect-ratio:3 / 1;background:#0a0b0e;border:1px solid var(--line);border-radius:10px;overflow:hidden;touch-action:none;user-select:none"></div>
+      <div id="tlitho_layerlist" style="display:flex;flex-direction:column;gap:8px"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Letter height — <b id="tlitho_hl">40</b> mm <span style="opacity:.6;font-weight:400">(same as Size tab)</span></span><input type="range" id="tlitho_h" min="20" max="400" step="2" value="40" oninput="tlithoHeight(this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Letter spacing (gap) — <b id="tlitho_spl">10</b> mm</span><input type="range" id="tlitho_sp" min="0" max="25" step="1" value="10" oninput="tlithoSpacing(this.value)"></div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Thinnest (white) — <b id="tlitho_minl">0.8</b> mm</span><input type="range" id="tlitho_min" min="0.4" max="2" step="0.1" value="0.8" oninput="tlithoThick('min',this.value)"></div>
@@ -2285,10 +2286,27 @@ function tlithoStageRender(){var st=document.getElementById("tlitho_stage");if(!
     html+='<div class="tllayer" data-id="'+L.id+'" onpointerdown="tlithoDragStart(event,\''+L.id+'\',\'move\')" style="position:absolute;left:'+(L.nx*100).toFixed(2)+'%;top:'+(L.ny*100).toFixed(2)+'%;width:'+(L.nw*100).toFixed(2)+'%;transform:translate(-50%,-50%);cursor:move;z-index:2;touch-action:none">'
       +'<img src="'+L.src+'" draggable="false" style="width:100%;display:block;border-radius:4px;pointer-events:none;box-shadow:0 0 0 1px rgba(255,255,255,.3)">'
       +'<div onpointerdown="event.stopPropagation();event.preventDefault();tlithoRemoveLayer(\''+L.id+'\')" title="Remove" style="position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;background:#e0464b;color:#fff;font:700 13px/1 system-ui;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:4">×</div>'
-      +'<div onpointerdown="tlithoDragStart(event,\''+L.id+'\',\'size\')" title="Resize" style="position:absolute;right:-7px;bottom:-7px;width:16px;height:16px;border-radius:4px;background:var(--acc,#5b8cff);border:2px solid #fff;cursor:nwse-resize;z-index:4;touch-action:none"></div>'
+      +'<div onpointerdown="tlithoDragStart(event,\''+L.id+'\',\'size\')" title="Drag to resize" style="position:absolute;right:-10px;bottom:-10px;width:22px;height:22px;border-radius:5px;background:var(--acc,#5b8cff);border:2px solid #fff;cursor:nwse-resize;z-index:4;touch-action:none;box-shadow:0 1px 4px rgba(0,0,0,.5)"></div>'
       +'</div>';});
   if(!(TLITHO.layers||[]).length)html+='<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8aa;opacity:.7;font-size:13px;text-align:center;padding:0 14px;z-index:1">Add photo(s) above — they’ll appear here to drag and resize behind the letters.</div>';
-  st.innerHTML=svg+html;}
+  st.innerHTML=svg+html;
+  // Per-photo size sliders (an explicit resize control alongside the drag-corner handle).
+  var ll=document.getElementById("tlitho_layerlist");if(ll){var lh="";
+    (TLITHO.layers||[]).forEach(function(L,i){var pct=Math.round(L.nw*100);
+      lh+='<div class="row" style="align-items:center;gap:9px">'
+        +'<div style="width:38px;height:38px;flex:0 0 auto;border-radius:8px;border:1px solid var(--line);background:#0a0b0e center/cover no-repeat;background-image:url('+L.src+')"></div>'
+        +'<div style="flex:1;display:flex;flex-direction:column;gap:3px">'
+          +'<span class="lbl" style="font-weight:400;opacity:.7;font-size:12px">Photo '+(i+1)+' size — <b>'+pct+'%</b></span>'
+          +'<input type="range" min="5" max="150" step="1" value="'+pct+'" oninput="tlithoLayerSize(\''+L.id+'\',this.value,false)" onchange="tlithoLayerSize(\''+L.id+'\',this.value,true)">'
+        +'</div>'
+        +'<div onclick="tlithoRemoveLayer(\''+L.id+'\')" title="Remove" style="flex:0 0 auto;width:26px;height:26px;border-radius:6px;background:#e0464b22;color:#e0464b;font:700 15px/1 system-ui;display:flex;align-items:center;justify-content:center;cursor:pointer">×</div>'
+        +'</div>';});
+    ll.innerHTML=lh;}}
+// Resize a photo from its slider — live-update the on-stage node width, and rebuild the model when released.
+function tlithoLayerSize(id,val,commit){var L=(TLITHO.layers||[]).filter(function(x){return x.id===id;})[0];if(!L)return;
+  L.nw=Math.max(0.05,Math.min(2.5,(+val||100)/100));
+  var node=document.querySelector('.tllayer[data-id="'+id+'"]');if(node)node.style.width=(L.nw*100).toFixed(2)+"%";
+  if(commit&&typeof scheduleBuild==="function")scheduleBuild();}
 var _tlDrag=null;
 function tlithoDragStart(e,id,mode){e.preventDefault();e.stopPropagation();var L=(TLITHO.layers||[]).filter(function(x){return x.id===id;})[0];if(!L)return;
   var st=document.getElementById("tlitho_stage"),r=st.getBoundingClientRect();
@@ -2298,7 +2316,7 @@ function tlithoDragMove(e){if(!_tlDrag)return;var L=(TLITHO.layers||[]).filter(f
   var dx=e.clientX-_tlDrag.sx,dy=e.clientY-_tlDrag.sy,node=document.querySelector('.tllayer[data-id="'+_tlDrag.id+'"]');if(!node)return;
   if(_tlDrag.mode==="move"){L.nx=Math.max(0,Math.min(1,_tlDrag.nx+dx/_tlDrag.W));L.ny=Math.max(0,Math.min(1,_tlDrag.ny+dy/_tlDrag.H));node.style.left=(L.nx*100).toFixed(2)+"%";node.style.top=(L.ny*100).toFixed(2)+"%";}
   else{L.nw=Math.max(0.05,Math.min(2.5,_tlDrag.nw+dx/_tlDrag.W));node.style.width=(L.nw*100).toFixed(2)+"%";}}
-function tlithoDragEnd(){window.removeEventListener("pointermove",tlithoDragMove);window.removeEventListener("pointerup",tlithoDragEnd);if(_tlDrag){_tlDrag=null;if(typeof scheduleBuild==="function")scheduleBuild();}}
+function tlithoDragEnd(){window.removeEventListener("pointermove",tlithoDragMove);window.removeEventListener("pointerup",tlithoDragEnd);if(_tlDrag){var wasSize=_tlDrag.mode==="size";_tlDrag=null;if(wasSize)tlithoStageRender();if(typeof scheduleBuild==="function")scheduleBuild();}}
 // Composite every placed photo onto a white lithophane canvas at the panel's aspect (white = bright glow where empty).
 function _tlithoComposite(LW,LH){var k=8,px=Math.max(240,Math.round(LW*k)),py=Math.max(120,Math.round(LH*k));
   var cv=document.createElement("canvas");cv.width=px;cv.height=py;var c=cv.getContext("2d");c.fillStyle="#ffffff";c.fillRect(0,0,px,py);
