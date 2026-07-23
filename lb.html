@@ -918,6 +918,8 @@ body.plates-mode #lightPill,body.plates-mode #rgbPill{display:none!important}
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="lbl">Contrast / gamma — <b id="tlitho_conl">1.0</b>×</span><input type="range" id="tlitho_con" min="0.5" max="2.5" step="0.05" value="1" oninput="tlithoContrast(this.value)"></div>
       <div class="hint"><b>Auto-balance</b> reads the photo's histogram and sets a good starting depth in one click — then fine-tune with the slider. Turn the lamp on to preview it live.</div>
       <div class="toggle-row"><span class="lbl">Invert (light ⟷ dark)</span><div class="tg" id="tg_tlitho_inv" onclick="tlithoInvert()"><div class="k"></div></div></div>
+      <div class="toggle-row"><span class="lbl">🔌 USB-C module slot</span><div class="tg on" id="tg_tlitho_usb" onclick="tlithoUsb()"><div class="k"></div></div></div>
+      <div class="hint">Cuts a <b>USB-C port</b> in the back plate with an internal cradle for the same 10.2mm breakout board as the picture frame — plug an LED strip in and it glows. Deepens the box a little to fit the board behind the lithophane.</div>
       <div class="hint">Lithophanes are always <b>white</b> — the photo reads through thickness when the lamp is on. Turn the lamp on to preview the glow. Each letter is watertight and exports cleanly to your .3mf pipeline.</div>
     </div>
   </div>
@@ -2110,7 +2112,7 @@ var FRAME_TEX=[{id:"none",name:"Plain"},{id:"container",name:"Fluted"},{id:"knur
 // Shadow Lightbox auto-tracer: posterise a photo into 4 tonal bands → smoothed vector plates → 4 stacked bodies.
 var SHTRACE={on:false,img:null,src:null,widthMm:110,thickness:0.8,gap:5,smooth:1.8,frame:5,cavity:30};
 // Text Lithophane: photo relief mapped onto glyph front faces. mode span|perletter, assembly separate|fused.
-var TLITHO={text:"LOVE",mode:"span",img:null,src:null,perImgs:{},layers:[],height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,back:2,spacing:10,font:null};
+var TLITHO={text:"LOVE",mode:"span",img:null,src:null,perImgs:{},layers:[],height:40,minT:0.8,maxT:3.0,invert:false,contrast:1.0,gamma:1.0,quality:"standard",frame:true,wall:2,back:2,spacing:10,font:null,usb:true};
 function buildLithophaneGeometry(img,opts){
   opts=opts||{};
   var W=+opts.widthMm||60,Ht=+opts.heightMm||60;
@@ -2345,6 +2347,7 @@ function tlithoBack(v){TLITHO.back=Math.max(1,Math.min(8,+v||2));var l=document.
 function tlithoSpacing(v){TLITHO.spacing=Math.max(0,Math.min(25,+v||8));var l=document.getElementById("tlitho_spl");if(l)l.textContent=Math.round(TLITHO.spacing);window.__tlGuide=null;if(typeof tlithoStageRender==="function")tlithoStageRender();if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoContrast(v){TLITHO.contrast=Math.max(0.5,Math.min(2.5,+v||1));var l=document.getElementById("tlitho_conl");if(l)l.textContent=TLITHO.contrast.toFixed(2);if(typeof scheduleBuild==="function")scheduleBuild();}
 function tlithoInvert(){TLITHO.invert=!TLITHO.invert;var t=document.getElementById("tg_tlitho_inv");if(t)t.classList.toggle("on",TLITHO.invert);if(typeof scheduleBuild==="function")scheduleBuild();}
+function tlithoUsb(){TLITHO.usb=!TLITHO.usb;var t=document.getElementById("tg_tlitho_usb");if(t)t.classList.toggle("on",TLITHO.usb);if(typeof scheduleBuild==="function")scheduleBuild();}
 function onTlithoFontUpload(input){var f=input&&input.files&&input.files[0];if(!f)return;var rd=new FileReader();
   rd.onload=function(ev){try{var otf=opentype.parse(ev.target.result);var nm=(f.name.replace(/\.(ttf|otf)$/i,"").trim().slice(0,18))||"Custom",id="tlf-"+Date.now();otCache[id]=otf;TLITHO.font={url:id,name:nm};
     var h=document.getElementById("tlitho_fontHint");if(h)h.innerHTML='Using <b>'+nm.replace(/</g,"&lt;")+'</b>. <a href="#" onclick="tlithoFontClear();return false" style="color:var(--acc)">Reset to default</a>.';
@@ -4696,8 +4699,10 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _mgn=Math.max(7,TLITHO.height*0.30);                                       // border from the letters to the plate edge
         var _PW=_pb.w+2*_mgn,_PH=_pb.h+2*_mgn;                                          // footprint of the plate AND the box
         var _wall=Math.max(1.5,TLITHO.wall||2),_back=Math.max(1.2,TLITHO.back||2);      // box wall + back thickness (from Size tab)
-        var _frontT=2.2,_cav=14,_ledge=1.6,_ledgeT=1.2,_tol=0.4;                        // front-plate thickness, LED cavity depth, litho ledge
-        var _maxT=TLITHO.maxT,_rad=Math.min(7,_PW*0.06,_PH*0.06),_rad2=Math.max(1,_rad-_wall);
+        var _usb=(TLITHO.usb!==false),_pLen=16.3+0.5,_maxT=TLITHO.maxT;                 // USB-C breakout board length (same module as the picture frame)
+        var _frontT=2.2,_ledge=1.6,_ledgeT=1.2,_tol=0.4;                                // front-plate thickness, litho ledge
+        var _cav=_usb?Math.max(14,_pLen+_maxT+1):14;                                    // deepen the LED cavity so the USB-C board seats fully BEHIND the lithophane
+        var _rad=Math.min(7,_PW*0.06,_PH*0.06),_rad2=Math.max(1,_rad-_wall);
         var _IW=_PW-2*_wall,_IH=_PH-2*_wall;                                            // inner cavity opening
         // Publish the REAL cut-out letter outlines (normalised to the lithophane panel) to the drag/resize composer,
         // so its on-screen word guide is the exact geometry the photo shows through — placement matches the 3D box.
@@ -4734,6 +4739,11 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
             if(_mnt.wall.on)_keyholeGroupPaths(_mnt.wall.x,_mnt.wall.y,_mnt.wall.count,_ksp).forEach(function(p){_backHoles.push(p);});
             if(_mnt.power.on)_powerPaths(_mnt.power.x,_mnt.power.y,_mnt.power.shape).forEach(function(p){_backHoles.push(p);});
             if(!_backHoles.length)_backHoles=null;}
+          // USB-C PORT: a rounded window through the back plate at the bottom-centre — the breakout board's connector
+          // sits over it (same module + clearances as the picture frame) so a cable plugs into the back.
+          if(_usb){var _Uc=FRAME_EXACT.USB,_uW=_Uc.connW+2*_Uc.clr,_uH=_Uc.connH+2*_Uc.clr,_ucy=-_PH/2+_wall+2+_uH/2;
+            var _ups=_rrShape(_uW,_uH,1.0).getPoints(6).map(function(q){return {X:Math.round(q.x*S),Y:Math.round((q.y+_ucy)*S)};});
+            _backHoles=_backHoles||[];_backHoles.push(_ups);}
           var _bpShapes=(_backHoles&&_backHoles.length)?diffToShapes([_rectPts],_backHoles,0.3):[_rrShape(_PW,_PH,_rad)];
           var _bg=new THREE.ExtrudeGeometry(_bpShapes,{depth:_back,bevelEnabled:false,curveSegments:4});_bg.computeVertexNormals();
           _boxG.add(function(){var m=new THREE.Mesh(_bg,_fmat);m.userData.exportColor=_dark;return m;}());
@@ -4745,6 +4755,12 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           var _ldShape=_rrShape(_IW,_IH,_rad2);_ldShape.holes.push(_rrPath(Math.max(2,_IW-2*_ledge),Math.max(2,_IH-2*_ledge),Math.max(0.8,_rad2-_ledge)));
           var _ldg=new THREE.ExtrudeGeometry([_ldShape],{depth:_ledgeT,bevelEnabled:false,curveSegments:4});_ldg.translate(0,0,_back+_cav-_maxT-_ledgeT);_ldg.computeVertexNormals();
           _boxG.add(function(){var m=new THREE.Mesh(_ldg,_fmat);m.userData.exportColor=_dark;return m;}());
+          // USB-C BOARD POCKET: a low floor + two side rails at the cavity bottom, connector end over the port, board
+          // extending FORWARD (stays behind the lithophane). Same cradle as the picture frame's breakout-board pocket.
+          if(_usb){var _U=FRAME_EXACT.USB,_brW=_U.boardW+0.6,_fY=-_IH/2+3,_bY=_fY+1.4;
+            var _pbox=function(w,h,d,cx,cy){var g=new THREE.BoxGeometry(w,h,d);g.translate(cx,cy,_back+d/2);var m=new THREE.Mesh(g,_fmat);m.userData.exportColor=_dark;_boxG.add(m);};
+            _pbox(_brW+2.4,1.4,_pLen,0,_fY);                                            // floor the board rests on
+            _pbox(1.2,3,_pLen,-(_brW/2+0.6),_bY);_pbox(1.2,3,_pLen,(_brW/2+0.6),_bY);}   // side guide rails
           _boxG.position.set(0,0,_tz0);
           partList.push({group:_boxG,name:"Lightbox",flip:false,labs:true,tlitho:true,color:_dark});_built=true;
         }catch(e){}
