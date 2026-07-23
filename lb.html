@@ -4738,7 +4738,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         // Letter-hole offsets: the LID holes are a touch bigger (clearance so the bosses drop through), the PLATE holes a
         // touch smaller (so the bosses overlap and fuse to the plate). The bosses themselves are the true letter outline.
         var _letD=_letC,_letI=_letC;try{var _dd=off(_letC,_ptol);if(_dd&&_dd.length)_letD=_dd;}catch(e){}try{var _ii=off(_letC,-0.2);if(_ii&&_ii.length)_letI=_ii;}catch(e){}
-        var _lidW=_LW-2*_tol,_lidH=_LH-2*_tol,_radL=Math.max(1,_rad2-_tol);
+        var _lidW=_IW-2*_ptol,_lidH=_IH-2*_ptol,_radL=Math.max(1,_rad2-_ptol);          // lid FILLS the wall opening (only a thin drop-in seam), so no gap shows around it
         var _lidPts=_rrShape(_lidW,_lidH,_radL).getPoints(6).map(function(p){return {X:Math.round(p.x*S),Y:Math.round(p.y*S)};});
         // ===== PART 1 — LID: the dark surround + the letter CENTRES, with the strokes knocked out. It drops into the
         // lithophane pocket and finishes flush with the raised lithophane letters. =====
@@ -4761,7 +4761,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           if(_bg){_bg.translate(0,0,_zF-_maxT);_lgrp.add(_litMesh(_bg));}
           // pocket-floor plate — full lithophane rect with the letter strokes knocked out (centres stay as islands the lid
           // centres rest on; strokes are open so light reaches the bosses). Top face = the pocket floor the lid drops onto.
-          var _pfPts=_rrShape(_LW,_LH,_rad2).getPoints(6).map(function(p){return {X:Math.round(p.x*S),Y:Math.round(p.y*S)};});
+          var _pfPts=_rrShape(_IW-2*_ptol,_IH-2*_ptol,Math.max(1,_rad2-_ptol)).getPoints(6).map(function(p){return {X:Math.round(p.x*S),Y:Math.round(p.y*S)};});   // plate = lid footprint, tucked under it (no white showing around the lid)
           var _pfShapes=diffToShapes([_pfPts],_letI,0.3);
           if(_pfShapes&&_pfShapes.length){var _pfg=new THREE.ExtrudeGeometry(_pfShapes,{depth:_pfT,bevelEnabled:false,curveSegments:4});_pfg.translate(0,0,_zPF-_pfT);_pfg.computeVertexNormals();_lgrp.add(_litMesh(_pfg));}
           if(_lgrp.children.length){_lgrp.position.set(0,0,_tz0);partList.push({group:_lgrp,name:"Lithophane",flip:false,labs:true,tlitho:true,litho:true,color:"#FFFFFF"});_built=true;}
