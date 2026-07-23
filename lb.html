@@ -4719,11 +4719,14 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _mgn=Math.max(7,TLITHO.height*0.30);                                       // border from the letters to the plate edge
         var _PW=_pb.w+2*_mgn,_PH=_pb.h+2*_mgn;                                          // footprint of the plate AND the box
         var _wall=Math.max(1.5,TLITHO.wall||2),_back=Math.max(1.2,TLITHO.back||2);      // box wall + back thickness (from Size tab)
-        var _usb=(TLITHO.usb!==false),_pLen=16.3+0.5,_maxT=TLITHO.maxT,_clrF=0.0;       // USB-C board length; _clrF=0 → lithophane meets the lid so it backs/holds the floating letter centres
-        var _frontT=2.2,_ledge=1.6,_ledgeT=1.2,_tol=0.4;                                // front-plate thickness, litho ledge
-        var _cav=_usb?Math.max(14,_pLen+_maxT+_clrF+1):14;                              // deepen the LED cavity so the USB-C board seats fully BEHIND the lithophane
+        var _usb=(TLITHO.usb!==false),_pLen=16.3+0.5,_maxT=TLITHO.maxT,_minT=TLITHO.minT;
+        var _pfT=1.6,_ledge=1.6,_ledgeT=1.2,_tol=0.4,_ptol=0.3;                         // pocket-floor plate thickness; ledge; drop-in clearances
+        var _frontT=Math.min(2.0,Math.max(1.0,_maxT-0.4));                              // lid thickness (≤ relief so the letter bosses reach the pocket-floor plate)
+        var _cav=_usb?Math.max(13,_pLen+1.5):13;                                        // LED cavity / USB board space BEHIND the pocket-floor plate
         var _rad=Math.min(7,_PW*0.06,_PH*0.06),_rad2=Math.max(1,_rad-_wall);
         var _IW=_PW-2*_wall,_IH=_PH-2*_wall;                                            // inner cavity opening
+        var _LW=_IW-_tol,_LH=_IH-_tol;                                                  // lithophane footprint (drops inside the walls)
+        var _zPF=_back+_cav+_pfT,_zF=_back+_cav+_pfT+_frontT;                            // pocket-floor plane; front plane (lid top = letter peaks = wall top, all flush)
         // Publish the REAL cut-out letter outlines (normalised to the lithophane panel) to the drag/resize composer,
         // so its on-screen word guide is the exact geometry the photo shows through — placement matches the 3D box.
         try{var _gp=_letC.map(function(p){return p.map(function(pt){return {u:0.5+(pt.X/S)/_IW,v:0.5-(pt.Y/S)/_IH};});});
@@ -4732,38 +4735,36 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         var _fmat=new THREE.MeshStandardMaterial({color:_dark,roughness:0.55,metalness:0,side:THREE.DoubleSide});
         var _rectShape=_rrShape(_PW,_PH,_rad);
         var _rectPts=_rectShape.getPoints(6).map(function(p){return {X:Math.round(p.x*S),Y:Math.round(p.y*S)};});
-        // The front plate RECESSES into a raised rim so it ends up flush with the box top (flush front) while the outer
-        // wall runs the full depth (flush sides). _rimW = rim lip, _ptol = drop-in clearance, _sh = plate rest shoulder.
-        var _rimW=Math.min(Math.max(0.9,_wall*0.5),1.3),_ptol=0.35;
-        var _PLW=_PW-2*_rimW-2*_ptol,_PLH=_PH-2*_rimW-2*_ptol,_radP=Math.max(1,_rad-_rimW-_ptol);
-        var _platePts=_rrShape(_PLW,_PLH,_radP).getPoints(6).map(function(p){return {X:Math.round(p.x*S),Y:Math.round(p.y*S)};});
-        // ===== PART 1 — FRONT PLATE: rounded rectangle (recessed size) with the word knocked out (counters = islands). =====
-        try{var _plateShapes=diffToShapes([_platePts],_letC,0.35);
-          if(_plateShapes&&_plateShapes.length){
-            var _pg=new THREE.ExtrudeGeometry(_plateShapes,{depth:_frontT,bevelEnabled:false,curveSegments:4});
-            _pg.translate(0,0,_back+_cav);_pg.computeVertexNormals();
+        // Letter-hole offsets: the LID holes are a touch bigger (clearance so the bosses drop through), the PLATE holes a
+        // touch smaller (so the bosses overlap and fuse to the plate). The bosses themselves are the true letter outline.
+        var _letD=_letC,_letI=_letC;try{var _dd=off(_letC,_ptol);if(_dd&&_dd.length)_letD=_dd;}catch(e){}try{var _ii=off(_letC,-0.2);if(_ii&&_ii.length)_letI=_ii;}catch(e){}
+        var _lidW=_LW-2*_tol,_lidH=_LH-2*_tol,_radL=Math.max(1,_rad2-_tol);
+        var _lidPts=_rrShape(_lidW,_lidH,_radL).getPoints(6).map(function(p){return {X:Math.round(p.x*S),Y:Math.round(p.y*S)};});
+        // ===== PART 1 — LID: the dark surround + the letter CENTRES, with the strokes knocked out. It drops into the
+        // lithophane pocket and finishes flush with the raised lithophane letters. =====
+        try{var _lidShapes=diffToShapes([_lidPts],_letD,0.3);
+          if(_lidShapes&&_lidShapes.length){
+            var _pg=new THREE.ExtrudeGeometry(_lidShapes,{depth:_frontT,bevelEnabled:false,curveSegments:4});
+            _pg.translate(0,0,_zPF);_pg.computeVertexNormals();
             var _pm=new THREE.Mesh(_pg,_fmat);_pm.userData.exportColor=_dark;
             var _pgrp=new THREE.Group();_pgrp.add(_pm);_pgrp.position.set(0,0,_tz0);
-            partList.push({group:_pgrp,name:"Front plate",flip:false,labs:true,tlitho:true,color:_dark});_built=true;}
+            partList.push({group:_pgrp,name:"Lid",flip:false,labs:true,tlitho:true,color:_dark});_built=true;}
         }catch(e){}
-        // ===== PART 2 — LITHOPHANE: a thin flat photo panel that drops into the cavity, front face flush with the wall top. =====
-        try{var _LW=_IW-_tol,_LH=_IH-_tol;
-          var _comp=_tlithoComposite(_LW,_LH);                                          // all placed photos composited onto one white panel
-          // Letter-centre (counter) support: paint the glyph HOLES black on the composite so the lithophane there is
-          // thick + proud (a flat pad up at the lid plane) that backs each floating letter centre. Hidden behind the
-          // opaque centre, so it only adds support — no visual change to the glowing strokes.
-          try{var _ccx=_comp.getContext("2d"),_ccw=_comp.width,_cch=_comp.height,_car=_letC.map(function(p){return ClipperLib.Clipper.Area(p);});
-            var _cmi=0,_ck;for(_ck=1;_ck<_letC.length;_ck++)if(Math.abs(_car[_ck])>Math.abs(_car[_cmi]))_cmi=_ck;var _cosg=_car[_cmi]>=0?1:-1;
-            _ccx.fillStyle="#000";_letC.forEach(function(p,_k){if(!p.length||(_car[_k]>=0?1:-1)===_cosg)return;_ccx.beginPath();p.forEach(function(pt,pi){var X=(pt.X/S+_LW/2)/_LW*_ccw,Y=(_LH/2-pt.Y/S)/_LH*_cch;if(pi===0)_ccx.moveTo(X,Y);else _ccx.lineTo(X,Y);});_ccx.closePath();_ccx.fill();});
-          }catch(e){}
-          var _lgeo=buildLithophaneGeometry(_comp,{widthMm:_LW,heightMm:_LH,minThickness:TLITHO.minT,maxThickness:_maxT,maxRes:400,invert:TLITHO.invert,contrast:TLITHO.contrast,gamma:TLITHO.gamma});
-          // Relief faces FORWARD so the texture is visible through the letters, recessed by _clrF so the bumps clear the
-          // flat front plate; the flat back faces the cavity and rests on the ledge.
-          _lgeo.translate(0,0,_back+_cav-_clrF-_maxT);                                  // relief peaks stop _clrF behind the plate; flat back on the ledge
-          var _lmat=lithophaneMaterial(),_lm=new THREE.Mesh(_lgeo,_lmat);
-          _lm.userData.lithoUL=_lmat.userData.uLit;_lm.userData.lithoTint=_lmat.userData.uTint;   // driven by the lamp in applyLabsLight
-          var _lgrp=new THREE.Group();_lgrp.add(_lm);_lgrp.position.set(0,0,_tz0);
-          partList.push({group:_lgrp,name:"Lithophane",flip:false,labs:true,tlitho:true,litho:true,color:"#FFFFFF"});_built=true;
+        // ===== PART 2 — LITHOPHANE: raised photo-relief LETTERS that protrude flush into the openings, sitting on a
+        // pocket-floor plate that forms the lid pocket everywhere else AND holds the lid + the floating letter centres. =====
+        try{var _comp=_tlithoComposite(_LW,_LH);                                        // all placed photos composited onto one white panel
+          var _uv={x0:-_LW/2,y0:-_LH/2,w:_LW,h:_LH},_qCell=({draft:0.35,standard:0.2,fine:0.13}[TLITHO.quality]||0.2);
+          var _lgrp=new THREE.Group();
+          function _litMesh(g){var m=lithophaneMaterial(),mh=new THREE.Mesh(g,m);mh.userData.lithoUL=m.userData.uLit;mh.userData.lithoTint=m.userData.uTint;mh.userData.exportColor="#FFFFFF";return mh;}
+          // raised letter bosses — the photo relief clipped to the letter strokes, peaks flush with the front (_zF)
+          var _bg=buildGlyphLithophane(_letC,_comp,{minThickness:_minT,maxThickness:_maxT,invert:TLITHO.invert,contrast:TLITHO.contrast,gamma:TLITHO.gamma,uvRect:_uv,targetCell:_qCell,capCells:560,center:false});
+          if(_bg){_bg.translate(0,0,_zF-_maxT);_lgrp.add(_litMesh(_bg));}
+          // pocket-floor plate — full lithophane rect with the letter strokes knocked out (centres stay as islands the lid
+          // centres rest on; strokes are open so light reaches the bosses). Top face = the pocket floor the lid drops onto.
+          var _pfPts=_rrShape(_LW,_LH,_rad2).getPoints(6).map(function(p){return {X:Math.round(p.x*S),Y:Math.round(p.y*S)};});
+          var _pfShapes=diffToShapes([_pfPts],_letI,0.3);
+          if(_pfShapes&&_pfShapes.length){var _pfg=new THREE.ExtrudeGeometry(_pfShapes,{depth:_pfT,bevelEnabled:false,curveSegments:4});_pfg.translate(0,0,_zPF-_pfT);_pfg.computeVertexNormals();_lgrp.add(_litMesh(_pfg));}
+          if(_lgrp.children.length){_lgrp.position.set(0,0,_tz0);partList.push({group:_lgrp,name:"Lithophane",flip:false,labs:true,tlitho:true,litho:true,color:"#FFFFFF"});_built=true;}
         }catch(e){}
         // ===== PART 3 — LIGHTBOX: back plate + perimeter walls (LED cavity) + an inner ledge the lithophane rests on. =====
         try{var _boxG=new THREE.Group();
@@ -4781,19 +4782,13 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           var _bpShapes=(_backHoles&&_backHoles.length)?diffToShapes([_rectPts],_backHoles,0.3):[_rrShape(_PW,_PH,_rad)];
           var _bg=new THREE.ExtrudeGeometry(_bpShapes,{depth:_back,bevelEnabled:false,curveSegments:4});_bg.computeVertexNormals();
           _boxG.add(function(){var m=new THREE.Mesh(_bg,_fmat);m.userData.exportColor=_dark;return m;}());
-          // perimeter cavity walls (inner opening = LED cavity)
+          // perimeter walls run the FULL depth to the front (flush sides); inner opening = LED cavity + pocket
           var _wsShape=_rrShape(_PW,_PH,_rad);_wsShape.holes.push(_rrPath(_IW,_IH,_rad2));
-          var _wg=new THREE.ExtrudeGeometry([_wsShape],{depth:_cav,bevelEnabled:false,curveSegments:4});_wg.translate(0,0,_back);_wg.computeVertexNormals();
+          var _wg=new THREE.ExtrudeGeometry([_wsShape],{depth:_zF-_back,bevelEnabled:false,curveSegments:4});_wg.translate(0,0,_back);_wg.computeVertexNormals();
           _boxG.add(function(){var m=new THREE.Mesh(_wg,_fmat);m.userData.exportColor=_dark;return m;}());
-          // raised RIM the front plate recesses into — outer wall continues to the full front (flush sides), leaving a
-          // shoulder (top of the cavity wall) for the plate to rest on so its face finishes flush with the box top.
-          var _RW=_PW-2*_rimW,_RH=_PH-2*_rimW,_radR=Math.max(1,_rad-_rimW);
-          var _rmShape=_rrShape(_PW,_PH,_rad);_rmShape.holes.push(_rrPath(_RW,_RH,_radR));
-          var _rmg=new THREE.ExtrudeGeometry([_rmShape],{depth:_frontT,bevelEnabled:false,curveSegments:4});_rmg.translate(0,0,_back+_cav);_rmg.computeVertexNormals();
-          _boxG.add(function(){var m=new THREE.Mesh(_rmg,_fmat);m.userData.exportColor=_dark;return m;}());
-          // inner ledge — a thin inward lip directly behind the lithophane so it can't fall into the cavity
+          // inner ledge — a thin inward lip the lithophane pocket-floor plate rests on so it can't fall into the cavity
           var _ldShape=_rrShape(_IW,_IH,_rad2);_ldShape.holes.push(_rrPath(Math.max(2,_IW-2*_ledge),Math.max(2,_IH-2*_ledge),Math.max(0.8,_rad2-_ledge)));
-          var _ldg=new THREE.ExtrudeGeometry([_ldShape],{depth:_ledgeT,bevelEnabled:false,curveSegments:4});_ldg.translate(0,0,_back+_cav-_clrF-_maxT-_ledgeT);_ldg.computeVertexNormals();
+          var _ldg=new THREE.ExtrudeGeometry([_ldShape],{depth:_ledgeT,bevelEnabled:false,curveSegments:4});_ldg.translate(0,0,_back+_cav-_ledgeT);_ldg.computeVertexNormals();
           _boxG.add(function(){var m=new THREE.Mesh(_ldg,_fmat);m.userData.exportColor=_dark;return m;}());
           // USB-C BOARD POCKET: a low floor + two side rails at the cavity bottom, connector end over the port, board
           // extending FORWARD (stays behind the lithophane). Same cradle as the picture frame's breakout-board pocket.
