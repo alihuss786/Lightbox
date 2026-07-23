@@ -4743,7 +4743,10 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         try{var _LW=_IW-_tol,_LH=_IH-_tol;
           var _comp=_tlithoComposite(_LW,_LH);                                          // all placed photos composited onto one white panel
           var _lgeo=buildLithophaneGeometry(_comp,{widthMm:_LW,heightMm:_LH,minThickness:TLITHO.minT,maxThickness:_maxT,maxRes:400,invert:TLITHO.invert,contrast:TLITHO.contrast,gamma:TLITHO.gamma});
-          _lgeo.translate(0,0,_back+_cav-_maxT);                                        // flat back on the ledge, relief toward the front plate
+          // Orient the lithophane FLAT face FORWARD so it seats flush against the flat-backed front plate, with the
+          // relief facing BACK into the LED cavity (correct lithophane orientation + a perfect flat-on-flat joint).
+          _lgeo.scale(1,1,-1);var _lix=_lgeo.index;if(_lix){var _la=_lix.array;for(var _t=0;_t<_la.length;_t+=3){var _tmp=_la[_t+1];_la[_t+1]=_la[_t+2];_la[_t+2]=_tmp;}_lix.needsUpdate=true;}_lgeo.computeVertexNormals();
+          _lgeo.translate(0,0,_back+_cav);                                              // flat face flush with the wall top / plate back; relief recedes into the cavity
           var _lmat=lithophaneMaterial(),_lm=new THREE.Mesh(_lgeo,_lmat);
           _lm.userData.lithoUL=_lmat.userData.uLit;_lm.userData.lithoTint=_lmat.userData.uTint;   // driven by the lamp in applyLabsLight
           var _lgrp=new THREE.Group();_lgrp.add(_lm);_lgrp.position.set(0,0,_tz0);
