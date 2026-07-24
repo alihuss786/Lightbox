@@ -4797,6 +4797,14 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           // raised letter bosses — the photo relief clipped to the letter strokes, peaks flush with the front (_zF)
           var _bg=buildGlyphLithophane(_letC,_comp,{minThickness:_minT,maxThickness:_maxT,invert:TLITHO.invert,contrast:TLITHO.contrast,gamma:TLITHO.gamma,uvRect:_uv,targetCell:_qCell,capCells:1500,center:false});   // raised cap so the fine cell size is honoured across a wide word
           if(_bg){_bg.translate(0,0,_zF-_maxT);_lgrp.add(_litMesh(_bg));}
+          // FLAT-BACK pedestal: the relief bosses' flat backs sit _pedH above the pocket-floor plate bottom, so the back
+          // face would have a letter-shaped recess at every letter (needs supports). Fill that gap with a solid letter-shaped
+          // riser from the floor-plate bottom up to the boss back, so the ENTIRE back is one flat plane (prints flat, no
+          // supports). Counters (O/e/a holes) stay open via nesting; the textured FRONT is untouched.
+          var _pedH=(_zF-_maxT)-(_zPF-_pfT);
+          if(_pedH>0.05){try{var _pedShapes=diffToShapes(_letC,[],0.1);
+            if(_pedShapes&&_pedShapes.length){var _pdg=new THREE.ExtrudeGeometry(_pedShapes,{depth:_pedH,bevelEnabled:false,curveSegments:4});_pdg.translate(0,0,_zPF-_pfT);_pdg.computeVertexNormals();_lgrp.add(_litMesh(_pdg));}
+          }catch(e){}}
           // pocket-floor plate — full lithophane rect with the letter strokes knocked out (centres stay as islands the lid
           // centres rest on; strokes are open so light reaches the bosses). Top face = the pocket floor the lid drops onto.
           var _pfPts=_rrShape(_IW-2*_ptol,_IH-2*_ptol,Math.max(1,_rad2-_ptol)).getPoints(6).map(function(p){return {X:Math.round(p.x*S),Y:Math.round(p.y*S)};});   // plate = lid footprint, tucked under it (no white showing around the lid)
