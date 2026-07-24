@@ -4026,8 +4026,9 @@ function _keyholePaths(cxMM,cyMM){var rC=4.85,wS=4.5,H=17.4,slotH=Math.max(0,H-r
 function _keyholeGroupPaths(cxMM,cyMM,count,spanMM){count=Math.max(1,Math.min(4,count||1));
   if(count<2)return _keyholePaths(cxMM,cyMM);
   var out=[],step=spanMM/(count-1),i;for(i=0;i<count;i++){var x=cxMM-spanMM/2+step*i;_keyholePaths(x,cyMM).forEach(function(p){out.push(p);});}return out;}
-// Power/wiring cutout: USB-C slot (9×4 rounded) or an 8mm circle.
-function _powerPaths(cxMM,cyMM,shape){if(shape==="circle")return [_circPath(cxMM,cyMM,4,48)];return [_roundRectPath(cxMM,cyMM,9,4,2)];}
+// Power/wiring cutout: USB-C connector pill (exact same size as the two lithophane tabs) or an 8mm circle.
+function _powerPaths(cxMM,cyMM,shape){if(shape==="circle")return [_circPath(cxMM,cyMM,4,48)];
+  var U=FRAME_EXACT.USB,uW=U.connW+2*U.clr,uH=U.connH+2*U.clr;return [_roundRectPath(cxMM,cyMM,uW,uH,uH/2)];}
 // Desk-base footprint, centred at the origin. w = width (x), d = depth (y).
 function _baseProfilePaths(shape,w,d){
   if(shape==="pill"){var r=d/2,st=Math.max(0,(w-d)/2),seg=26,p=[],i,a;
