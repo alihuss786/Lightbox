@@ -2500,7 +2500,7 @@ function buildExactFrame(plW,plH){if(!FRAME_EXACT.stand)return null;
   // BOARD POCKET: the board lies flat at the bottom of the cavity with its USB-C connector against the back plate (over
   // the port) and extends FORWARD. It stays BEHIND the photo (pLen < LEDGAP) so nothing pokes out the front. A low
   // floor cradles it and two short side rails guide it in — kept near the cavity bottom so they're barely in the light.
-  var brW=U.boardW+0.6,pLen=16.3+0.5,fY=-wIH/2+3,bY=fY+1.4,rZ=zF;
+  var brW=U.boardW+0.6,pLen=16.3+0.5,fY=-wIH/2+2,bY=fY+1.4,rZ=zF;   // board seat dropped 1mm (from +3) so the on-top connector lines up with the port (owner-measured)
   function box(w,h,d,cx,cy,cz){var g=new THREE.BoxGeometry(w,h,d);g.translate(cx,cy,cz+d/2);var m2=new THREE.Mesh(g,mat);m2.userData.exportColor="#1c1c20";grp.add(m2);}
   box(brW+2.4,1.4,pLen,0,fY,rZ);                                   // floor the board rests on
   box(1.2,3,pLen,-(brW/2+0.6),bY,rZ);box(1.2,3,pLen,(brW/2+0.6),bY,rZ);   // side guide rails
@@ -2512,7 +2512,8 @@ function buildUsbTestPrint(){
   var mat=new THREE.MeshStandardMaterial({color:"#2B2B2B",roughness:0.6,metalness:0,side:THREE.DoubleSide});
   var grp=new THREE.Group();
   var uW=U.connW+2*U.clr,uH=U.connH+2*U.clr;            // port window = connector + clearance (exact, both tabs)
-  var fY=-0.95,bY=fY+1.4,ucy=(fY+0.7)+U.boardT+U.connH/2;   // CENTRE the port on the connector: floor top + 1mm board + half the 3.2mm connector
+  var _fY0=-0.95,ucy=(_fY0+0.7)+U.boardT+U.connH/2;   // port centred on the connector (nominal floor + 1mm board + half the 3.2mm connector)
+  var fY=_fY0-1.0,bY=fY+1.4;                          // drop the board SEAT 1mm: the connector rides proud on top of the board, so lowering the rails brings it down onto the port (owner-measured)
   var plW=brW+2.4+3,plH=plW,rad=2;                      // small square, just big enough to carry the rails
   var sh=_rrShape(plW,plH,rad);
   var ux=uW/2,uy=uH/2,ur=1.0,up=new THREE.Path();
@@ -4827,7 +4828,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           _boxG.add(function(){var m=new THREE.Mesh(_ldg,_fmat);m.userData.exportColor=_dark;return m;}());
           // USB-C BOARD POCKET: a low floor + two side rails at the cavity bottom, connector end over the port, board
           // extending FORWARD (stays behind the lithophane). Same cradle as the picture frame's breakout-board pocket.
-          if(_usb){var _U=FRAME_EXACT.USB,_brW=_U.boardW+0.6,_fY=-_IH/2+3,_bY=_fY+1.4;
+          if(_usb){var _U=FRAME_EXACT.USB,_brW=_U.boardW+0.6,_fY=-_IH/2+2,_bY=_fY+1.4;   // board seat dropped 1mm (from +3) so the on-top connector lines up with the port (owner-measured)
             var _pbox=function(w,h,d,cx,cy){var g=new THREE.BoxGeometry(w,h,d);g.translate(cx,cy,_back+d/2);var m=new THREE.Mesh(g,_fmat);m.userData.exportColor=_dark;_boxG.add(m);};
             _pbox(_brW+2.4,1.4,_pLen,0,_fY);                                            // floor the board rests on
             _pbox(1.2,3,_pLen,-(_brW/2+0.6),_bY);_pbox(1.2,3,_pLen,(_brW/2+0.6),_bY);}   // side guide rails
