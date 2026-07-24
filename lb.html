@@ -2346,7 +2346,7 @@ function tlithoDragMove(e){if(!_tlDrag)return;var L=(TLITHO.layers||[]).filter(f
   else{L.nw=Math.max(0.05,Math.min(2.5,_tlDrag.nw+dx/_tlDrag.W));node.style.width=(L.nw*100).toFixed(2)+"%";}}
 function tlithoDragEnd(){window.removeEventListener("pointermove",tlithoDragMove);window.removeEventListener("pointerup",tlithoDragEnd);if(_tlDrag){var wasSize=_tlDrag.mode==="size";_tlDrag=null;if(wasSize)tlithoStageRender();if(typeof scheduleBuild==="function")scheduleBuild();}}
 // Composite every placed photo onto a white lithophane canvas at the panel's aspect (white = bright glow where empty).
-function _tlithoComposite(LW,LH){var k=8,px=Math.max(240,Math.round(LW*k)),py=Math.max(120,Math.round(LH*k));
+function _tlithoComposite(LW,LH){var k=11,px=Math.max(240,Math.round(LW*k)),py=Math.max(120,Math.round(LH*k));   // ~0.09mm/px so the composite feeds the fine relief mesh with detail
   var cv=document.createElement("canvas");cv.width=px;cv.height=py;var c=cv.getContext("2d");c.fillStyle="#ffffff";c.fillRect(0,0,px,py);
   (TLITHO.layers||[]).forEach(function(L){if(!L.img)return;var iw=L.img.naturalWidth||L.img.width||1,ih=L.img.naturalHeight||L.img.height||1,w=L.nw*px,h=w*(ih/iw);
     try{c.drawImage(L.img,L.nx*px-w/2,L.ny*py-h/2,w,h);}catch(e){}});
@@ -4788,11 +4788,11 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
         // ===== PART 2 — LITHOPHANE: raised photo-relief LETTERS that protrude flush into the openings, sitting on a
         // pocket-floor plate that forms the lid pocket everywhere else AND holds the lid + the floating letter centres. =====
         try{var _comp=_tlithoComposite(_LW,_LH);                                        // all placed photos composited onto one white panel
-          var _uv={x0:-_LW/2,y0:-_LH/2,w:_LW,h:_LH},_qCell=({draft:0.35,standard:0.2,fine:0.13}[TLITHO.quality]||0.2);
+          var _uv={x0:-_LW/2,y0:-_LH/2,w:_LW,h:_LH},_qCell=({draft:0.25,standard:0.15,fine:0.1}[TLITHO.quality]||0.15);   // finer mesh so the letter relief matches the smooth photo-lithophane quality
           var _lgrp=new THREE.Group();
           function _litMesh(g){var m=lithophaneMaterial(),mh=new THREE.Mesh(g,m);mh.userData.lithoUL=m.userData.uLit;mh.userData.lithoTint=m.userData.uTint;mh.userData.exportColor="#FFFFFF";return mh;}
           // raised letter bosses — the photo relief clipped to the letter strokes, peaks flush with the front (_zF)
-          var _bg=buildGlyphLithophane(_letC,_comp,{minThickness:_minT,maxThickness:_maxT,invert:TLITHO.invert,contrast:TLITHO.contrast,gamma:TLITHO.gamma,uvRect:_uv,targetCell:_qCell,capCells:560,center:false});
+          var _bg=buildGlyphLithophane(_letC,_comp,{minThickness:_minT,maxThickness:_maxT,invert:TLITHO.invert,contrast:TLITHO.contrast,gamma:TLITHO.gamma,uvRect:_uv,targetCell:_qCell,capCells:1500,center:false});   // raised cap so the fine cell size is honoured across a wide word
           if(_bg){_bg.translate(0,0,_zF-_maxT);_lgrp.add(_litMesh(_bg));}
           // pocket-floor plate — full lithophane rect with the letter strokes knocked out (centres stay as islands the lid
           // centres rest on; strokes are open so light reaches the bosses). Top face = the pocket floor the lid drops onto.
