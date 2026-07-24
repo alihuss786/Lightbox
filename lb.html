@@ -2449,6 +2449,11 @@ function _rrShape(w,h,r){var s=new THREE.Shape(),x=w/2,y=h/2;r=Math.max(0.5,Math
 function _rrPath(w,h,r){var p=new THREE.Path(),x=w/2,y=h/2;r=Math.max(0.5,Math.min(r,x-0.5,y-0.5));
   p.moveTo(-x+r,-y);p.lineTo(x-r,-y);p.quadraticCurveTo(x,-y,x,-y+r);p.lineTo(x,y-r);p.quadraticCurveTo(x,y,x-r,y);
   p.lineTo(-x+r,y);p.quadraticCurveTo(-x,y,-x,y-r);p.lineTo(-x,-y+r);p.quadraticCurveTo(-x,-y,-x+r,-y);p.closePath();return p;}
+// A stadium / pill outline (ends FULLY rounded, radius = half the height) centred at (cx,cy) — matches the shape of a
+// USB-C connector exactly, so the port hugs the connector's rounded ends instead of leaving square-corner gaps.
+function _slotPath(w,h,cx,cy){var p=new THREE.Path(),ux=w/2,uy=h/2,r=Math.min(ux,uy);cx=cx||0;cy=cy||0;
+  p.moveTo(cx-ux+r,cy-uy);p.lineTo(cx+ux-r,cy-uy);p.quadraticCurveTo(cx+ux,cy-uy,cx+ux,cy-uy+r);p.lineTo(cx+ux,cy+uy-r);p.quadraticCurveTo(cx+ux,cy+uy,cx+ux-r,cy+uy);
+  p.lineTo(cx-ux+r,cy+uy);p.quadraticCurveTo(cx-ux,cy+uy,cx-ux,cy+uy-r);p.lineTo(cx-ux,cy-uy+r);p.quadraticCurveTo(cx-ux,cy-uy,cx-ux+r,cy-uy);p.closePath();return p;}
 // Rectangular RING open at the bottom-centre by a `notch`-wide gap (single simply-connected polygon) — used for the
 // LED-cavity wall and the bezel skirt so a USB-C connector can poke out the bottom.
 function _ringC(oW,oH,iW,iH,notch){var ox=oW/2,oy=oH/2,ix=iW/2,iy=iH/2,n=notch/2,s=new THREE.Shape();
@@ -2466,10 +2471,7 @@ function buildExactFrame(plW,plH){if(!FRAME_EXACT.stand)return null;
   // hinge below). The board mounts flat inside over this hole; the cable plugs into the back.
   var Uc=FRAME_EXACT.USB,uW=Uc.connW+2*Uc.clr,uH=Uc.connH+2*Uc.clr;
   var ucy=(-(plH-9.2)/2+3.7)+Uc.boardT+Uc.connH/2;   // CENTRE the port on the connector: floor top (fY+0.7, fY=-wIH/2+3, wIH=plH-9.2) + 1mm board + half the 3.2mm connector
-  var up=new THREE.Path(),ur=1.2,ux=uW/2,uy=uH/2;
-  up.moveTo(-ux+ur,ucy-uy);up.lineTo(ux-ur,ucy-uy);up.quadraticCurveTo(ux,ucy-uy,ux,ucy-uy+ur);up.lineTo(ux,ucy+uy-ur);up.quadraticCurveTo(ux,ucy+uy,ux-ur,ucy+uy);
-  up.lineTo(-ux+ur,ucy+uy);up.quadraticCurveTo(-ux,ucy+uy,-ux,ucy+uy-ur);up.lineTo(-ux,ucy-uy+ur);up.quadraticCurveTo(-ux,ucy-uy,-ux+ur,ucy-uy);up.closePath();
-  sh.holes.push(up);
+  sh.holes.push(_slotPath(uW,uH,0,ucy));   // pill-shaped port that hugs the USB-C connector's rounded ends
   // keyhole (screw circle + slot upward) near the top centre — scaled with the plate ("hold" shrinks with the frame)
   var khS=Math.max(0.55,Math.min(1.2,plH/FRAME_EXACT.OH));
   var topY=plH/2,R=4.8*khS,cy=topY-20*khS,sw=2.2*khS,ty=topY-9*khS,kp=new THREE.Path(),yi=Math.sqrt(R*R-sw*sw);
@@ -2516,10 +2518,7 @@ function buildUsbTestPrint(){
   var fY=_fY0-1.0,bY=fY+1.4;                          // drop the board SEAT 1mm: the connector rides proud on top of the board, so lowering the rails brings it down onto the port (owner-measured)
   var plW=brW+2.4+3,plH=plW,rad=2;                      // small square, just big enough to carry the rails
   var sh=_rrShape(plW,plH,rad);
-  var ux=uW/2,uy=uH/2,ur=1.0,up=new THREE.Path();
-  up.moveTo(-ux+ur,ucy-uy);up.lineTo(ux-ur,ucy-uy);up.quadraticCurveTo(ux,ucy-uy,ux,ucy-uy+ur);up.lineTo(ux,ucy+uy-ur);up.quadraticCurveTo(ux,ucy+uy,ux-ur,ucy+uy);
-  up.lineTo(-ux+ur,ucy+uy);up.quadraticCurveTo(-ux,ucy+uy,-ux,ucy+uy-ur);up.lineTo(-ux,ucy-uy+ur);up.quadraticCurveTo(-ux,ucy-uy,-ux+ur,ucy-uy);up.closePath();
-  sh.holes.push(up);
+  sh.holes.push(_slotPath(uW,uH,0,ucy));   // pill-shaped port that hugs the USB-C connector's rounded ends
   var pg=new THREE.ExtrudeGeometry(sh,{depth:back,bevelEnabled:false,steps:1,curveSegments:6});pg.computeVertexNormals();
   grp.add(new THREE.Mesh(pg,mat));
   function box(w,h,d,cx,cy){var g=new THREE.BoxGeometry(w,h,d);g.translate(cx,cy,back+d/2);grp.add(new THREE.Mesh(g,mat));}
@@ -4813,7 +4812,7 @@ buildLidSlabs(B,cx,cy,slabFeatures,TT,FLOOR_MIN,A,depth).forEach(s=>{const m=new
           // USB-C PORT: a rounded window through the back plate at the bottom-centre — the breakout board's connector
           // sits over it (same module + clearances as the picture frame) so a cable plugs into the back.
           if(_usb){var _Uc=FRAME_EXACT.USB,_uW=_Uc.connW+2*_Uc.clr,_uH=_Uc.connH+2*_Uc.clr,_ucy=(-_IH/2+3.7)+_Uc.boardT+_Uc.connH/2;   // CENTRE the port on the connector: floor top (-_IH/2+3.7) + 1mm board + half the 3.2mm connector
-            var _ups=_rrShape(_uW,_uH,1.0).getPoints(6).map(function(q){return {X:Math.round(q.x*S),Y:Math.round((q.y+_ucy)*S)};});
+            var _ups=_slotPath(_uW,_uH,0,_ucy).getPoints(10).map(function(q){return {X:Math.round(q.x*S),Y:Math.round(q.y*S)};});   // pill-shaped port hugging the connector's rounded ends
             _backHoles=_backHoles||[];_backHoles.push(_ups);}
           var _bpShapes=(_backHoles&&_backHoles.length)?diffToShapes([_rectPts],_backHoles,0.3):[_rrShape(_PW,_PH,_rad)];
           var _bg=new THREE.ExtrudeGeometry(_bpShapes,{depth:_back,bevelEnabled:false,curveSegments:4});_bg.computeVertexNormals();
