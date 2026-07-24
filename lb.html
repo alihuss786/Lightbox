@@ -2172,7 +2172,9 @@ function _glyphMaskData(paths,bx0,by0,bw,bh,cellsX,cellsY){
 // The exact lithophane per-pixel math wrapped as a world-XY sampler, so we can look thickness up at any glyph
 // vertex. uv maps world (x,y) → image UV (single-span uses the whole-name box; per-letter uses the glyph box).
 function _lithoSampler(img,invert,gamma,contrast,minT,range,uv){
-  var res=380,ah=uv.h,aw=uv.w,sw=res,sh=Math.max(2,Math.round(res*ah/Math.max(0.001,aw)));
+  // Sample the image at ~0.09mm/px of the PHYSICAL span (uv.w mm) so a large word (e.g. a 200mm "LOVE") isn't
+  // sampled at a fixed 380px → 0.5mm steps. Capped so getImageData stays affordable.
+  var ah=uv.h,aw=uv.w,res=Math.max(380,Math.min(2400,Math.round(aw/0.09))),sw=res,sh=Math.max(2,Math.round(res*ah/Math.max(0.001,aw)));
   var cv=document.createElement("canvas");cv.width=sw;cv.height=sh;var c=cv.getContext("2d");c.drawImage(img,0,0,sw,sh);
   var d;try{d=c.getImageData(0,0,sw,sh).data;}catch(e){d=null;}
   return function(x,y){if(!d)return minT;
